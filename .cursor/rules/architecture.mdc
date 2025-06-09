@@ -1,0 +1,178 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+commence toujours ta reponse par "Hi Moncef"
+projectRoot : "C:/Users/smonc/Desktop/Artimis Pyton/sora"
+
+# Architecture du Projet Sora
+
+## Environnement Windows
+
+### Configuration Spécifique Windows
+
+- **Chemins de fichiers:**
+  ```powershell
+  # ✅ DO: Utiliser des chemins Windows valides
+  C:\Users\username\project\
+  .\app\components\
+  
+  # ❌ DON'T: Ne pas utiliser de chemins style Unix
+  /users/username/project/ ❌
+
+- **Commandes PowerShell:**
+  ```powershell
+  # ✅ DO: Utiliser les commandes PowerShell
+  New-Item -ItemType Directory -Path ".\app\components"
+  Copy-Item -Path ".\src" -Destination ".\backup" -Recurse
+  
+  # ❌ DON'T: Éviter les commandes Unix
+  mkdir app/components ❌
+  cp -r src backup ❌
+
+## Structure des Dossiers
+
+- **`app/`** - Cœur de l'application Next.js
+  ```
+  app/
+  ├── components/           # Composants React réutilisables
+  │   ├── admin/           # Composants spécifiques à l'administration
+  │   ├── common/          # Composants partagés (boutons, inputs, etc.)
+  │   ├── features/        # Composants spécifiques aux fonctionnalités
+  │   └── layout/          # Composants de mise en page
+  ├── config/              # Configuration de l'application
+  │   ├── theme.ts         # Configuration du thème Material-UI
+  │   └── ...
+  ├── contexts/           # Contextes React
+  ├── hooks/              # Hooks React personnalisés
+  │   ├── auth/           # Hooks d'authentification
+  │   ├── data/           # Hooks de gestion des données
+  │   └── ui/             # Hooks d'interface utilisateur
+  ├── lib/                # Bibliothèques et utilitaires
+  │   ├── api/            # Clients API et configurations
+  │   ├── prisma/         # Configuration et helpers Prisma
+  │   └── validation/     # Schémas et helpers de validation
+  ├── types/              # Types TypeScript et déclarations
+  └── utils/              # Fonctions utilitaires
+  ```
+
+## Règles de Placement des Fichiers
+
+- **✅ DO:**
+  ```typescript
+  // Composants dans app/components/[catégorie]
+  // app/components/features/UserList.tsx
+  export const UserList = () => { ... }
+
+  // Hooks dans app/hooks/[catégorie]
+  // app/hooks/auth/useAuth.ts
+  export const useAuth = () => { ... }
+
+  // Types dans app/types/
+  // app/types/user.d.ts
+  interface User { ... }
+  ```
+
+- **❌ DON'T:**
+  ```typescript
+  // Ne pas créer de composants à la racine
+  // /components/UserList.tsx ❌
+  
+  // Ne pas dupliquer les dossiers utils ou lib
+  // /utils/helper.ts ❌
+  // Utiliser app/utils/helper.ts ✅
+  
+  // Ne pas créer de nouveaux dossiers à la racine
+  // /features/... ❌
+  ```
+
+## Conventions de Nommage
+
+- **Composants:**
+  - PascalCase pour les noms de fichiers et composants
+  - Suffixe descriptif : `Button.tsx`, `UserCard.tsx`
+
+- **Hooks:**
+  - camelCase avec préfixe 'use'
+  - Dossier spécifique : `useAuth.ts` → `app/hooks/auth/`
+
+- **Utils:**
+  - camelCase pour les noms de fichiers
+  - Suffixe descriptif : `dateFormatter.ts`, `apiClient.ts`
+
+## Imports et Exports
+
+- **✅ DO:**
+  ```typescript
+  // Utiliser des chemins absolus depuis app/
+  import { Button } from '@/components/common/Button'
+  import { useAuth } from '@/hooks/auth/useAuth'
+  ```
+
+- **❌ DON'T:**
+  ```typescript
+  // Éviter les imports relatifs complexes
+  import { Button } from '../../../components/Button' ❌
+  ```
+
+## Gestion des Assets
+
+- **Public:**
+  ```
+  public/
+  ├── images/            # Images statiques
+  ├── fonts/            # Polices personnalisées
+  └── icons/            # Icônes SVG
+  ```
+
+## Tests
+
+- **Structure:**
+  ```
+  tests/
+  ├── unit/             # Tests unitaires
+  ├── integration/      # Tests d'intégration
+  └── e2e/             # Tests end-to-end
+  ```
+
+## Documentation
+
+- **Organisation:**
+  ```
+  docs/
+  ├── api/             # Documentation API
+  ├── database/        # Schémas et migrations
+  └── deployment/      # Instructions de déploiement
+  ```
+
+## Validation Automatique
+
+Pour maintenir cette architecture, assurez-vous que :
+1. Tous les nouveaux composants sont créés dans le bon sous-dossier de `app/components/`
+2. Les hooks sont placés dans `app/hooks/` avec la bonne catégorisation
+3. Les types sont définis dans `app/types/`
+4. Les configurations sont centralisées dans `app/config/`
+
+## Migration des Fichiers Existants
+
+Si vous trouvez des fichiers qui ne respectent pas cette structure :
+1. Identifiez la catégorie appropriée
+2. Déplacez le fichier vers le bon emplacement
+3. Mettez à jour les imports
+4. Testez que tout fonctionne correctement
+
+## Règles Spécifiques pour les Technologies
+
+Pour garantir la cohérence et la qualité du code dans l'ensemble du projet, nous avons défini des règles spécifiques pour les différentes technologies utilisées :
+
+### Material-UI
+
+Notre application utilise Material-UI v7, qui a introduit plusieurs changements importants, notamment dans l'utilisation des composants Grid. Des règles détaillées sont disponibles dans [material_ui.mdc](mdc:.cursor/rules/material_ui.mdc).
+
+Points clés à retenir :
+- Utiliser `size={{ xs: 12, md: 6 }}` au lieu de `xs={12} md={6}`
+- Ne plus utiliser l'attribut `item` pour les Grid (il est implicite)
+- Pour les migrations futures, utiliser le codemod : `npx @mui/codemod@latest v7.0.0/grid-props <path>`
+
+

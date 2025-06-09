@@ -1,0 +1,141 @@
+<context>
+# Aperçu
+Application web de gestion des rôles et droits d'accès avec authentification, destinée à optimiser la gestion des identités et des accès dans les systèmes d'information d'entreprise. L'application permet d'analyser, mapper et remédier aux problèmes liés aux rôles métiers, aux utilisateurs et aux risques de séparation des tâches (SoD).
+
+# Fonctionnalités principales
+- Système d'authentification complet
+- Gestion des profils utilisateurs avec différents niveaux d'accès
+- Dashboard d'administration pour gérer les profils, utilisateurs et droits
+- Trois modules fonctionnels: Analyse des rôles métier, Mapping des utilisateurs, Remédiation des risques SoD
+- Traitement de fichiers Excel volumineux avec interface optimisée
+- Sauvegarde et rechargement des analyses
+</context>
+<PRD>
+# Architecture technique
+
+## Technologies et stack
+- Frontend: React avec Next.js
+- UI: Material UI
+- Backend: API via Supabase Functions
+- Base de données: PostgreSQL (via Supabase)
+- Gestion d'état: React Context + Hooks ou Redux Toolkit
+- Traitement asynchrone: Web Workers et Supabase Edge Functions
+- Communication temps réel: Supabase Realtime
+
+## Performance et optimisation
+- Système de workers pour le traitement de fichiers Excel volumineux
+- Streaming pour l'upload des fichiers
+- Pagination côté serveur pour les grands ensembles de données
+- Chargement progressif des interfaces (lazy loading)
+- Mise en cache des données fréquemment accédées
+- Indicateurs de progression pour les opérations longues
+- Calculs intensifs déportés côté serveur (PostgreSQL et Edge Functions)
+
+## Structure de base de données
+- Tables pour utilisateurs et authentification (gérées par Supabase Auth)
+- Tables pour les profils et permissions
+- Tables pour les analyses sauvegardées (par module)
+- Tables pour les mappings rôle-utilisateur
+- Tables pour les licences et leurs coûts
+- Tables pour l'historique des versions des analyses
+- Tables pour les commentaires et logs d'audit
+
+## Module: Analyse des rôles métier
+- Import de fichiers Excel avec validation de structure (onglets "Transactions" et "Rôles simples")
+- Calcul de couverture: (transactions_du_role_metier_couvertes_par_role_simple / total_transactions_du_role_metier) * 100
+- Calcul de qualité: 1 - (transactions_non_utilisees_par_role_metier / total_transactions_du_role_simple)
+- Calcul de score global: (couverture * poids_couverture) + (qualité * poids_qualite)
+- Interface de sélection manuelle et automatique des rôles simples
+- Optimisation basée sur le coût des licences
+- Génération de rapport explicatif des choix automatiques
+- Sauvegarde des analyses avec versionnement
+
+## Module: Mapping des utilisateurs
+- Fonctionnement similaire au module Analyse des rôles métier
+- Tableaux de résultats avec filtres avancés et recherche
+- Export multi-formats (Excel, CSV)
+
+## Module: Remédiation des risques SoD
+- Fonctionnement similaire au module Analyse des rôles métier
+- Tableaux de résultats avec filtres avancés et recherche
+- Export multi-formats (Excel, CSV)
+
+## Dashboard d'administration
+- Gestion des utilisateurs (CRUD)
+- Gestion des profils avec définition des droits d'accès
+- Configuration des modules accessibles par profil
+- Gestion des licences et niveaux de coût
+- Mapping des rôles simples aux licences
+- Visualisation des logs d'audit
+
+# Feuille de route de développement
+
+## Phase 1: MVP - Fondations
+- Mise en place de l'architecture de base
+- Authentification et gestion des utilisateurs
+- Interface d'administration basique
+- Structure de base de données initiale
+- Module d'Analyse des rôles métier (version simplifiée)
+- Importation et validation de fichiers Excel
+- Sauvegarde simple des analyses
+
+## Phase 2: Fonctionnalités avancées
+- Interface d'administration complète
+- Gestion avancée des profils et permissions
+- Optimisation des performances de traitement
+- Module d'Analyse des rôles métier (complet)
+- Module de Mapping des utilisateurs
+- Rapports explicatifs
+- Export multi-formats
+- Versionnement des analyses
+
+## Phase 3: Enrichissement et optimisation
+- Module de Remédiation des risques SoD
+- Optimisation des performances globales
+- Amélioration des algorithmes de calcul
+- Systèmes de notifications
+- Commentaires sur les analyses
+- Logs d'audit complets
+- Dashboard analytiques avancés
+
+# Chaîne de dépendances logiques
+1. Infrastructure d'authentification
+2. Structure de base de données
+3. Interface utilisateur de base
+4. Gestion des utilisateurs et profils
+5. Importation et validation de fichiers
+6. Traitement des données
+7. Interface de résultats et sélection
+8. Sauvegarde et chargement des analyses
+9. Optimisation des performances
+10. Rapports et exports
+
+# Risques et mitigations
+## Défis techniques
+- Traitement de fichiers Excel volumineux: 
+  - Solution: Web Workers, streaming et traitement par lots
+- Performance des calculs complexes: 
+  - Solution: Déporter les calculs côté serveur (PostgreSQL, Edge Functions)
+- Interface réactive avec grandes quantités de données: 
+  - Solution: Pagination, lazy loading, architecture optimisée des composants
+
+## Optimisation du MVP
+- Focus initial sur la structure d'authentification et le module Analyse des rôles métier
+- Interface simple mais fonctionnelle avant d'ajouter des fonctionnalités avancées
+- Tests de performance précoces pour valider l'architecture
+
+## Contraintes de ressources
+- Utilisation de composants réutilisables entre modules
+- Centralisation des logiques communes
+- Tests automatisés pour garantir la stabilité
+
+# Annexe
+## Structure des fichiers Excel attendue
+- Onglet "Transactions": Business Rôle, Année, Mois, Transaction, Nombre d'exécutions
+- Onglet "Rôles simples": Rôle simple, Transaction
+
+## Algorithmes de calcul
+- Couverture = (transactions_du_role_metier_couvertes_par_role_simple / total_transactions_du_role_metier) * 100
+- Qualité = 1 - (transactions_non_utilisees_par_role_metier / total_transactions_du_role_simple)
+- Score = (couverture * poids_couverture) + (qualité * poids_qualité)
+</PRD> 
