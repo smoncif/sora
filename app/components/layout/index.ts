@@ -31,3 +31,4 @@ export * from './DashboardNavigation';
 // Les autres composants de layout existants
 export { default as AdminLayout } from './AdminLayout';
 export { default as MainLayout } from './MainLayout'; 
+

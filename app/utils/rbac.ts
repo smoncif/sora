@@ -58,3 +58,4 @@ export const hasAnyPermission: PermissionCheck = (requiredPermissions, userPermi
     userPermissions.includes(permission)
   );
 }; 
+

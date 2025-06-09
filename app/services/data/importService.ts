@@ -15,7 +15,7 @@
 
 import { ExcelParseResult, parseExcelFile } from '@/services/excel';
 import { validateExcelFile } from '@/services/excel/validationService';
-import { ValidationOptions, ValidationResult } from '@/types/validation';
+import { ValidationOptions, ValidationResult } from 'lib/types/validation';
 import { ServiceResult } from '../user/userService';
 
 /**
@@ -255,3 +255,4 @@ export function validateImportedData<T>(
     };
   }
 } 
+

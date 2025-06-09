@@ -27,7 +27,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 import CurrentUserAvatar from '@/components/common/CurrentUserAvatar';
 
 // Icons
@@ -309,3 +309,4 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 };
 
 export default AdminLayout; 
+

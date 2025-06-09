@@ -20,7 +20,7 @@ import {
   InputAdornment,
   IconButton,
 } from '@mui/material';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -323,3 +323,4 @@ export default function CreateUserPage() {
     </>
   );
 } 
+

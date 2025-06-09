@@ -29,7 +29,7 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ProfileType, Permission } from '@/types/auth';
+import { ProfileType, Permission } from 'lib/types/auth';
 import HelpIcon from '@mui/icons-material/Help';
 import SecurityIcon from '@mui/icons-material/Security';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -339,3 +339,4 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     </form>
   );
 }; 
+

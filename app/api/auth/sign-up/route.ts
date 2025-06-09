@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 import type { CookieOptions } from '@supabase/ssr';
 
 /**
@@ -112,3 +112,4 @@ export async function POST(request: NextRequest) {
     );
   }
 } 
+

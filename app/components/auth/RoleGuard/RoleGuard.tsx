@@ -3,7 +3,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/auth';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 
 interface RoleGuardProps {
   children: ReactNode;
@@ -40,3 +40,4 @@ const RoleGuard = ({ children, requiredRoles, redirectTo = '/login' }: RoleGuard
 };
 
 export default RoleGuard; 
+

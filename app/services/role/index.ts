@@ -5,3 +5,4 @@
 
 // Export du nouveau service d'analyse simplifié
 export * from './simplifiedAnalysisService'; 
+

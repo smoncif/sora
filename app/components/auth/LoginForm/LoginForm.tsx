@@ -187,3 +187,4 @@ export const LoginForm = ({ redirectAfterLogin }: LoginFormProps) => {
     </Box>
   );
 }; 
+

@@ -10,7 +10,7 @@ import type { UploadResult } from '@/services/excel/uploadService';
 import { parseExcelFile } from '@/services/excel/excelService';
 import type { ExcelParseResult } from '@/services/excel/excelService';
 import { validateExcelFile, ValidationRules } from '@/services/excel/validationService';
-import type { ValidationResult, ValidationOptions } from '@/types/validation';
+import type { ValidationResult, ValidationOptions } from 'lib/types/validation';
 
 // Ancien format de ValidationResult attendu par le composant ValidationResults
 interface LegacyValidationResult {
@@ -322,3 +322,4 @@ export default function FilesPage() {
     </Container>
   );
 } 
+

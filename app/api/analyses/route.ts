@@ -94,3 +94,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Erreur lors de la création de l\'analyse' }, { status: 500 });
   }
 } 
+

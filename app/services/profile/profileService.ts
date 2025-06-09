@@ -6,7 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { ProfileType, Permission } from '@/types/auth';
+import { ProfileType, Permission } from 'lib/types/auth';
 import { ServiceResult } from '../user/userService';
 
 // Types pour les profils
@@ -406,3 +406,4 @@ export async function assignProfileToUser(
     };
   }
 } 
+

@@ -10,7 +10,7 @@ import {
   ValidationSeverity, 
   ValidationResult,
   ValidationOptions
-} from '@/types/validation';
+} from 'lib/types/validation';
 import { ExcelParseResult } from './excelService';
 
 /**
@@ -658,3 +658,4 @@ export function generateValidationReport(validation: ValidationResult): string {
   html += `</div>`;
   return html;
 } 
+

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createClient } from '@/utils/supabase/server';
 import { hasRole } from '@/services/auth/rbacService';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 
 // Chemin vers le dossier des modèles
 const templatesDir = path.join(process.cwd(), 'public', 'templates');
@@ -184,3 +184,4 @@ function getTemplateFilename(type: string, customName?: string): string {
       return `template_${timestamp}.xlsx`;
   }
 } 
+

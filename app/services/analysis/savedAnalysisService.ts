@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import { SimplifiedAnalysisResult } from '@/types/roleAnalysis';
+import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 
 // Utiliser le même client que le reste de l'application
 const getSupabaseClient = () => createClient();

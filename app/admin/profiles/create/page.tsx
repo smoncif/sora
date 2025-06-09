@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Box, Button, Typography, Alert, AlertTitle, Paper } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ProfileForm } from '@/components/features/admin';
-import { ProfileType } from '@/types/auth';
+import { ProfileType } from 'lib/types/auth';
 
 export default function CreateProfilePage() {
   const router = useRouter();
@@ -79,3 +79,4 @@ export default function CreateProfilePage() {
     </>
   );
 } 
+

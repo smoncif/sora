@@ -34,7 +34,7 @@ import {
   FilterList as FilterListIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 
 // Types
 interface User {
@@ -334,3 +334,4 @@ export default function UsersPage() {
     </>
   );
 } 
+

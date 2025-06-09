@@ -6,7 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { User, UserMetadata, UserRole, Permission } from '@/types/auth';
+import { User, UserMetadata, UserRole, Permission } from 'lib/types/auth';
 
 // Types spécifiques au service utilisateur
 export interface UserUpdateData {
@@ -312,3 +312,4 @@ export function hasPermission(
   
   return permissions.some(permission => userPermissions.includes(permission));
 } 
+

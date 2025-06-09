@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 
 /**
  * Middleware pour vérifier les permissions d'administrateur
@@ -198,3 +198,4 @@ export async function DELETE(req: NextRequest) {
     );
   }
 } 
+

@@ -14,7 +14,7 @@ import {
   CoverageAnalysis,
   SimpleRoleCoverage,
   SimplifiedAnalysisResult
-} from '@/types/roleAnalysis';
+} from 'lib/types/roleAnalysis';
 
 /**
  * Configuration pour le parsing Excel
@@ -490,3 +490,4 @@ function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
     return groups;
   }, {} as Record<string, T[]>);
 } 
+

@@ -12,7 +12,7 @@ import {
   SimplifiedAnalysisResult,
   BusinessRoleTransaction,
   SimpleRoleTransaction
-} from '@/types/roleAnalysis';
+} from 'lib/types/roleAnalysis';
 
 /**
  * Options d'export Excel
@@ -341,3 +341,4 @@ export function estimateFileSize(
   
   return estimatedSize;
 } 
+

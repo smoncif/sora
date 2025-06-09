@@ -18,7 +18,7 @@ import {
   ValidationError, 
   ValidationErrorType, 
   ValidationSeverity
-} from '@/types/validation';
+} from 'lib/types/validation';
 
 /**
  * Interface pour les résultats génériques de validation
@@ -542,3 +542,4 @@ export function validateValue(
   
   return errors;
 } 
+

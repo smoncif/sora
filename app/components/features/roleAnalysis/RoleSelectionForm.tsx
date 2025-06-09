@@ -16,7 +16,7 @@ import {
   OutlinedInput,
   SelectChangeEvent
 } from '@mui/material';
-import { Transaction, BusinessRole } from '@/types/roleAnalysis';
+import { Transaction, BusinessRole } from 'lib/types/roleAnalysis';
 
 interface RoleSelectionFormProps {
   transactions: Transaction[];
@@ -123,3 +123,4 @@ export function RoleSelectionForm({ transactions, onSave, onCancel }: RoleSelect
     </Paper>
   );
 } 
+

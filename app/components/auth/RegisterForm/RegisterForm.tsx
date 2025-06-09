@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '@/hooks/auth/useAuth';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 
 // Pour résoudre le problème de linter avec Grid
 const Grid = MuiGrid;
@@ -332,3 +332,4 @@ export const RegisterForm = ({ onSuccess, redirectTo = '/login' }: RegisterFormP
     </Box>
   );
 }; 
+

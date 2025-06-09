@@ -29,7 +29,7 @@ import ValidationResults from '@/components/features/fileUpload/ValidationResult
 import ProgressIndicator, { ImportStep } from '@/components/common/ProgressIndicator';
 import { parseExcelFile } from '@/services/excel/excelService';
 import { validateExcelFile } from '@/services/excel/validationService';
-import { ValidationResult, ValidationError } from '@/types/validation';
+import { ValidationResult, ValidationError } from 'lib/types/validation';
 
 export default function ImportPage() {
   // États pour la gestion des fichiers
@@ -396,3 +396,4 @@ export default function ImportPage() {
     </Container>
   );
 } 
+

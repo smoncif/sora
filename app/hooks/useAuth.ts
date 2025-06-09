@@ -36,3 +36,4 @@ export const useAuth = useAuthContext;
  * Réexportation pour maintenir la compatibilité
  */
 export * from '@/contexts/AuthContext'; 
+

@@ -112,3 +112,4 @@ export const LoginPage = ({ redirectAfterLogin }: LoginPageProps) => {
     </Container>
   );
 }; 
+

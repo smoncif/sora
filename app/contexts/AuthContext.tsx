@@ -9,13 +9,13 @@ import {
   UserMetadata, 
   UserRole, 
   Permission 
-} from '@/types/auth';
+} from 'lib/types/auth';
 
 // Création du contexte avec une valeur par défaut
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 // Fonction utilitaire pour mapper un utilisateur Supabase vers le type User du projet
-function mapSupabaseUserToAppUser(supabaseUser: import('@supabase/supabase-js').User): import('@/types/auth').User {
+function mapSupabaseUserToAppUser(supabaseUser: import('@supabase/supabase-js').User): import('lib/types/auth').User {
   return {
     id: supabaseUser.id,
     email: supabaseUser.email ?? '',
@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const supabase = createClient();
   
   // État de l'authentification
-  const [user, setUser] = useState<import('@/types/auth').User | null>(null);
+  const [user, setUser] = useState<import('lib/types/auth').User | null>(null);
   const [userMetadata, setUserMetadata] = useState<UserMetadata | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -429,3 +429,4 @@ export const useAuth = (): AuthContextValue => {
   
   return context;
 }; 
+

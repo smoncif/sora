@@ -26,7 +26,7 @@
       "@hooks/*": ["./app/hooks/*"],
       "@lib/*": ["./app/lib/*"],
       "@styles/*": ["./app/styles/*"],
-      "@types/*": ["./app/types/*"],
+      "@types/*": ["./lib/types/*"],
       "@config/*": ["./app/config/*"]
     }
   },

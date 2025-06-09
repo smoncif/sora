@@ -18,3 +18,4 @@ export async function GET(request: NextRequest) {
   // Rediriger vers la page d'accueil après l'authentification
   return NextResponse.redirect(new URL('/', requestUrl.origin));
 } 
+

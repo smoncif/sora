@@ -32,7 +32,7 @@ import {
   Description as FileIcon
 } from '@mui/icons-material';
 import { useAuth } from '@/hooks/auth/useAuth';
-import { ProfileType, UserRole } from '@/types/auth';
+import { ProfileType, UserRole } from 'lib/types/auth';
 
 interface Template {
   name: string;
@@ -304,3 +304,4 @@ export default function TemplatesPage() {
     </Container>
   );
 } 
+

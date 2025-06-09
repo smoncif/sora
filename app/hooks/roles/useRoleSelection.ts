@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Transaction, Role } from '@/types/roles';
+import { Transaction, Role } from 'lib/types/roles';
 
 interface UseRoleSelectionProps {
   availableTransactions?: Transaction[];
@@ -116,3 +116,4 @@ export function useRoleSelection({
     isValid
   };
 } 
+

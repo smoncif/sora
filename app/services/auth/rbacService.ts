@@ -12,7 +12,7 @@
  * @module RBACService
  */
 
-import { UserRole, Permission, PermissionCheck, RoleCheck } from '@/types/auth';
+import { UserRole, Permission, PermissionCheck, RoleCheck } from 'lib/types/auth';
 
 /**
  * Hiérarchie des rôles (ordre croissant de privilèges)
@@ -232,3 +232,4 @@ export function roleHasPermission(role: UserRole, permission: Permission): boole
   // Vérifier si le rôle a la permission spécifiée
   return rolePermissions[role]?.includes(permission) || false;
 } 
+

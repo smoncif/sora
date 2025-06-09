@@ -24,3 +24,4 @@ const MUIProvider = ({ children }: MUIProviderProps) => {
 };
 
 export default MUIProvider; 
+

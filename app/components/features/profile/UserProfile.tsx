@@ -54,3 +54,4 @@ const UserProfile: FC<UserProfileProps> = ({ showDetails = true }) => {
 };
 
 export default UserProfile; 
+

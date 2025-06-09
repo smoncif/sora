@@ -35,7 +35,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { ProfileType, Permission } from '@/types/auth';
+import { ProfileType, Permission } from 'lib/types/auth';
 
 // Types pour les profils
 interface Profile {
@@ -261,3 +261,4 @@ export default function ProfilesPage() {
     </Box>
   );
 } 
+

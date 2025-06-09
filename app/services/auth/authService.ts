@@ -18,7 +18,7 @@ import {
   UserMetadata, 
   UserRole,
   Permission
-} from '@/types/auth';
+} from 'lib/types/auth';
 
 /**
  * Convertit un utilisateur Supabase en utilisateur de l'application
@@ -416,3 +416,4 @@ export function setupAuthListeners(
     subscription.unsubscribe();
   };
 } 
+

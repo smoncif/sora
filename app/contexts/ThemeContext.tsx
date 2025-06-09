@@ -79,3 +79,4 @@ export const useThemeContext = (): ThemeContextValue => {
   if (!ctx) throw new Error('useThemeContext doit être utilisé dans ThemeProvider');
   return ctx;
 }; 
+

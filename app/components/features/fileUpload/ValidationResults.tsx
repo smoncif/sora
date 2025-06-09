@@ -32,7 +32,7 @@ import {
   Close as CloseIcon,
   Download as DownloadIcon
 } from '@mui/icons-material';
-import { ValidationResult, ValidationError, ValidationSeverity } from '@/types/validation';
+import { ValidationResult, ValidationError, ValidationSeverity } from 'lib/types/validation';
 
 // Interface pour les props du composant
 interface ValidationResultsProps {
@@ -313,3 +313,4 @@ const ValidationResults: React.FC<ValidationResultsProps> = ({
 };
 
 export default ValidationResults; 
+

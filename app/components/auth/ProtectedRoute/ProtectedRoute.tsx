@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '@/hooks/useAuth';
-import { UserRole, Permission } from '@/types/auth';
+import { UserRole, Permission } from 'lib/types/auth';
 
 export interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -145,3 +145,4 @@ export const useProtectedRoute = (
     loading,
   };
 }; 
+

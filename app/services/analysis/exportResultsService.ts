@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { 
   SimplifiedAnalysisResult
-} from '@/types/roleAnalysis';
+} from 'lib/types/roleAnalysis';
 
 /**
  * Interface pour les données d'export des résultats
@@ -263,3 +263,4 @@ function createDetailSheet(data: ResultsExportData): XLSX.WorkSheet {
 
   return worksheet;
 }
+

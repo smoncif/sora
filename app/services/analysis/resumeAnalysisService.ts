@@ -11,7 +11,7 @@ import {
   BusinessRoleTransaction,
   SimpleRoleTransaction,
   CoverageAnalysis
-} from '@/types/roleAnalysis';
+} from 'lib/types/roleAnalysis';
 import { 
   calculateCoverageAnalysis,
   createSimplifiedAnalysisResult 
@@ -308,3 +308,4 @@ export function validateResumeFile(file: File): Promise<boolean> {
     reader.readAsArrayBuffer(file);
   });
 } 
+

@@ -20,7 +20,7 @@ import {
   LabelList
 } from 'recharts';
 import { Box, Typography, Paper, Card, CardContent, useTheme } from '@mui/material';
-import { Role, RoleAnalysis } from '@/types/roles';
+import { Role, RoleAnalysis } from 'lib/types/roles';
 
 interface RoleHistoryEvent {
   id: string;
@@ -311,3 +311,4 @@ export const RoleHistoryTimeline: React.FC<RoleHistoryTimelineProps> = ({
 };
 
 export default RoleHistoryTimeline; 
+

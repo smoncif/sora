@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { RoleMetrics } from '@/types/roleAnalysis';
+import { RoleMetrics } from 'lib/types/roleAnalysis';
 
 type WorkerResponse = {
   type: string;
@@ -104,3 +104,4 @@ export const useRoleAnalysisWorker = (): UseRoleAnalysisWorkerReturn => {
     processMetrics
   };
 }; 
+

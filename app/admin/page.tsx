@@ -1,5 +1,5 @@
 import RoleGuard from '@/components/auth/RoleGuard';
-import { UserRole } from '@/types/auth';
+import { UserRole } from 'lib/types/auth';
 
 export const metadata = {
   title: 'Administration - Sora Clone',
@@ -90,3 +90,4 @@ export default function AdminPage() {
     </RoleGuard>
   );
 } 
+
