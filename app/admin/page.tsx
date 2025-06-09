@@ -1,4 +1,4 @@
-import RoleGuard from '@/components/auth/RoleGuard';
+import RoleGuard from 'lib/components/auth/RoleGuard';
 import { UserRole } from 'lib/types/auth';
 
 export const metadata = {
@@ -90,5 +90,6 @@ export default function AdminPage() {
     </RoleGuard>
   );
 } 
+
 
 

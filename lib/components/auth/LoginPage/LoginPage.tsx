@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { LoginForm } from '@/components/auth/LoginForm';
+import { LoginForm } from '../LoginForm';
 
 /**
  * Page de connexion complète

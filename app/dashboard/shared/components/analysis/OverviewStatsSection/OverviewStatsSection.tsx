@@ -29,7 +29,7 @@ import {
   ArrowDownward,
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import { StatsCard } from '@/components/common/StatsCard';
+import { StatsCard } from 'lib/components/common/StatsCard';
 
 export interface OverviewStatsSectionProps {
   // États des données
@@ -541,4 +541,5 @@ export function OverviewStatsSection({
     </>
   );
 } 
+
 

@@ -9,7 +9,7 @@ import {
   Typography
 } from '@mui/material';
 import Image from 'next/image';
-import { RequestResetPasswordForm } from '@/components/auth/RequestResetPasswordForm';
+import { RequestResetPasswordForm } from '../RequestResetPasswordForm';
 
 /**
  * Page de demande de réinitialisation de mot de passe

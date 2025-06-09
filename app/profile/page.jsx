@@ -1,4 +1,4 @@
-import UserProfile from '@/components/features/profile/UserProfile';
+import UserProfile from 'lib/components/features/profile/UserProfile';
 
 export const metadata = {
   title: 'Profil - Sora Clone',

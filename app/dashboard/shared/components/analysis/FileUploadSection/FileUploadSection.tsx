@@ -15,8 +15,8 @@ import {
 import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import { FileUpload } from '@/components/common/FileUpload';
-import { SavedAnalysisSelector } from '@/components/analysis/SavedAnalysisSelector';
+import { FileUpload } from 'lib/components/common/FileUpload';
+import { SavedAnalysisSelector } from 'lib/components/analysis/SavedAnalysisSelector';
 
 export interface FileUploadSectionProps {
   // États
@@ -245,4 +245,5 @@ export function FileUploadSection({
     </Fade>
   );
 } 
+
 

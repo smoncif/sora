@@ -25,7 +25,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { MainLayout } from '@/components/layout';
+import { MainLayout } from 'lib/components/layout';
 import LoginIcon from '@mui/icons-material/Login';
 import SecurityIcon from '@mui/icons-material/Security';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -565,5 +565,6 @@ export default function Home() {
     </MainLayout>
   );
 }
+
 
 

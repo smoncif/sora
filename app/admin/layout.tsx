@@ -1,6 +1,6 @@
 'use client';
 
-import { AdminLayout } from '@/components/layout';
+import { AdminLayout } from 'lib/components/layout';
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,5 +9,6 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
     </AdminLayout>
   );
 } 
+
 
 

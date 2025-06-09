@@ -16,7 +16,7 @@ import {
   Fade,
 } from '@mui/material';
 import { useAuth } from '@/hooks/useAuth';
-import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { FileUploadSection } from '@/dashboard/shared/components/analysis/FileUploadSection';
 import { ConfigurationSection } from '@/dashboard/shared/components/analysis/ConfigurationSection';
 import { ActionsSection } from '@/dashboard/shared/components/analysis/ActionsSection';
@@ -248,4 +248,5 @@ export default function RoleAnalysisPage() {
     </Container>
   );
 }
+
 

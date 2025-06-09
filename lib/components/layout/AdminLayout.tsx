@@ -28,7 +28,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserRole } from 'lib/types/auth';
-import CurrentUserAvatar from '@/components/common/CurrentUserAvatar';
+import CurrentUserAvatar from '../common/CurrentUserAvatar';
 
 // Icons
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';

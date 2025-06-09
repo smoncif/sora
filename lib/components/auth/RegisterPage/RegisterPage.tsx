@@ -9,7 +9,7 @@ import {
   Button,
 } from '@mui/material';
 import Link from 'next/link';
-import { RegisterForm } from '@/components/auth/RegisterForm';
+import { RegisterForm } from '../RegisterForm';
 
 /**
  * Page d'inscription complète

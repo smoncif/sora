@@ -10,7 +10,7 @@ import {
   Typography
 } from '@mui/material';
 import Image from 'next/image';
-import { ConfirmResetPasswordForm } from '@/components/auth/ConfirmResetPasswordForm';
+import { ConfirmResetPasswordForm } from '../ConfirmResetPasswordForm';
 
 /**
  * Page de confirmation de réinitialisation de mot de passe

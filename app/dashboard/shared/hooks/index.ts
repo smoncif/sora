@@ -29,3 +29,4 @@ export type {
 // ✅ Architecture simplifiée et maintenable
 // ✅ Élimination des duplications et sources de vérité multiples 
 
+

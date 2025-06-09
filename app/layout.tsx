@@ -1,6 +1,6 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
-import { Providers } from '@/components/layout';
+import { Providers } from 'lib/components/layout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -30,5 +30,6 @@ export default function RootLayout({
     </html>
   );
 }
+
 
 

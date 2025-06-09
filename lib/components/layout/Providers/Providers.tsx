@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import ClientProviders from '@/components/layout/ClientProviders/ClientProviders';
+import ClientProviders from '../ClientProviders/ClientProviders';
 
 export interface ProvidersProps {
   children: ReactNode;

@@ -11,7 +11,7 @@ import {
   useMediaQuery
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { CurrentUserAvatar } from '@/components/common';
+import { CurrentUserAvatar } from '../../common';
 
 export interface HeaderProps {
   title?: string;

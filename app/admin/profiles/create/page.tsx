@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Button, Typography, Alert, AlertTitle, Paper } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { ProfileForm } from '@/components/features/admin';
+import { ProfileForm } from 'lib/components/features/admin';
 import { ProfileType } from 'lib/types/auth';
 
 export default function CreateProfilePage() {
@@ -79,5 +79,6 @@ export default function CreateProfilePage() {
     </>
   );
 } 
+
 
 

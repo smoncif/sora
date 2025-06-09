@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { MUIProvider } from '@/components/layout/MUIProvider';
+import { MUIProvider } from '../MUIProvider';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export interface ClientProvidersProps {

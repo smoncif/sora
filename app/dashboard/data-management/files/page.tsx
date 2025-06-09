@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { Box, Typography, Paper, Container, Snackbar, Alert } from '@mui/material';
-import FileUpload from '@/components/common/FileUpload';
-import ProgressIndicator, { ImportStep } from '@/components/common/ProgressIndicator';
-import ValidationResults from '@/components/features/fileUpload/ValidationResults';
+import FileUpload from 'lib/components/common/FileUpload';
+import ProgressIndicator, { ImportStep } from 'lib/components/common/ProgressIndicator';
+import ValidationResults from 'lib/components/features/fileUpload/ValidationResults';
 import { uploadFile } from 'lib/services/excel/uploadService';
 import type { UploadResult } from 'lib/services/excel/uploadService';
 import { parseExcelFile } from 'lib/services/excel/excelService';
@@ -322,5 +322,6 @@ export default function FilesPage() {
     </Container>
   );
 } 
+
 
 
