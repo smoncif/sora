@@ -1,9 +1,9 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ThemeProvider } from 'lib/contexts/ThemeContext';
 import { MUIProvider } from '../MUIProvider';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider } from 'lib/contexts/AuthContext';
 
 export interface ClientProvidersProps {
   children: ReactNode;

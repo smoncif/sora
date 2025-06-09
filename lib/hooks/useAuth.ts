@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth as useAuthContext } from '@/contexts/AuthContext';
+import { useAuth as useAuthContext } from 'lib/contexts/AuthContext';
 
 /**
  * Hook d'authentification
@@ -35,7 +35,7 @@ export const useAuth = useAuthContext;
 /**
  * Réexportation pour maintenir la compatibilité
  */
-export * from '@/contexts/AuthContext'; 
+export * from 'lib/contexts/AuthContext'; 
 
 
 

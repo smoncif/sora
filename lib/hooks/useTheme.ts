@@ -1,6 +1,6 @@
 'use client';
 
-import { useThemeContext } from '@/contexts/ThemeContext';
+import { useThemeContext } from 'lib/contexts/ThemeContext';
  
 export const useTheme = useThemeContext; 
 
