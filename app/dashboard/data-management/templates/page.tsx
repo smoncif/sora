@@ -31,7 +31,7 @@ import {
   Add as AddIcon,
   Description as FileIcon
 } from '@mui/icons-material';
-import { useAuth } from '@/hooks/auth/useAuth';
+import { useAuth } from 'lib/hooks/auth/useAuth';
 import { ProfileType, UserRole } from 'lib/types/auth';
 
 interface Template {

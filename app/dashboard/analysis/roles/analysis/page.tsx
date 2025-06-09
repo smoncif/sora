@@ -15,7 +15,7 @@ import {
   alpha,
   Fade,
 } from '@mui/material';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from 'lib/hooks/useAuth';
 import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { FileUploadSection } from '@/dashboard/shared/components/analysis/FileUploadSection';
 import { ConfigurationSection } from '@/dashboard/shared/components/analysis/ConfigurationSection';

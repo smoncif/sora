@@ -8,7 +8,7 @@ import {
   TextField, 
   Alert
 } from '@mui/material';
-import { useAuth } from '@/hooks/auth/useAuth';
+import { useAuth } from 'lib/hooks/auth/useAuth';
 
 export interface RequestResetPasswordFormProps {
   onSuccess?: () => void;

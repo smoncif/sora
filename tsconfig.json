@@ -23,7 +23,7 @@
     "paths": {
       "@/*": ["./app/*"],
       "@components/*": ["./lib/components/*"],
-      "@hooks/*": ["./app/hooks/*"],
+      "@hooks/*": ["./lib/hooks/*"],
       "@lib/*": ["./app/lib/*"],
       "@styles/*": ["./app/styles/*"],
       "@types/*": ["./lib/types/*"],

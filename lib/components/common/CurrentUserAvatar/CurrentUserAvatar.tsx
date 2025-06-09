@@ -3,7 +3,7 @@
 import React from 'react';
 import { Avatar } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import { useAuth } from '@/hooks/auth/useAuth';
+import { useAuth } from 'lib/hooks/auth/useAuth';
 
 export interface CurrentUserAvatarProps {
   size?: number;

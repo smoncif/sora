@@ -12,7 +12,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from 'lib/hooks/useAuth';
 
 /**
  * Formulaire de connexion

@@ -18,7 +18,7 @@ import {
   SettingsBrightness as SystemIcon,
   Palette as PaletteIcon,
 } from '@mui/icons-material';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from 'lib/hooks/useTheme';
 
 /**
  * Composant pour basculer entre les thèmes clair, sombre et système

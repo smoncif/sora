@@ -2,7 +2,7 @@
 
 import { FC } from 'react';
 import { Box, Avatar, Typography, Paper } from '@mui/material';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from 'lib/hooks/useAuth';
 
 interface UserProfileProps {
   showDetails?: boolean;

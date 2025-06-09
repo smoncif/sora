@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from 'lib/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserRole } from 'lib/types/auth';
 import CurrentUserAvatar from '../common/CurrentUserAvatar';

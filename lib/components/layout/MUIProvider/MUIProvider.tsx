@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from 'lib/hooks/useTheme';
 
 export interface MUIProviderProps {
   children: ReactNode;

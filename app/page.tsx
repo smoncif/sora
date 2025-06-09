@@ -24,7 +24,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from 'lib/hooks/useAuth';
 import { MainLayout } from 'lib/components/layout';
 import LoginIcon from '@mui/icons-material/Login';
 import SecurityIcon from '@mui/icons-material/Security';

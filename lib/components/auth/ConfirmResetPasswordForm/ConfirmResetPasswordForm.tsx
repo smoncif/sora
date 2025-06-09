@@ -11,7 +11,7 @@ import {
   Box
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useAuth } from '@/hooks/auth/useAuth';
+import { useAuth } from 'lib/hooks/auth/useAuth';
 
 interface FormErrors {
   password?: string;

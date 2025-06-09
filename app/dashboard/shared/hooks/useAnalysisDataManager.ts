@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useAuth } from '../../../hooks/useAuth';
+import { useAuth } from 'lib/hooks/useAuth';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 import { 
   parseExcelFile, 

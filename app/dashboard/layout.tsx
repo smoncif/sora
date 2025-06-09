@@ -3,7 +3,7 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from 'lib/hooks/useAuth';
 import { MUIProvider } from 'lib/components/layout/MUIProvider';
 import { MainLayout } from 'lib/components/layout';
 import CircularProgress from '@mui/material/CircularProgress';

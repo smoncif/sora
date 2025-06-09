@@ -13,7 +13,7 @@ import {
   Grid as MuiGrid
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useAuth } from '@/hooks/auth/useAuth';
+import { useAuth } from 'lib/hooks/auth/useAuth';
 import { UserRole } from 'lib/types/auth';
 
 // Pour résoudre le problème de linter avec Grid
