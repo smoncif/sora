@@ -5,11 +5,11 @@ import { Box, Typography, Paper, Container, Snackbar, Alert } from '@mui/materia
 import FileUpload from '@/components/common/FileUpload';
 import ProgressIndicator, { ImportStep } from '@/components/common/ProgressIndicator';
 import ValidationResults from '@/components/features/fileUpload/ValidationResults';
-import { uploadFile } from '@/services/excel/uploadService';
-import type { UploadResult } from '@/services/excel/uploadService';
-import { parseExcelFile } from '@/services/excel/excelService';
-import type { ExcelParseResult } from '@/services/excel/excelService';
-import { validateExcelFile, ValidationRules } from '@/services/excel/validationService';
+import { uploadFile } from 'lib/services/excel/uploadService';
+import type { UploadResult } from 'lib/services/excel/uploadService';
+import { parseExcelFile } from 'lib/services/excel/excelService';
+import type { ExcelParseResult } from 'lib/services/excel/excelService';
+import { validateExcelFile, ValidationRules } from 'lib/services/excel/validationService';
 import type { ValidationResult, ValidationOptions } from 'lib/types/validation';
 
 // Ancien format de ValidationResult attendu par le composant ValidationResults
@@ -322,4 +322,5 @@ export default function FilesPage() {
     </Container>
   );
 } 
+
 

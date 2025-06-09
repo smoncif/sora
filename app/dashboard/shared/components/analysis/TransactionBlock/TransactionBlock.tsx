@@ -351,3 +351,4 @@ export const TransactionBlock = memo(function TransactionBlock({
     </Paper>
   );
 }); 
+

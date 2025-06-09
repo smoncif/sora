@@ -36,3 +36,4 @@ const CurrentUserAvatar: React.FC<CurrentUserAvatarProps> = ({ size = 32 }) => {
 
 export default CurrentUserAvatar; 
 
+

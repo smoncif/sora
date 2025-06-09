@@ -15,7 +15,7 @@ import {
 import { 
   calculateCoverageAnalysis,
   createSimplifiedAnalysisResult 
-} from '@/services/role/simplifiedAnalysisService';
+} from 'lib/services/role/simplifiedAnalysisService';
 
 /**
  * Structure attendue du fichier Excel de reprise

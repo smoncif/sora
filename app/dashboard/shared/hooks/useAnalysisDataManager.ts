@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { SimplifiedAnalysisResult } from '../../../types/roleAnalysis';
+import { useAuth } from '../../../hooks/useAuth';
+import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 import { 
   parseExcelFile, 
   calculateCoverageAnalysis, 
   createSimplifiedAnalysisResult 
-} from '../../../services/role/simplifiedAnalysisService';
-import { parseResumeFile } from '../../../services/analysis/resumeAnalysisService';
-import { exportAnalysisToExcel } from '../../../services/analysis/exportAnalysisService';
+} from 'lib/services/role/simplifiedAnalysisService';
+import { parseResumeFile } from 'lib/services/analysis/resumeAnalysisService';
+import { exportAnalysisToExcel } from 'lib/services/analysis/exportAnalysisService';
 
 // Types pour le hook de gestion des données
 export interface AnalysisDataState {
@@ -438,3 +438,4 @@ export const useAnalysisDataManager = (
     handleReset,
   };
 }; 
+

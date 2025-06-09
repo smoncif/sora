@@ -27,8 +27,8 @@ import {
 import FileUpload from '@/components/common/FileUpload';
 import ValidationResults from '@/components/features/fileUpload/ValidationResults';
 import ProgressIndicator, { ImportStep } from '@/components/common/ProgressIndicator';
-import { parseExcelFile } from '@/services/excel/excelService';
-import { validateExcelFile } from '@/services/excel/validationService';
+import { parseExcelFile } from 'lib/services/excel/excelService';
+import { validateExcelFile } from 'lib/services/excel/validationService';
 import { ValidationResult, ValidationError } from 'lib/types/validation';
 
 export default function ImportPage() {
@@ -396,4 +396,5 @@ export default function ImportPage() {
     </Container>
   );
 } 
+
 

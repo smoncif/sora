@@ -32,7 +32,7 @@ import {
   Delete as DeleteIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { SavedAnalysisMetadata, getSavedAnalyses, deleteSavedAnalysis } from '@/services/analysis/savedAnalysisService';
+import { SavedAnalysisMetadata, getSavedAnalyses, deleteSavedAnalysis } from 'lib/services/analysis/savedAnalysisService';
 
 interface SavedAnalysisSelectorProps {
   userId: string;
@@ -487,4 +487,5 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
     </Box>
   );
 } 
+
 

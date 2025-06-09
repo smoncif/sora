@@ -5,7 +5,7 @@
  * vers différents formats (Excel, CSV, JSON, etc.)
  */
 
-import { exportToExcel } from '@/services/excel';
+import { exportToExcel } from 'lib/services/excel';
 import { ServiceResult } from '../user/userService';
 
 // Options pour l'exportation de données

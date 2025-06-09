@@ -28,3 +28,4 @@ export type {
 // ✅ Résultat : Réduction de 6+ hooks à seulement 2 hooks consolidés
 // ✅ Architecture simplifiée et maintenable
 // ✅ Élimination des duplications et sources de vérité multiples 
+

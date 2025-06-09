@@ -54,3 +54,4 @@ export function RoleNavigation({ activeSection = 'roles' }: RoleNavigationProps)
     </Paper>
   );
 } 
+

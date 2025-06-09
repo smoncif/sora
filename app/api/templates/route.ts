@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { createClient } from 'lib/utils/supabase/server';
-import { hasRole } from '@/services/auth/rbacService';
+import { hasRole } from 'lib/services/auth/rbacService';
 import { UserRole } from 'lib/types/auth';
 
 // Chemin vers le dossier des modèles
@@ -184,4 +184,5 @@ function getTemplateFilename(type: string, customName?: string): string {
       return `template_${timestamp}.xlsx`;
   }
 } 
+
 

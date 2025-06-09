@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from 'lib/utils/supabase/server';
-import { hasAnyPermission } from '@/services/auth/rbacService';
+import { hasAnyPermission } from 'lib/services/auth/rbacService';
 
 // GET /api/analyses - Liste toutes les analyses auxquelles l'utilisateur a accès
 export async function GET(request: NextRequest) {
@@ -94,4 +94,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Erreur lors de la création de l\'analyse' }, { status: 500 });
   }
 } 
+
 

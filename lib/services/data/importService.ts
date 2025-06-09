@@ -13,8 +13,8 @@
  * @module ImportService
  */
 
-import { ExcelParseResult, parseExcelFile } from '@/services/excel';
-import { validateExcelFile } from '@/services/excel/validationService';
+import { ExcelParseResult, parseExcelFile } from 'lib/services/excel';
+import { validateExcelFile } from 'lib/services/excel/validationService';
 import { ValidationOptions, ValidationResult } from 'lib/types/validation';
 import { ServiceResult } from '../user/userService';
 

@@ -25,7 +25,7 @@ import { AnalysisResultsSection } from '@/dashboard/shared/components/analysis/A
 import { BusinessRoleAnalysisCard } from '@/dashboard/shared/components/analysis/BusinessRoleAnalysisCard';
 import { useAnalysisDataManager } from '@/dashboard/shared/hooks/useAnalysisDataManager';
 import { useAnalysisProcessor } from '@/dashboard/shared/hooks/useAnalysisProcessor';
-import { exportResultsToExcel } from '@/services/analysis/exportResultsService';
+import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
 
 /**
  * Page d'analyse des rôles métier simplifiée
@@ -248,3 +248,4 @@ export default function RoleAnalysisPage() {
     </Container>
   );
 }
+
