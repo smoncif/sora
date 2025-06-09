@@ -17,14 +17,14 @@ import {
 } from '@mui/material';
 import { useAuth } from 'lib/hooks/useAuth';
 import { ThemeToggle } from 'lib/components/common/ThemeToggle';
-import { FileUploadSection } from '@/dashboard/shared/components/analysis/FileUploadSection';
-import { ConfigurationSection } from '@/dashboard/shared/components/analysis/ConfigurationSection';
-import { ActionsSection } from '@/dashboard/shared/components/analysis/ActionsSection';
-import { OverviewStatsSection } from '@/dashboard/shared/components/analysis/OverviewStatsSection';
-import { AnalysisResultsSection } from '@/dashboard/shared/components/analysis/AnalysisResultsSection';
-import { BusinessRoleAnalysisCard } from '@/dashboard/shared/components/analysis/BusinessRoleAnalysisCard';
-import { useAnalysisDataManager } from '@/dashboard/shared/hooks/useAnalysisDataManager';
-import { useAnalysisProcessor } from '@/dashboard/shared/hooks/useAnalysisProcessor';
+import { FileUploadSection } from 'lib/components/analysis/FileUploadSection';
+import { ConfigurationSection } from 'lib/components/analysis/ConfigurationSection';
+import { ActionsSection } from 'lib/components/analysis/ActionsSection';
+import { OverviewStatsSection } from 'lib/components/analysis/OverviewStatsSection';
+import { AnalysisResultsSection } from 'lib/components/analysis/AnalysisResultsSection';
+import { BusinessRoleAnalysisCard } from 'lib/components/analysis/BusinessRoleAnalysisCard';
+import { useAnalysisDataManager } from 'lib/hooks/analysis/useAnalysisDataManager';
+import { useAnalysisProcessor } from 'lib/hooks/analysis/useAnalysisProcessor';
 import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
 
 /**
