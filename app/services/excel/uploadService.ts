@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from 'lib/utils/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 
 const supabase = createClient();

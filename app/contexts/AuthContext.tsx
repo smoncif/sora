@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, PropsWithChildren } from 'react';
 import { useRouter } from 'next/navigation';
 import { Session, User } from '@supabase/supabase-js';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from 'lib/utils/supabase/client';
 import { 
   AuthContextValue, 
   UserMetadata, 

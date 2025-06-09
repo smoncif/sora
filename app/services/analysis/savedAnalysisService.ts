@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from 'lib/utils/supabase/client';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 
 // Utiliser le même client que le reste de l'application

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from 'lib/utils/supabase/server';
 import { hasRole } from '@/services/auth/rbacService';
 import { UserRole } from 'lib/types/auth';
 

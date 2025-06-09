@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { updateSession } from './app/utils/supabase/middleware';
+import { updateSession } from './lib/utils/supabase/middleware';
 
 /**
  * Middleware Next.js pour rafraîchir les sessions Supabase

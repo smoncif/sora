@@ -38,7 +38,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import LayersIcon from '@mui/icons-material/Layers';
 import SpeedIcon from '@mui/icons-material/Speed';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from 'lib/utils/supabase/client';
 
 interface RecentAnalysis {
   id: string;
