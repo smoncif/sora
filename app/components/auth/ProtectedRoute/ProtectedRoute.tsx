@@ -52,14 +52,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!loading && isAuthenticated) {
       // Vérifier le rôle requis
       if (requiredRole && !hasRole(requiredRole)) {
-          router.push('/unauthorized');
-          return;
+          throw new Error('unauthorized: Missing required role');
         }
       
       // Vérifier la permission requise
       if (requiredPermission && !hasPermission(requiredPermission)) {
-          router.push('/unauthorized');
-          return;
+          throw new Error('unauthorized: Missing required permission');
         }
       }
   }, [

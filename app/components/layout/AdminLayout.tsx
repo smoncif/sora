@@ -68,7 +68,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   // Vérifier si l'utilisateur a le rôle admin
   useEffect(() => {
     if (!isAuthenticated || !hasRole(UserRole.ADMIN)) {
-      router.push('/access-denied');
+      throw new Error('access-denied: Insufficient permissions');
     }
   }, [isAuthenticated, hasRole, router]);
 
