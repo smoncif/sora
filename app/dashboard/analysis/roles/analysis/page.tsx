@@ -23,7 +23,7 @@ import { ActionsSection } from 'lib/components/analysis/ActionsSection';
 import { OverviewStatsSection } from 'lib/components/analysis/OverviewStatsSection';
 import { AnalysisResultsSection } from 'lib/components/analysis/AnalysisResultsSection';
 import { BusinessRoleAnalysisCard } from 'lib/components/analysis/BusinessRoleAnalysisCard';
-import { useAnalysisDataManager } from 'lib/hooks/analysis/useAnalysisDataManager';
+import { useAnalysisWorkflow } from 'lib/hooks/analysis/useAnalysisWorkflow';
 import { useAnalysisProcessor } from 'lib/hooks/analysis/useAnalysisProcessor';
 import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
 
@@ -35,35 +35,35 @@ export default function RoleAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
   
-  // 🚀 NOUVEAU : Hook de gestion des données et interface
-  const dataManager = useAnalysisDataManager();
+  // 🚀 NOUVEAU : Hook orchestrateur principal avec architecture spécialisée
+  const workflow = useAnalysisWorkflow();
   
   // 🚀 NOUVEAU : Hook de traitement et analyse
   const processor = useAnalysisProcessor({
-    analysisResult: dataManager.state.analysisResult,
-    coverageWeight: dataManager.state.coverageWeight,
-    sizeWeight: dataManager.state.sizeWeight,
-    usageWeight: dataManager.state.usageWeight,
-    includeFrequency: dataManager.state.includeFrequency,
+    analysisResult: workflow.fileManager.state.analysisResult,
+    coverageWeight: workflow.configuration.state.coverageWeight,
+    sizeWeight: workflow.configuration.state.sizeWeight,
+    usageWeight: workflow.configuration.state.usageWeight,
+    includeFrequency: workflow.configuration.state.includeFrequency,
   });
 
 
 
-  // Fonction d'export des résultats
+  // Fonction d'export des résultats via le nouveau workflow
   const handleExportResults = React.useCallback(async () => {
-    if (!dataManager.state.analysisResult) {
+    if (!workflow.fileManager.state.analysisResult) {
       return;
     }
 
     try {
       await exportResultsToExcel(
-        dataManager.state.analysisResult,
+        workflow.fileManager.state.analysisResult,
         processor.state.selectedRoles
       );
     } catch {
       // Erreur silencieuse - l'utilisateur sera notifié par l'UI
     }
-  }, [dataManager.state.analysisResult, processor.state.selectedRoles]);
+  }, [workflow.fileManager.state.analysisResult, processor.state.selectedRoles]);
 
 
 
@@ -99,7 +99,7 @@ export default function RoleAnalysisPage() {
               fontWeight: 400,
             }}
           >
-            Architecture simplifiée avec 2 hooks consolidés
+            Architecture optimisée avec hooks spécialisés
         </Typography>
         </Box>
         <ThemeToggle />
@@ -110,58 +110,58 @@ export default function RoleAnalysisPage() {
         {/* Zone d'import moderne */}
         <Box sx={{ flex: 2 }}>
           <FileUploadSection
-            importType={dataManager.state.importType}
-            loading={dataManager.state.loading}
-            error={dataManager.state.error}
+            importType={workflow.fileManager.state.importType}
+            loading={workflow.fileManager.state.loading}
+            error={workflow.fileManager.state.error}
             user={user}
-            onImportTypeChange={dataManager.setImportType}
-            onFileUpload={dataManager.handleFileUpload}
-            onLoadSavedAnalysis={dataManager.handleLoadSavedAnalysis}
-            onResumeFromFile={dataManager.handleResumeFromFile}
+            onImportTypeChange={workflow.fileManager.actions.setImportType}
+            onFileUpload={workflow.fileManager.actions.handleFileUpload}
+            onLoadSavedAnalysis={workflow.fileManager.actions.handleLoadSavedAnalysis}
+            onResumeFromFile={workflow.fileManager.actions.handleResumeFromFile}
           />
                   </Box>
 
         {/* Section Configuration */}
         <Box sx={{ flex: 1 }}>
           <ConfigurationSection
-            coverageWeight={dataManager.state.coverageWeight}
-            sizeWeight={dataManager.state.sizeWeight}
-            usageWeight={dataManager.state.usageWeight}
-            isComputing={dataManager.state.loading}
-            onCoverageWeightChange={dataManager.setCoverageWeight}
-            onSizeWeightChange={dataManager.setSizeWeight}
-            onUsageWeightChange={dataManager.setUsageWeight}
+            coverageWeight={workflow.configuration.state.coverageWeight}
+            sizeWeight={workflow.configuration.state.sizeWeight}
+            usageWeight={workflow.configuration.state.usageWeight}
+            isComputing={workflow.fileManager.state.loading}
+            onCoverageWeightChange={workflow.configuration.actions.setCoverageWeight}
+            onSizeWeightChange={workflow.configuration.actions.setSizeWeight}
+            onUsageWeightChange={workflow.configuration.actions.setUsageWeight}
           />
                         </Box>
                       </Box>
 
       {/* Section Actions */}
       <ActionsSection
-        analysisResult={dataManager.state.analysisResult}
-        loading={dataManager.state.loading}
-        processingStep={dataManager.state.processingStep}
-        progress={dataManager.state.progress}
-        onSaveClick={() => dataManager.setSaveDialogOpen(true)}
-        onExportExcel={dataManager.handleExportExcel}
+        analysisResult={workflow.fileManager.state.analysisResult}
+        loading={workflow.fileManager.state.loading}
+        processingStep={workflow.fileManager.state.processingStep}
+        progress={workflow.fileManager.state.progress}
+        onSaveClick={() => workflow.exportManager.actions.setSaveDialogOpen(true)}
+        onExportExcel={() => workflow.exportCurrentAnalysis('excel')}
         onExportResults={handleExportResults}
-        onReset={dataManager.handleReset}
+        onReset={workflow.fileManager.actions.handleReset}
 
       />
 
       {/* Résultats d'analyse */}
-      {dataManager.state.analysisResult && (
+      {workflow.fileManager.state.analysisResult && (
         <Fade in timeout={800}>
         <Box>
             {/* Section Vue d'ensemble */}
             <OverviewStatsSection
-              analysisResult={dataManager.state.analysisResult}
+              analysisResult={workflow.fileManager.state.analysisResult}
               totalBusinessRoles={processor.totalBusinessRoles}
               uncoveredTransactionsData={processor.uncoveredTransactionsData}
             />
 
             {/* Analyses par rôle métier - VERSION SIMPLIFIÉE */}
             <AnalysisResultsSection
-              analysisResult={dataManager.state.analysisResult}
+              analysisResult={workflow.fileManager.state.analysisResult}
               businessRolesToShow={processor.businessRolesToShow}
               totalBusinessRolePages={processor.totalBusinessRolePages}
               currentBusinessRolePage={processor.state.currentBusinessRolePage}
@@ -184,8 +184,8 @@ export default function RoleAnalysisPage() {
 
       {/* Dialog de sauvegarde - VERSION SIMPLIFIÉE */}
       <Dialog 
-        open={dataManager.state.saveDialogOpen} 
-        onClose={() => dataManager.setSaveDialogOpen(false)} 
+        open={workflow.exportManager.state.saveDialogOpen} 
+        onClose={() => workflow.exportManager.actions.setSaveDialogOpen(false)} 
         maxWidth="sm" 
         fullWidth
         PaperProps={{
@@ -204,8 +204,8 @@ export default function RoleAnalysisPage() {
             label="Nom de l'analyse"
             fullWidth
             variant="outlined"
-            value={dataManager.state.analysisName}
-            onChange={(e) => dataManager.setAnalysisName(e.target.value)}
+            value={workflow.configuration.state.analysisName}
+            onChange={(e) => workflow.configuration.actions.setAnalysisName(e.target.value)}
             sx={{ mb: 3 }}
           />
           <TextField
@@ -215,13 +215,13 @@ export default function RoleAnalysisPage() {
             multiline
             rows={3}
             variant="outlined"
-            value={dataManager.state.analysisDescription}
-            onChange={(e) => dataManager.setAnalysisDescription(e.target.value)}
+            value={workflow.configuration.state.analysisDescription}
+            onChange={(e) => workflow.configuration.actions.setAnalysisDescription(e.target.value)}
           />
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 2 }}>
           <Button 
-            onClick={() => dataManager.setSaveDialogOpen(false)}
+            onClick={() => workflow.exportManager.actions.setSaveDialogOpen(false)}
             sx={{ mr: 1 }}
           >
             Annuler
@@ -229,16 +229,16 @@ export default function RoleAnalysisPage() {
           <Button 
             onClick={async () => {
               try {
-                await dataManager.handleSaveAnalysis();
-                dataManager.setSaveDialogOpen(false);
-                dataManager.setAnalysisName('');
-                dataManager.setAnalysisDescription('');
+                await workflow.saveCurrentAnalysis();
+                workflow.exportManager.actions.setSaveDialogOpen(false);
+                workflow.configuration.actions.setAnalysisName('');
+                workflow.configuration.actions.setAnalysisDescription('');
                       } catch {
           // Erreur silencieuse - l'utilisateur sera notifié par l'UI
         }
             }}
             variant="contained"
-            disabled={!dataManager.state.analysisName.trim()}
+            disabled={!workflow.configuration.state.analysisName.trim()}
             sx={{ borderRadius: 2 }}
           >
             Sauvegarder
