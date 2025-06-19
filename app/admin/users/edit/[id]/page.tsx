@@ -92,7 +92,7 @@ type EditUserFormData = z.infer<typeof editUserSchema>;
 
 export default function EditUserPage() {
   const router = useRouter();
-  const params = useParams();
+  const params = React.use(useParams());
   const userId = params.id as string;
   
   const [showPassword, setShowPassword] = useState(false);

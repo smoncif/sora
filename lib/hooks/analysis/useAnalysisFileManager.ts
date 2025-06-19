@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 import { 
   parseExcelFile, 
@@ -61,45 +61,45 @@ const initialState: FileManagerState = {
 };
 
 export const useAnalysisFileManager = (
-  callbacks?: FileManagerCallbacks
+  callbacks?: FileManagerCallbacks,
+  cache?: any // 🚀 OPTIMISATION : Ajouter le cache comme paramètre
 ): AnalysisFileManager => {
   const [state, setState] = useState<FileManagerState>(initialState);
   
-  // Helper pour mise à jour d'état
-  const updateState = useCallback((updates: Partial<FileManagerState>) => {
-    setState(prev => ({ ...prev, ...updates }));
-  }, []);
+  // 🔒 STABILISÉ : Mémoriser les callbacks avec clé stable
+  const memoizedCallbacks = useMemo(() => callbacks, [callbacks]);
   
-  // Setters avec callbacks
+  // 🚀 OPTIMISÉ : Setters avec callbacks synchrones 
   const setAnalysisResult = useCallback((result: SimplifiedAnalysisResult | null) => {
-    updateState({ analysisResult: result });
-    callbacks?.onAnalysisResult?.(result);
-  }, [updateState, callbacks]);
+    setState(prev => ({ ...prev, analysisResult: result }));
+    // Callback direct pour éviter les boucles asynchrones
+    memoizedCallbacks?.onAnalysisResult?.(result);
+  }, [memoizedCallbacks]);
   
   const setImportType = useCallback((type: 'new' | 'saved' | 'resume') => {
-    updateState({ importType: type });
-    callbacks?.onImportType?.(type);
-  }, [updateState, callbacks]);
+    setState(prev => ({ ...prev, importType: type }));
+    memoizedCallbacks?.onImportType?.(type);
+  }, [memoizedCallbacks]);
   
   const setLoading = useCallback((loading: boolean) => {
-    updateState({ loading });
-    callbacks?.onLoading?.(loading);
-  }, [updateState, callbacks]);
+    setState(prev => ({ ...prev, loading }));
+    memoizedCallbacks?.onLoading?.(loading);
+  }, [memoizedCallbacks]);
   
   const setError = useCallback((error: string | null) => {
-    updateState({ error });
-    callbacks?.onError?.(error);
-  }, [updateState, callbacks]);
+    setState(prev => ({ ...prev, error }));
+    memoizedCallbacks?.onError?.(error);
+  }, [memoizedCallbacks]);
   
   const setProgress = useCallback((progress: number) => {
-    updateState({ progress });
-    callbacks?.onProgress?.(progress);
-  }, [updateState, callbacks]);
+    setState(prev => ({ ...prev, progress }));
+    memoizedCallbacks?.onProgress?.(progress);
+  }, [memoizedCallbacks]);
   
   const setProcessingStep = useCallback((step: string) => {
-    updateState({ processingStep: step });
-    callbacks?.onProcessingStep?.(step);
-  }, [updateState, callbacks]);
+    setState(prev => ({ ...prev, processingStep: step }));
+    memoizedCallbacks?.onProcessingStep?.(step);
+  }, [memoizedCallbacks]);
   
   // Action principale : Upload et traitement de fichier
   const handleFileUpload = useCallback(async (file: File) => {
@@ -118,18 +118,41 @@ export const useAnalysisFileManager = (
       setProcessingStep('Traitement des données...');
       
       // Calcul de l'analyse de couverture
-      const analysis = calculateCoverageAnalysis(data);
+      const analysis = calculateCoverageAnalysis(
+        data.businessRoleTransactions,
+        data.simpleRoleTransactions,
+        0 // minCoverageThreshold
+      );
       setProgress(60);
       setProcessingStep('Génération des résultats...');
       
       // Création du résultat simplifié
-      const result = createSimplifiedAnalysisResult(analysis);
+      const result = createSimplifiedAnalysisResult(
+        data,
+        analysis,
+        file.name,
+        'Analyse importée'
+      );
       setProgress(90);
       setProcessingStep('Finalisation...');
       
       // Mise à jour du résultat
       setAnalysisResult(result);
       setImportType('new');
+      setProgress(90);
+      setProcessingStep('Finalisation...');
+
+      // 🚀 OPTIMISATION 2 : Pré-calcul du cache pour les futures utilisations
+      if (cache?.precomputeCoverageAnalysis) {
+        setProgress(95);
+        setProcessingStep('Optimisation des performances...');
+        try {
+          cache.precomputeCoverageAnalysis(result);
+        } catch (cacheError) {
+          console.warn('Erreur lors du pré-calcul du cache (non critique):', cacheError);
+        }
+      }
+      
       setProgress(100);
       setProcessingStep('Analyse terminée !');
       
@@ -147,7 +170,7 @@ export const useAnalysisFileManager = (
       setProgress(0);
       setProcessingStep('');
     }
-  }, [setLoading, setError, setProgress, setProcessingStep, setAnalysisResult, setImportType]);
+  }, [setLoading, setError, setProgress, setProcessingStep, setAnalysisResult, setImportType, cache]);
   
   // Action : Charger une analyse sauvegardée
   const handleLoadSavedAnalysis = useCallback(async (analysisId: string) => {
@@ -193,13 +216,14 @@ export const useAnalysisFileManager = (
   // Action : Reset complet
   const handleReset = useCallback(() => {
     setState(initialState);
-    callbacks?.onAnalysisResult?.(null);
-    callbacks?.onImportType?.('new');
-    callbacks?.onLoading?.(false);
-    callbacks?.onError?.(null);
-    callbacks?.onProgress?.(0);
-    callbacks?.onProcessingStep?.('');
-  }, [callbacks]);
+    // Callbacks directs pour éviter les boucles asynchrones
+    memoizedCallbacks?.onAnalysisResult?.(null);
+    memoizedCallbacks?.onImportType?.('new');
+    memoizedCallbacks?.onLoading?.(false);
+    memoizedCallbacks?.onError?.(null);
+    memoizedCallbacks?.onProgress?.(0);
+    memoizedCallbacks?.onProcessingStep?.('');
+  }, [memoizedCallbacks]);
   
   // Actions groupées
   const actions: FileManagerActions = {

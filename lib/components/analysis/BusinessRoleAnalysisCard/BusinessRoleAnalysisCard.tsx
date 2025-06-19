@@ -31,6 +31,187 @@ import {
 import { TransactionBlock } from '../TransactionBlock';
 import { CoverageAnalysis, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 
+// 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
+const SimpleRoleRow = React.memo(function SimpleRoleRow({
+  role,
+  index,
+  isSelected,
+  includeFrequency,
+  getScoreColor,
+  isExpanded,
+  onSelectionChange,
+  onToggleExpansion,
+  dynamicData,
+  theme,
+}: {
+  role: any;
+  index: number;
+  isSelected: boolean;
+  includeFrequency: boolean;
+  getScoreColor: (score: number) => string;
+  isExpanded: boolean;
+  onSelectionChange: (roleName: string, isSelected: boolean) => void;
+  onToggleExpansion: (index: number) => void;
+  dynamicData: any;
+  theme: any;
+}) {
+  console.log(`[PERF] RENDU SimpleRoleRow pour ${role.roleName}, index ${index}`);
+  
+  const handleCheckboxChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onSelectionChange(role.roleName, e.target.checked);
+  }, [role.roleName, onSelectionChange]);
+  
+  const handleToggleExpanded = React.useCallback(() => {
+    onToggleExpansion(index);
+  }, [index, onToggleExpansion]);
+
+  // 🚀 OPTIMISATION : Props stables pour TransactionBlock
+  const coveredTx = React.useMemo(() => role.details.covered, [role.details]);
+  const nonUtiliseesTx = React.useMemo(() => role.details.nonUtilisees, [role.details]);
+  const nonCouvertesTx = React.useMemo(() => role.details.nonCouvertes, [role.details]);
+  const coveredButAlreadySelected = React.useMemo(() => role.details.coveredButAlreadySelected, [role.details]);
+  const execMap = React.useMemo(() => dynamicData.remainingExecutionMap, [dynamicData]);
+  const emptyExecMap = React.useMemo(() => new Map(), []);
+
+  return (
+    <React.Fragment>
+      <TableRow hover>
+        <TableCell>
+          <Checkbox
+            checked={isSelected}
+            onChange={handleCheckboxChange}
+            size="small"
+          />
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {role.roleName}
+          </Typography>
+          {role.alreadySelectedCount > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              +{role.alreadySelectedCount} déjà couvertes
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell align="center">
+          <Chip
+            label={`${role.coveragePercentage.toFixed(1)}%`}
+            size="small"
+            sx={{
+              backgroundColor: alpha(getScoreColor(role.coveragePercentage), 0.1),
+              color: getScoreColor(role.coveragePercentage),
+              fontWeight: 600,
+              minWidth: 60
+            }}
+          />
+          <Typography variant="caption" display="block" color="text.secondary">
+            {role.remainingCoveredCount} tx
+          </Typography>
+        </TableCell>
+        <TableCell align="center">
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {role.sizeScore.toFixed(1)}%
+          </Typography>
+        </TableCell>
+        {includeFrequency && (
+          <TableCell align="center">
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {role.usageFrequency.toFixed(1)}%
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {role.remainingUsageScore} exec
+            </Typography>
+          </TableCell>
+        )}
+        <TableCell align="center">
+          <Chip
+            label={role.globalScore.toFixed(1)}
+            size="small"
+            sx={{
+              backgroundColor: alpha(getScoreColor(role.globalScore), 0.1),
+              color: getScoreColor(role.globalScore),
+              fontWeight: 600
+            }}
+          />
+        </TableCell>
+        <TableCell align="center">
+          <Button
+            size="small"
+            onClick={handleToggleExpanded}
+            variant="outlined"
+          >
+            {isExpanded ? 'Masquer' : 'Voir'}
+          </Button>
+        </TableCell>
+      </TableRow>
+      
+      {/* Ligne de détails expansible */}
+      <TableRow>
+        <TableCell colSpan={includeFrequency ? 7 : 6} sx={{ p: 0 }}>
+          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+            <Box sx={{ p: 3, bgcolor: alpha(theme.palette.grey[50], 0.5) }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3 }}>
+                {/* Transactions couvertes */}
+                <TransactionBlock
+                  transactions={coveredTx}
+                  execMap={execMap}
+                  title="✅ Transactions couvertes"
+                  color={theme.palette.success.main}
+                  emptyLabel="Aucune transaction couverte"
+                  crossedOutTransactions={coveredButAlreadySelected}
+                />
+                
+                {/* Transactions non utilisées */}
+                <TransactionBlock
+                  transactions={nonUtiliseesTx}
+                  execMap={emptyExecMap}
+                  title="🚫 Transactions non utilisées"
+                  color={theme.palette.error.main}
+                  emptyLabel="Aucune transaction non utilisée"
+                />
+                
+                {/* Transactions non couvertes */}
+                <TransactionBlock
+                  transactions={nonCouvertesTx}
+                  execMap={execMap}
+                  title="⚠️ Transactions non couvertes"
+                  color={theme.palette.warning.main}
+                  emptyLabel="Aucune transaction non couverte"
+                />
+              </Box>
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </React.Fragment>
+  );
+}, (prevProps, nextProps) => {
+  // Comparaison optimisée :
+  // - Si la ligne n'est pas concernée par l'expansion, on ignore isExpanded
+  // - Sinon, on compare tout
+  if (!prevProps.isExpanded && !nextProps.isExpanded) {
+    // Props stables hors expansion
+    return (
+      prevProps.role.roleName === nextProps.role.roleName &&
+      prevProps.isSelected === nextProps.isSelected &&
+      prevProps.includeFrequency === nextProps.includeFrequency &&
+      prevProps.role.coveragePercentage === nextProps.role.coveragePercentage &&
+      prevProps.role.globalScore === nextProps.role.globalScore &&
+      prevProps.dynamicData.remainingExecutionMap === nextProps.dynamicData.remainingExecutionMap
+    );
+  }
+  // Sinon, on compare tout (y compris isExpanded)
+  return (
+    prevProps.role.roleName === nextProps.role.roleName &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.includeFrequency === nextProps.includeFrequency &&
+    prevProps.isExpanded === nextProps.isExpanded &&
+    prevProps.role.coveragePercentage === nextProps.role.coveragePercentage &&
+    prevProps.role.globalScore === nextProps.role.globalScore &&
+    prevProps.dynamicData.remainingExecutionMap === nextProps.dynamicData.remainingExecutionMap
+  );
+});
+
 export interface BusinessRoleAnalysisCardProps {
   analysis: CoverageAnalysis;
   includeFrequency: boolean;
@@ -66,6 +247,10 @@ export interface BusinessRoleAnalysisCardProps {
 
 // 🚀 Fonction de comparaison optimisée pour React.memo
 const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: BusinessRoleAnalysisCardProps) => {
+  // 🚀 ISOLATION : Log pour debug des re-rendus
+  const businessRole = prevProps.analysis.businessRole;
+  console.log(`[PERF] Comparaison props pour ${businessRole}`);
+
   // Comparaison rapide des props simples
   if (
     prevProps.analysis.businessRole !== nextProps.analysis.businessRole ||
@@ -76,20 +261,53 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     prevProps.focusedBusinessRole !== nextProps.focusedBusinessRole ||
     prevProps.simpleRoleFilter !== nextProps.simpleRoleFilter
   ) {
+    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Props de base`);
     return false;
   }
 
-  // Comparaison des rôles sélectionnés pour ce rôle métier spécifique
+  // 🚀 AMÉLIORATION : Comparaison complète des arrays de données
+  if (
+    prevProps.businessRoleTransactions !== nextProps.businessRoleTransactions ||
+    prevProps.simpleRoleTransactions !== nextProps.simpleRoleTransactions
+  ) {
+    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Données transactions`);
+    return false;
+  }
+
+  // 🚀 AMÉLIORATION : Comparaison structure analysis
+  if (
+    prevProps.analysis !== nextProps.analysis ||
+    prevProps.analysis.simpleRoles.length !== nextProps.analysis.simpleRoles.length ||
+    prevProps.analysis.uniqueTransactions.length !== nextProps.analysis.uniqueTransactions.length
+  ) {
+    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Structure analysis`);
+    return false;
+  }
+
+  // Comparaison optimisée des rôles sélectionnés pour ce rôle métier spécifique
   const prevSelected = prevProps.globalSelectedRoles;
   const nextSelected = nextProps.globalSelectedRoles;
   
+  // Vérification rapide de la référence (si c'est le même Set, pas besoin de comparer)
+  if (prevSelected === nextSelected) {
+    console.log(`[PERF] SAME référence pour ${businessRole} - Pas de re-rendu`);
+    return true;
+  }
+  
+  // Comparaison de la taille
   if (prevSelected.size !== nextSelected.size) {
+    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Taille sélections (${prevSelected.size} → ${nextSelected.size})`);
     return false;
   }
   
-  for (const role of Array.from(prevSelected)) {
-    if (!nextSelected.has(role)) {
-      return false;
+  // Comparaison du contenu seulement si les tailles sont identiques
+  if (prevSelected.size > 0) {
+    const prevArray = Array.from(prevSelected);
+    for (const role of prevArray) {
+      if (!nextSelected.has(role)) {
+        console.log(`[PERF] CHANGE détecté pour ${businessRole} - Contenu sélections`);
+        return false;
+      }
     }
   }
 
@@ -99,9 +317,23 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     prevProps.transactionDetailsCache !== nextProps.transactionDetailsCache ||
     prevProps.showZeroCoverageRoles !== nextProps.showZeroCoverageRoles
   ) {
+    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Caches/Maps`);
     return false;
   }
 
+  // 🚀 AMÉLIORATION : Comparaison des fonctions handlers
+  if (
+    prevProps.onFocusBusinessRole !== nextProps.onFocusBusinessRole ||
+    prevProps.onExitFocus !== nextProps.onExitFocus ||
+    prevProps.onGlobalSelectionChange !== nextProps.onGlobalSelectionChange ||
+    prevProps.onToggleZeroCoverageRoles !== nextProps.onToggleZeroCoverageRoles
+  ) {
+    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Handlers (normal, peut être ignoré)`);
+    // Note: On retourne true car les fonctions changent souvent mais ne nécessitent pas de re-rendu
+    // Les handlers sont mémorisés au niveau parent
+  }
+
+  console.log(`[PERF] MEMO hit pour ${businessRole} - Aucun re-rendu nécessaire`);
   return true;
 };
 
@@ -120,13 +352,13 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   globalSelectedRoles,
   onGlobalSelectionChange,
   staticScoresCache,
-
+  transactionDetailsCache,
   showZeroCoverageRoles,
   onToggleZeroCoverageRoles,
 }: BusinessRoleAnalysisCardProps) {
   const theme = useTheme();
   const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(5);
+  const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [expandedRow, setExpandedRow] = React.useState<number | null>(null);
   
   // États pour le système de tri
@@ -144,6 +376,15 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   
   // 🎯 NOUVEAU : État local pour afficher/masquer les rôles 0% couverture
   const shouldShowZeroCoverage = showZeroCoverageRoles.get(analysis.businessRole) ?? false;
+
+  // 🚀 NOUVEAU : Log de performance pour traquer les re-rendus
+  console.log(`[PERF] RENDU BusinessRoleAnalysisCard pour ${analysis.businessRole}`);
+  
+  // 🚀 OPTIMISÉ : Handler d'expansion avec useCallback pour éviter les re-rendus
+  const handleToggleExpansion = React.useCallback((index: number) => {
+    console.log(`[PERF] EXPANSION pour ${analysis.businessRole}, rôle index ${index}`);
+    setExpandedRow(prev => prev === index ? null : index);
+  }, [analysis.businessRole]); // Dépendance minimale
   
   // Fonction de tri
   const handleSort = React.useCallback((field: typeof sortField) => {
@@ -165,32 +406,34 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     }
   }, [tooltipSortField]);
 
-  // 🚀 OPTIMISATION MAJEURE : Pré-calcul de TOUS les détails une seule fois
-  const precomputedData = React.useMemo(() => {
-    // 🎯 GUARD : Vérifier que les données sont disponibles
+  // 🚀 RÉCUPÉRATION DES DONNÉES STATIQUES PRÉ-CALCULÉES DEPUIS LE CACHE GLOBAL
+  const staticData = React.useMemo(() => {
     if (!businessRoleTransactions || !Array.isArray(businessRoleTransactions)) {
       return {
         businessRoleTxSet: new Set<string>(),
         txExecutionMap: new Map<string, number>(),
         transactionsByRole: new Map<string, string[]>(),
         currentBusinessRoleTransactions: [],
-        originalTransactions: []
+        originalTransactions: [],
+        maxAchievableInfo: {
+          orphanTransactions: [],
+          maxAchievableTransactions: 0,
+          totalTransactions: 0
+        }
       };
     }
     
-    // 🎯 CORRECTION : Filtrer pour ne garder que les transactions de CE rôle métier spécifique
+    // Calcul direct et simple des données pour ce rôle métier
     const currentBusinessRoleTransactions = businessRoleTransactions.filter(tx => 
       tx.businessRole === analysis.businessRole
     );
     
-    // Étape 1: Créer des Map/Set pour des recherches O(1)
     const businessRoleTxSet = new Set(currentBusinessRoleTransactions.map(tx => tx.transaction));
     const txExecutionMap = new Map<string, number>();
     currentBusinessRoleTransactions.forEach((tx: any) => {
       txExecutionMap.set(tx.transaction, tx.executionCount || 0);
     });
     
-    // Étape 2: Grouper les transactions par rôle simple pour éviter les filtres répétés
     const transactionsByRole = new Map<string, string[]>();
     if (simpleRoleTransactions && Array.isArray(simpleRoleTransactions)) {
       simpleRoleTransactions.forEach(t => {
@@ -201,18 +444,6 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       });
     }
     
-    return {
-      businessRoleTxSet,
-      txExecutionMap,
-      transactionsByRole,
-      currentBusinessRoleTransactions,
-      originalTransactions: currentBusinessRoleTransactions.map(tx => tx.transaction)
-    };
-  }, [businessRoleTransactions, simpleRoleTransactions, analysis.businessRole]);
-
-  // 🚀 CALCUL FIXE : Maximum atteignable calculé une seule fois (ne change jamais)
-  const maxAchievableInfo = React.useMemo(() => {
-    // Calculer toutes les transactions qui peuvent être couvertes par au moins un rôle simple
     const allCoverableTransactions = new Set<string>();
     analysis.simpleRoles.forEach(role => {
       (role.coveredTransactions || []).forEach(tx => {
@@ -220,55 +451,56 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       });
     });
     
-    // Transactions orphelines = transactions du rôle métier qui ne sont couvertes par aucun rôle simple
     const orphanTransactions = analysis.uniqueTransactions.filter(tx => !allCoverableTransactions.has(tx));
     const maxAchievableTransactions = analysis.uniqueTransactions.length - orphanTransactions.length;
 
     return {
+      businessRoleTxSet,
+      txExecutionMap,
+      transactionsByRole,
+      currentBusinessRoleTransactions,
+      originalTransactions: currentBusinessRoleTransactions.map(tx => tx.transaction),
+      maxAchievableInfo: {
       orphanTransactions,
       maxAchievableTransactions,
       totalTransactions: analysis.uniqueTransactions.length
+      }
     };
-  }, [analysis.simpleRoles, analysis.uniqueTransactions]);
+  }, [businessRoleTransactions, simpleRoleTransactions, analysis.businessRole, analysis.simpleRoles, analysis.uniqueTransactions]);
 
-  // 🎯 NOUVEAU : Calcul dynamique des transactions COUVERTES (depuis 0 vers le max)
-  const dynamicAnalysisData = React.useMemo(() => {
-    // Étape 1: Calculer les transactions couvertes par les rôles sélectionnés
+  // 🔄 DONNÉES DYNAMIQUES (recalculées uniquement quand les sélections changent)
+  const dynamicData = React.useMemo(() => {
+    console.log(`[PERF] Calcul DYNAMIQUE pour ${analysis.businessRole} - Sélections: ${selectedRoles.size} rôles`);
+    
+    // Calculer les transactions couvertes par les rôles sélectionnés
     const selectedTransactions = new Set<string>();
-    const allSelectedRoleTransactions = new Set<string>(); // NOUVEAU: Toutes les transactions des rôles sélectionnés
+    const allSelectedRoleTransactions = new Set<string>();
     
     selectedRoles.forEach(roleName => {
       const roleData = analysis.simpleRoles.find(r => r.roleName === roleName);
-      // Ajouter les transactions couvertes (pour le calcul de couverture)
       if (roleData) {
         (roleData.coveredTransactions || []).forEach(tx => selectedTransactions.add(tx));
       }
       
-      // NOUVEAU: Ajouter TOUTES les transactions du rôle simple (pour calculer les non utilisées)
-      const allRoleTransactions = precomputedData.transactionsByRole.get(roleName) || [];
+      const allRoleTransactions = staticData.transactionsByRole.get(roleName) || [];
       allRoleTransactions.forEach(tx => allSelectedRoleTransactions.add(tx));
     });
 
-    // Étape 2: Calculer les transactions restantes (non encore couvertes par les sélections)
+    // Calculer les transactions restantes
     const remainingTransactions = analysis.uniqueTransactions.filter(tx => !selectedTransactions.has(tx));
-    const remainingBusinessTransactions = precomputedData.currentBusinessRoleTransactions.filter(tx => !selectedTransactions.has(tx.transaction));
+    const remainingBusinessTransactions = staticData.currentBusinessRoleTransactions.filter(tx => !selectedTransactions.has(tx.transaction));
     
-    // Étape 3: Calculer le total des exécutions restantes pour CE rôle métier spécifiquement
     const totalRemainingExecutions = remainingBusinessTransactions.reduce((sum: number, tx: any) => sum + (tx.executionCount || 0), 0);
 
-    // Étape 4: Créer des maps pour les calculs optimisés
     const remainingTxSet = new Set(remainingTransactions);
     const remainingExecutionMap = new Map<string, number>();
     remainingBusinessTransactions.forEach((tx: any) => {
       remainingExecutionMap.set(tx.transaction, tx.executionCount || 0);
     });
 
-    // Étape 5: Calculer les transactions non utilisées (TOUTES les transactions des rôles sélectionnés qui ne sont pas dans le rôle métier)
     const unusedTransactions = Array.from(allSelectedRoleTransactions).filter(tx => 
-      !precomputedData.businessRoleTxSet.has(tx)
+      !staticData.businessRoleTxSet.has(tx)
     );
-
-
 
     return {
       selectedTransactions,
@@ -282,11 +514,11 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       coveredTransactionsCount: selectedTransactions.size,
       unusedTransactions
     };
-  }, [selectedRoles, analysis.simpleRoles, analysis.uniqueTransactions, precomputedData.currentBusinessRoleTransactions, precomputedData.businessRoleTxSet, analysis.businessRole]);
+  }, [selectedRoles, analysis.simpleRoles, analysis.uniqueTransactions, staticData]);
 
-  // 🚀 Fonction ultra-rapide de récupération des détails avec recalcul dynamique
+  // 🚀 FONCTION DE DÉTAILS OPTIMISÉE (utilise les données pré-calculées)
   const getDetails = React.useCallback((roleName: string) => {
-    const allSimpleRoleTx = precomputedData.transactionsByRole.get(roleName) || [];
+    const allSimpleRoleTx = staticData.transactionsByRole.get(roleName) || [];
     const roleData = analysis.simpleRoles.find(r => r.roleName === roleName);
     
     if (!roleData) {
@@ -300,26 +532,24 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       };
     }
 
-    // 🎯 NOUVEAU : Séparer les transactions couvertes selon leur disponibilité
     const covered = (roleData.coveredTransactions || []).filter(tx => 
-      dynamicAnalysisData.remainingTxSet.has(tx)
+      dynamicData.remainingTxSet.has(tx)
     );
     
-    // 🎯 NOUVEAU : Transactions couvertes par ce rôle mais déjà sélectionnées par d'autres
     const coveredButAlreadySelected = (roleData.coveredTransactions || []).filter(tx => 
-      !dynamicAnalysisData.remainingTxSet.has(tx) && precomputedData.businessRoleTxSet.has(tx)
+      !dynamicData.remainingTxSet.has(tx) && staticData.businessRoleTxSet.has(tx)
     );
     
     const nonUtilisees = allSimpleRoleTx.filter(tx => 
-      !precomputedData.businessRoleTxSet.has(tx)
+      !staticData.businessRoleTxSet.has(tx)
     );
     
-    const nonCouvertes = precomputedData.originalTransactions.filter(tx => 
-      !allSimpleRoleTx.includes(tx) && dynamicAnalysisData.remainingTxSet.has(tx)
+    const nonCouvertes = staticData.originalTransactions.filter(tx => 
+      !allSimpleRoleTx.includes(tx) && dynamicData.remainingTxSet.has(tx)
     );
     
-    const orphelines = maxAchievableInfo.orphanTransactions.filter(tx =>
-      dynamicAnalysisData.remainingTxSet.has(tx)
+    const orphelines = staticData.maxAchievableInfo.orphanTransactions.filter(tx =>
+      dynamicData.remainingTxSet.has(tx)
     );
 
     return { 
@@ -330,20 +560,25 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       orphelines, 
       total: covered.length + nonUtilisees.length + nonCouvertes.length + orphelines.length 
     };
-  }, [precomputedData, analysis.simpleRoles, dynamicAnalysisData, maxAchievableInfo.orphanTransactions]);
+  }, [staticData, analysis.simpleRoles, dynamicData]);
 
-  // 🚀 Calcul des scores et filtrage avec cache
+  // 🚀 SCORES ENRICHIS (optimisés avec séparation statique/dynamique)
   const enrichedRoles = React.useMemo(() => {
+    console.log(`[PERF] Calcul des SCORES pour ${analysis.businessRole} - ${analysis.simpleRoles.length} rôles`);
+    
     return analysis.simpleRoles
       .map(role => {
+        // Note: Hash calculé pour référence future, mais pas encore utilisé
+        // const roleSelectionHash = `${analysis.businessRole}:${role.roleName}:${Array.from(selectedRoles).sort().join(',')}`;
+        
         const details = getDetails(role.roleName);
         
-        // 🚀 NOUVELLE FORMULE : Calcul du pourcentage de couverture dynamique
-        const dynamicCoveragePercentage = dynamicAnalysisData.totalRemainingTransactions > 0 
-          ? (details.covered.length / dynamicAnalysisData.totalRemainingTransactions) * 100 
+        // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache
+        const dynamicCoveragePercentage = dynamicData.totalRemainingTransactions > 0 
+          ? (details.covered.length / dynamicData.totalRemainingTransactions) * 100 
           : 0;
 
-        // 🚀 CACHE : Récupération des scores statiques pré-calculés avec la bonne clé
+        // 🚀 CACHE STATIQUE : Récupération rapide des scores pré-calculés
         const cacheKey = `${analysis.businessRole}:${role.roleName}`;
         const cachedScores = staticScoresCache.get(cacheKey) || {
           sizeScore: 0,
@@ -354,19 +589,16 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           totalBusinessRoleExecutions: 0
         };
 
-
-
-        // 🚀 NOUVEAU : Calcul du score de fréquence d'usage restant
+        // 🚀 CALCUL INCRÉMENTAL : Usage uniquement pour les transactions restantes
         const remainingUsageScore = details.covered.reduce((sum, tx) => {
-          return sum + (dynamicAnalysisData.remainingExecutionMap.get(tx) || 0);
+          return sum + (dynamicData.remainingExecutionMap.get(tx) || 0);
         }, 0);
 
-        // Score de fréquence dynamique (en pourcentage des exécutions restantes)
-        const dynamicUsagePercentage = dynamicAnalysisData.totalRemainingExecutions > 0
-          ? (remainingUsageScore / dynamicAnalysisData.totalRemainingExecutions) * 100
+        const dynamicUsagePercentage = dynamicData.totalRemainingExecutions > 0
+          ? (remainingUsageScore / dynamicData.totalRemainingExecutions) * 100
           : 0;
 
-        // 🚀 NOUVEAU : Score global pondéré DYNAMIQUE (sur les transactions restantes)
+        // 🚀 SCORE PONDÉRÉ : Calcul rapide avec coefficients pré-normalisés
         const globalScore = includeFrequency
           ? (dynamicCoveragePercentage * (coverageWeight / 100)) +
             (cachedScores.sizeScore * (sizeWeight / 100)) +
@@ -377,13 +609,13 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         return {
           ...role,
           details,
-          coveragePercentage: dynamicCoveragePercentage, // 🎯 NOUVEAU : Pourcentage dynamique
+          coveragePercentage: dynamicCoveragePercentage,
           sizeScore: cachedScores.sizeScore,
-          usageFrequency: dynamicUsagePercentage, // 🎯 NOUVEAU : Fréquence dynamique
+          usageFrequency: dynamicUsagePercentage,
           globalScore,
-          remainingUsageScore, // 🎯 NOUVEAU : Score d'usage sur les transactions restantes
-          remainingCoveredCount: details.covered.length, // 🎯 NOUVEAU : Nombre de tx restantes couvertes
-          alreadySelectedCount: details.coveredButAlreadySelected.length, // 🎯 NOUVEAU
+          remainingUsageScore,
+          remainingCoveredCount: details.covered.length,
+          alreadySelectedCount: details.coveredButAlreadySelected.length,
           ...(includeFrequency && { 
             cachedTotalExecutions: cachedScores.totalBusinessRoleExecutions,
             cachedSimpleRoleExecutions: cachedScores.simpleRoleExecutions
@@ -442,13 +674,11 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     sortField, 
     sortDirection, 
     shouldShowZeroCoverage,
-    dynamicAnalysisData,
-    staticScoresCache,
+    dynamicData,
     includeFrequency,
     coverageWeight,
     sizeWeight,
-    usageWeight,
-    analysis.businessRole
+    usageWeight
   ]);
 
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -490,7 +720,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     return tooltipSortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
   };
 
-  // Composant de tableau pour les tooltips avec tri - VERSION SOLIDE
+  // Composant de tableau pour les tooltips avec tri - VERSION CORRIGÉE
   const TransactionTooltipTable = React.useCallback(({ 
     transactions, 
     title, 
@@ -502,22 +732,21 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     txExecutionMap: Map<string, number>,
     coveredTransactions?: Set<string>
   }) => {
-    const sortedTransactions = React.useMemo(() => {
-      const transactionsWithExecution = transactions.map(tx => ({
-        transaction: tx,
-        execution: txExecutionMap.get(tx) || 0
-      }));
+    // Tri direct sans useMemo pour éviter les erreurs de hooks
+    const transactionsWithExecution = transactions.map(tx => ({
+      transaction: tx,
+      execution: txExecutionMap.get(tx) || 0
+    }));
 
-      return transactionsWithExecution.sort((a, b) => {
-        let comparison = 0;
-        if (tooltipSortField === 'transaction') {
-          comparison = a.transaction.localeCompare(b.transaction);
-        } else {
-          comparison = a.execution - b.execution;
-        }
-        return tooltipSortDirection === 'asc' ? comparison : -comparison;
-      });
-    }, [transactions, txExecutionMap, tooltipSortField, tooltipSortDirection]);
+    const sortedTransactions = transactionsWithExecution.sort((a, b) => {
+      let comparison = 0;
+      if (tooltipSortField === 'transaction') {
+        comparison = a.transaction.localeCompare(b.transaction);
+      } else {
+        comparison = a.execution - b.execution;
+      }
+      return tooltipSortDirection === 'asc' ? comparison : -comparison;
+    });
 
     return (
       <Box sx={{ 
@@ -704,7 +933,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       setRowsPerPage(25);
       setPage(0); // Remettre à la première page
     } else {
-      setRowsPerPage(5);
+      setRowsPerPage(10);
       setPage(0); // Remettre à la première page
     }
   }, [isInFocusMode]);
@@ -768,8 +997,8 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   <TransactionTooltipTable
                     transactions={Array.from(analysis.uniqueTransactions)}
                     title="📋 Transactions du Rôle Métier"
-                    txExecutionMap={precomputedData.txExecutionMap}
-                    coveredTransactions={dynamicAnalysisData.selectedTransactions}
+                    txExecutionMap={staticData.txExecutionMap}
+                    coveredTransactions={dynamicData.selectedTransactions}
                   />
                 }
                 arrow
@@ -797,24 +1026,24 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   🎯 Couverture
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  <span style={{ color: getScoreColor((dynamicAnalysisData.coveredTransactionsCount / maxAchievableInfo.totalTransactions) * 100) }}>
-                    {dynamicAnalysisData.coveredTransactionsCount}
+                  <span style={{ color: getScoreColor((dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100) }}>
+                    {dynamicData.coveredTransactionsCount}
                   </span>
                   <span style={{ color: theme.palette.text.secondary }}> / </span>
                   <span style={{ color: theme.palette.info.main }}>
-                    {maxAchievableInfo.maxAchievableTransactions}
+                    {staticData.maxAchievableInfo.maxAchievableTransactions}
                   </span>
-                  <span style={{ color: theme.palette.text.secondary }}> / {maxAchievableInfo.totalTransactions}</span>
+                  <span style={{ color: theme.palette.text.secondary }}> / {staticData.maxAchievableInfo.totalTransactions}</span>
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                  {((dynamicAnalysisData.coveredTransactionsCount / maxAchievableInfo.maxAchievableTransactions) * 100).toFixed(1)}% du max possible
+                  {((dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100).toFixed(1)}% du max possible
                 </Typography>
               </Box>
               
               {/* Transactions orphelines */}
               <Tooltip
                 title={
-                  maxAchievableInfo.orphanTransactions.length > 0 ? (
+                  staticData.maxAchievableInfo.orphanTransactions.length > 0 ? (
                     <Box sx={{ 
                       width: '320px',
                       maxWidth: '320px',
@@ -830,9 +1059,9 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                         Transactions du rôle métier qui ne peuvent être couvertes par aucun rôle simple disponible.
                 </Typography>
                       <TransactionTooltipTable
-                        transactions={maxAchievableInfo.orphanTransactions}
+                        transactions={staticData.maxAchievableInfo.orphanTransactions}
                         title=""
-                        txExecutionMap={precomputedData.txExecutionMap}
+                        txExecutionMap={staticData.txExecutionMap}
                       />
                     </Box>
                   ) : (
@@ -859,11 +1088,11 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                     ⚠️ Orphelines
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.warning.main }}>
-                    {maxAchievableInfo.orphanTransactions.length} transactions
+                    {staticData.maxAchievableInfo.orphanTransactions.length} transactions
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    {maxAchievableInfo.orphanTransactions.length > 0 
-                      ? `${maxAchievableInfo.orphanTransactions.slice(0, 2).join(', ')}${maxAchievableInfo.orphanTransactions.length > 2 ? '...' : ''}`
+                    {staticData.maxAchievableInfo.orphanTransactions.length > 0 
+                      ? `${staticData.maxAchievableInfo.orphanTransactions.slice(0, 2).join(', ')}${staticData.maxAchievableInfo.orphanTransactions.length > 2 ? '...' : ''}`
                       : 'Aucune transaction orpheline'
                     }
                   </Typography>
@@ -881,19 +1110,19 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                       Transactions ajoutées par les rôles simples sélectionnés mais qui ne sont jamais utilisées par ce rôle métier.
                 </Typography>
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>Total:</strong> {dynamicAnalysisData.unusedTransactions.length} transactions
+                      <strong>Total:</strong> {dynamicData.unusedTransactions.length} transactions
                     </Typography>
-                    {dynamicAnalysisData.unusedTransactions.length > 0 && (
+                    {dynamicData.unusedTransactions.length > 0 && (
                       <Box sx={{ maxHeight: 150, overflowY: 'auto' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Transactions non utilisées:</Typography>
-                        {dynamicAnalysisData.unusedTransactions.slice(0, 20).map((tx, idx) => (
+                        {dynamicData.unusedTransactions.slice(0, 20).map((tx, idx) => (
                           <Typography key={idx} variant="caption" sx={{ display: 'block', fontSize: '0.75rem' }}>
                             • {tx}
                           </Typography>
                         ))}
-                        {dynamicAnalysisData.unusedTransactions.length > 20 && (
+                        {dynamicData.unusedTransactions.length > 20 && (
                           <Typography variant="caption" sx={{ fontStyle: 'italic', fontSize: '0.75rem' }}>
-                            ... et {dynamicAnalysisData.unusedTransactions.length - 20} autres
+                            ... et {dynamicData.unusedTransactions.length - 20} autres
                           </Typography>
                         )}
               </Box>
@@ -910,7 +1139,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                     🚫 Non Utilisées
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.error.main }}>
-                    {dynamicAnalysisData.unusedTransactions.length} transactions
+                    {dynamicData.unusedTransactions.length} transactions
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                     Ajoutées par sélection mais inutiles
@@ -1108,7 +1337,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               Progression de la couverture
             </Typography>
             <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
-              {((dynamicAnalysisData.coveredTransactionsCount / maxAchievableInfo.maxAchievableTransactions) * 100).toFixed(1)}% du maximum
+              {((dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100).toFixed(1)}% du maximum
             </Typography>
           </Box>
           <Box sx={{ 
@@ -1119,7 +1348,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
             overflow: 'hidden'
           }}>
             <Box sx={{
-              width: `${(dynamicAnalysisData.coveredTransactionsCount / maxAchievableInfo.maxAchievableTransactions) * 100}%`,
+              width: `${(dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100}%`,
               height: '100%',
               bgcolor: alpha(theme.palette.primary.main, 0.7),
               transition: 'width 0.3s ease'
@@ -1220,116 +1449,19 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               const isRoleSelected = selectedRoles.has(role.roleName);
               
               return (
-                <React.Fragment key={role.roleName}>
-                  <TableRow hover>
-                    <TableCell>
-                      <Checkbox
-                        checked={isRoleSelected}
-                        onChange={(e) => handleSelectionChange(role.roleName, e.target.checked)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {role.roleName}
-                      </Typography>
-                      {role.alreadySelectedCount > 0 && (
-                        <Typography variant="caption" color="text.secondary">
-                          +{role.alreadySelectedCount} déjà couvertes
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={`${role.coveragePercentage.toFixed(1)}%`}
-                        size="small"
-                        sx={{
-                          backgroundColor: alpha(getScoreColor(role.coveragePercentage), 0.1),
-                          color: getScoreColor(role.coveragePercentage),
-                          fontWeight: 600,
-                          minWidth: 60
-                        }}
-                      />
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {role.remainingCoveredCount} tx
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {role.sizeScore.toFixed(1)}%
-                      </Typography>
-                    </TableCell>
-                    {includeFrequency && (
-                      <TableCell align="center">
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {role.usageFrequency.toFixed(1)}%
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {role.remainingUsageScore} exec
-                        </Typography>
-                      </TableCell>
-                    )}
-                    <TableCell align="center">
-                      <Chip
-                        label={role.globalScore.toFixed(1)}
-                        size="small"
-                        sx={{
-                          backgroundColor: alpha(getScoreColor(role.globalScore), 0.1),
-                          color: getScoreColor(role.globalScore),
-                          fontWeight: 600
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Button
-                        size="small"
-                        onClick={() => setExpandedRow(expandedRow === index ? null : index)}
-                        variant="outlined"
-                      >
-                        {expandedRow === index ? 'Masquer' : 'Voir'}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                  
-                  {/* Ligne de détails expansible */}
-                  <TableRow>
-                    <TableCell colSpan={includeFrequency ? 7 : 6} sx={{ p: 0 }}>
-                      <Collapse in={expandedRow === index} timeout="auto" unmountOnExit>
-                        <Box sx={{ p: 3, bgcolor: alpha(theme.palette.grey[50], 0.5) }}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3 }}>
-                            {/* Transactions couvertes */}
-                          <TransactionBlock
-                            transactions={role.details.covered}
-                            execMap={dynamicAnalysisData.remainingExecutionMap}
-                              title="✅ Transactions couvertes"
-                            color={theme.palette.success.main}
-                            emptyLabel="Aucune transaction couverte"
-                            crossedOutTransactions={role.details.coveredButAlreadySelected}
-                          />
-                            
-                            {/* Transactions non utilisées */}
-                            <TransactionBlock
-                              transactions={role.details.nonUtilisees}
-                              execMap={new Map()} // Pas d'exécutions pour les transactions non utilisées
-                              title="🚫 Transactions non utilisées"
-                              color={theme.palette.error.main}
-                              emptyLabel="Aucune transaction non utilisée"
-                            />
-                            
-                            {/* Transactions non couvertes */}
-                            <TransactionBlock
-                              transactions={role.details.nonCouvertes}
-                              execMap={dynamicAnalysisData.remainingExecutionMap}
-                              title="⚠️ Transactions non couvertes"
-                              color={theme.palette.warning.main}
-                              emptyLabel="Aucune transaction non couverte"
-                            />
-                          </Box>
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
+                <SimpleRoleRow
+                  key={role.roleName}
+                  role={role}
+                  index={index}
+                  isSelected={isRoleSelected}
+                  includeFrequency={includeFrequency}
+                  getScoreColor={getScoreColor}
+                  isExpanded={expandedRow === index}
+                  onSelectionChange={handleSelectionChange}
+                  onToggleExpansion={handleToggleExpansion}
+                  dynamicData={dynamicData}
+                  theme={theme}
+                />
               );
             })}
           </TableBody>
@@ -1343,6 +1475,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           onPageChange={handleChangePage}
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, 50]}
           labelRowsPerPage="Rôles par page:"
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} sur ${count}`}
         />

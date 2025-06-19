@@ -39,7 +39,6 @@ export interface AnalysisResultsSectionProps {
   
   // Props partagées pour BusinessRoleAnalysisCard
   sharedBusinessRoleProps: any;
-  uiSelectedRoles: Map<string, Set<string>>;
   
   // Handlers
   onBusinessRoleFilterChange: (filter: string) => void;
@@ -62,7 +61,6 @@ export function AnalysisResultsSection({
   simpleRoleFilter,
   showFilters,
   sharedBusinessRoleProps,
-  uiSelectedRoles,
   onBusinessRoleFilterChange,
   onSimpleRoleFilterChange,
   onToggleFilters,
@@ -73,10 +71,10 @@ export function AnalysisResultsSection({
   const theme = useTheme();
 
   // 🚀 OPTIMISÉ : Fonction stable pour récupérer les rôles sélectionnés par rôle métier
+  // Utilise directement la fonction fournie par sharedBusinessRoleProps pour éviter les re-renders
   const getSelectedRolesForBusinessRole = React.useCallback((businessRole: string): Set<string> => {
-    const roles = uiSelectedRoles.get(businessRole);
-    return roles || new Set<string>();
-  }, [uiSelectedRoles]);
+    return sharedBusinessRoleProps.getSelectedRoles(businessRole);
+  }, [sharedBusinessRoleProps.getSelectedRoles]);
 
   if (!analysisResult) return null;
 

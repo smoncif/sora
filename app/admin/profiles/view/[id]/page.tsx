@@ -187,7 +187,7 @@ const getPermissionLabel = (permission: Permission): string => {
 
 export default function ViewProfilePage() {
   const router = useRouter();
-  const params = useParams();
+  const params = React.use(useParams());
   const profileId = params.id as string;
   
   const [profile, setProfile] = useState<ProfileType | null>(null);

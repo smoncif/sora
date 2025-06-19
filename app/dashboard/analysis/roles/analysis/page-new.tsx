@@ -31,17 +31,11 @@ import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService
  * Interface unique avec workflow refactorisé et hooks spécialisés
  */
 export default function RoleAnalysisPage() {
-  console.log('[PERF] RENDU RoleAnalysisPage');
   const { user } = useAuth();
   const theme = useTheme();
   
   // 🚀 WORKFLOW UNIFIÉ : Hook principal avec tous les sous-hooks intégrés
   const workflow = useAnalysisWorkflow();
-  
-  // 🔒 MÉMORISATION : Props partagées pour éviter les re-renders en boucle
-  const sharedBusinessRoleProps = React.useMemo(() => {
-    return workflow.getSharedBusinessRoleProps();
-  }, [workflow]);
 
   // Fonction d'export des résultats via le nouveau workflow
   const handleExportResults = React.useCallback(async () => {
@@ -107,7 +101,7 @@ export default function RoleAnalysisPage() {
             error={workflow.fileManager.state.error}
             user={user}
             onImportTypeChange={workflow.fileManager.actions.setImportType}
-            onFileUpload={workflow.startNewAnalysis}
+            onFileUpload={workflow.fileManager.actions.handleFileUpload}
             onLoadSavedAnalysis={workflow.fileManager.actions.handleLoadSavedAnalysis}
             onResumeFromFile={workflow.fileManager.actions.handleResumeFromFile}
           />
@@ -136,7 +130,7 @@ export default function RoleAnalysisPage() {
         onSaveClick={() => workflow.exportManager.actions.setSaveDialogOpen(true)}
         onExportExcel={() => workflow.exportCurrentAnalysis('excel')}
         onExportResults={handleExportResults}
-        onReset={workflow.resetWorkflow}
+        onReset={workflow.fileManager.actions.handleReset}
       />
 
       {/* Résultats d'analyse */}
@@ -160,7 +154,8 @@ export default function RoleAnalysisPage() {
               businessRoleFilter={workflow.localState.state.businessRoleFilter}
               simpleRoleFilter={workflow.localState.state.simpleRoleFilter}
               showFilters={workflow.localState.state.showFilters}
-              sharedBusinessRoleProps={sharedBusinessRoleProps}
+              sharedBusinessRoleProps={workflow.getSharedBusinessRoleProps()}
+              uiSelectedRoles={workflow.selections.state.selectedRoles}
               onBusinessRoleFilterChange={workflow.localState.actions.setBusinessRoleFilter}
               onSimpleRoleFilterChange={workflow.localState.actions.setSimpleRoleFilter}
               onToggleFilters={workflow.localState.actions.toggleFilters}

@@ -78,54 +78,60 @@ export const useAnalysisConfiguration = (
     setState(prev => ({ ...prev, ...updates }));
   }, []);
   
-  // Validation de la configuration
+  // Validation de la configuration - CORRIGÉ pour éviter les boucles
   const validateConfiguration = useCallback(() => {
-    const errors: string[] = [];
-    
-    // Validation du nom d'analyse
-    if (!state.analysisName.trim()) {
-      errors.push('Le nom de l\'analyse est requis');
-    } else if (state.analysisName.length < 3) {
-      errors.push('Le nom de l\'analyse doit contenir au moins 3 caractères');
-    }
-    
-    // Validation des poids (doivent totaliser 100%)
-    const totalWeight = state.coverageWeight + state.sizeWeight + state.usageWeight;
-    if (Math.abs(totalWeight - 100) > 0.1) {
-      errors.push(`Les poids doivent totaliser 100% (actuellement ${totalWeight}%)`);
-    }
-    
-    // Validation des valeurs individuelles des poids
-    if (state.coverageWeight < 0 || state.coverageWeight > 100) {
-      errors.push('Le poids de couverture doit être entre 0 et 100%');
-    }
-    if (state.sizeWeight < 0 || state.sizeWeight > 100) {
-      errors.push('Le poids de taille doit être entre 0 et 100%');
-    }
-    if (state.usageWeight < 0 || state.usageWeight > 100) {
-      errors.push('Le poids d\'usage doit être entre 0 et 100%');
-    }
-    
-    const isValid = errors.length === 0;
-    
-    updateState({ 
-      isValid, 
-      validationErrors: errors 
+    setState(prevState => {
+      const errors: string[] = [];
+      
+      // Validation du nom d'analyse
+      if (!prevState.analysisName.trim()) {
+        errors.push('Le nom de l\'analyse est requis');
+      } else if (prevState.analysisName.length < 3) {
+        errors.push('Le nom de l\'analyse doit contenir au moins 3 caractères');
+      }
+      
+      // Validation des poids (doivent totaliser 100%)
+      const totalWeight = prevState.coverageWeight + prevState.sizeWeight + prevState.usageWeight;
+      if (Math.abs(totalWeight - 100) > 0.1) {
+        errors.push(`Les poids doivent totaliser 100% (actuellement ${totalWeight}%)`);
+      }
+      
+      // Validation des valeurs individuelles des poids
+      if (prevState.coverageWeight < 0 || prevState.coverageWeight > 100) {
+        errors.push('Le poids de couverture doit être entre 0 et 100%');
+      }
+      if (prevState.sizeWeight < 0 || prevState.sizeWeight > 100) {
+        errors.push('Le poids de taille doit être entre 0 et 100%');
+      }
+      if (prevState.usageWeight < 0 || prevState.usageWeight > 100) {
+        errors.push('Le poids d\'usage doit être entre 0 et 100%');
+      }
+      
+      const isValid = errors.length === 0;
+      
+      // Callbacks asynchrones pour éviter les boucles
+      setTimeout(() => {
+        callbacks?.onConfigurationValid?.(isValid);
+        callbacks?.onValidationErrors?.(errors);
+      }, 0);
+      
+      return { 
+        ...prevState,
+        isValid, 
+        validationErrors: errors 
+      };
     });
     
-    callbacks?.onConfigurationValid?.(isValid);
-    callbacks?.onValidationErrors?.(errors);
-    
-    return isValid;
-  }, [state, updateState, callbacks]);
+    return true; // Retourner un boolean stable
+  }, [callbacks]);
   
   // Actions de métadonnées
   const setAnalysisName = useCallback((name: string) => {
-    updateState({ analysisName: name });
+    setState(prev => ({ ...prev, analysisName: name }));
     callbacks?.onAnalysisName?.(name);
-    // Re-validation après changement
+    // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
-  }, [updateState, callbacks, validateConfiguration]);
+  }, [callbacks, validateConfiguration]);
   
   const setAnalysisDescription = useCallback((description: string) => {
     updateState({ analysisDescription: description });
@@ -135,48 +141,57 @@ export const useAnalysisConfiguration = (
   // Actions de configuration des poids avec validation automatique
   const setCoverageWeight = useCallback((weight: number) => {
     const newWeight = Math.max(0, Math.min(100, weight));
-    updateState({ coverageWeight: newWeight });
     
-    const weights = { 
-      coverageWeight: newWeight, 
-      sizeWeight: state.sizeWeight, 
-      usageWeight: state.usageWeight 
-    };
-    callbacks?.onWeights?.(weights);
+    setState(prev => {
+      const weights = { 
+        coverageWeight: newWeight, 
+        sizeWeight: prev.sizeWeight, 
+        usageWeight: prev.usageWeight 
+      };
+      callbacks?.onWeights?.(weights);
+      
+      return { ...prev, coverageWeight: newWeight };
+    });
     
-    // Re-validation après changement
+    // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
-  }, [updateState, callbacks, state.sizeWeight, state.usageWeight, validateConfiguration]);
+  }, [callbacks, validateConfiguration]);
   
   const setSizeWeight = useCallback((weight: number) => {
     const newWeight = Math.max(0, Math.min(100, weight));
-    updateState({ sizeWeight: newWeight });
     
-    const weights = { 
-      coverageWeight: state.coverageWeight, 
-      sizeWeight: newWeight, 
-      usageWeight: state.usageWeight 
-    };
-    callbacks?.onWeights?.(weights);
+    setState(prev => {
+      const weights = { 
+        coverageWeight: prev.coverageWeight, 
+        sizeWeight: newWeight, 
+        usageWeight: prev.usageWeight 
+      };
+      callbacks?.onWeights?.(weights);
+      
+      return { ...prev, sizeWeight: newWeight };
+    });
     
-    // Re-validation après changement
+    // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
-  }, [updateState, callbacks, state.coverageWeight, state.usageWeight, validateConfiguration]);
+  }, [callbacks, validateConfiguration]);
   
   const setUsageWeight = useCallback((weight: number) => {
     const newWeight = Math.max(0, Math.min(100, weight));
-    updateState({ usageWeight: newWeight });
     
-    const weights = { 
-      coverageWeight: state.coverageWeight, 
-      sizeWeight: state.sizeWeight, 
-      usageWeight: newWeight 
-    };
-    callbacks?.onWeights?.(weights);
+    setState(prev => {
+      const weights = { 
+        coverageWeight: prev.coverageWeight, 
+        sizeWeight: prev.sizeWeight, 
+        usageWeight: newWeight 
+      };
+      callbacks?.onWeights?.(weights);
+      
+      return { ...prev, usageWeight: newWeight };
+    });
     
-    // Re-validation après changement
+    // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
-  }, [updateState, callbacks, state.coverageWeight, state.sizeWeight, validateConfiguration]);
+  }, [callbacks, validateConfiguration]);
   
   const setIncludeFrequency = useCallback((include: boolean) => {
     updateState({ includeFrequency: include });
@@ -186,17 +201,18 @@ export const useAnalysisConfiguration = (
   const setWeights = useCallback((weights: { coverageWeight: number; sizeWeight: number; usageWeight: number }) => {
     const { coverageWeight, sizeWeight, usageWeight } = weights;
     
-    updateState({
+    setState(prev => ({
+      ...prev,
       coverageWeight: Math.max(0, Math.min(100, coverageWeight)),
       sizeWeight: Math.max(0, Math.min(100, sizeWeight)),
       usageWeight: Math.max(0, Math.min(100, usageWeight)),
-    });
+    }));
     
     callbacks?.onWeights?.(weights);
     
-    // Re-validation après changement
+    // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
-  }, [updateState, callbacks, validateConfiguration]);
+  }, [callbacks, validateConfiguration]);
   
   // Action pour réinitialiser la configuration
   const resetConfiguration = useCallback(() => {
@@ -219,26 +235,30 @@ export const useAnalysisConfiguration = (
   
   // Action pour importer une configuration
   const importConfiguration = useCallback((config: Partial<AnalysisConfigurationState>) => {
-    updateState(config);
+    setState(prev => {
+      const newState = { ...prev, ...config };
+      
+      // Notifier les callbacks des changements
+      if (config.analysisName !== undefined) {
+        callbacks?.onAnalysisName?.(config.analysisName);
+      }
+      if (config.analysisDescription !== undefined) {
+        callbacks?.onAnalysisDescription?.(config.analysisDescription);
+      }
+      if (config.coverageWeight !== undefined || config.sizeWeight !== undefined || config.usageWeight !== undefined) {
+        callbacks?.onWeights?.({
+          coverageWeight: config.coverageWeight ?? prev.coverageWeight,
+          sizeWeight: config.sizeWeight ?? prev.sizeWeight,
+          usageWeight: config.usageWeight ?? prev.usageWeight,
+        });
+      }
+      
+      return newState;
+    });
     
-    // Notifier les callbacks des changements
-    if (config.analysisName !== undefined) {
-      callbacks?.onAnalysisName?.(config.analysisName);
-    }
-    if (config.analysisDescription !== undefined) {
-      callbacks?.onAnalysisDescription?.(config.analysisDescription);
-    }
-    if (config.coverageWeight !== undefined || config.sizeWeight !== undefined || config.usageWeight !== undefined) {
-      callbacks?.onWeights?.({
-        coverageWeight: config.coverageWeight ?? state.coverageWeight,
-        sizeWeight: config.sizeWeight ?? state.sizeWeight,
-        usageWeight: config.usageWeight ?? state.usageWeight,
-      });
-    }
-    
-    // Re-validation après import
+    // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
-  }, [updateState, callbacks, state, validateConfiguration]);
+  }, [callbacks, validateConfiguration]);
   
   // Actions groupées
   const actions: ConfigurationActions = {
