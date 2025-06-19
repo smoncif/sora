@@ -25,6 +25,7 @@ import { AnalysisResultsSection } from 'lib/components/analysis/AnalysisResultsS
 import { BusinessRoleAnalysisCard } from 'lib/components/analysis/BusinessRoleAnalysisCard';
 import { useAnalysisWorkflow } from 'lib/hooks/analysis/useAnalysisWorkflow';
 import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
+import { FocusProvider } from 'lib/contexts/FocusContext';
 
 /**
  * Page d'analyse des rôles métier optimisée
@@ -59,9 +60,19 @@ export default function RoleAnalysisPage() {
     }
   }, [workflow.fileManager.state.analysisResult, workflow.selections.state.selectedRoles]);
 
+  // 🚀 OPTIMISÉ : Handler pour le Context Focus
+  const handleFocusChange = React.useCallback((businessRole: string | null) => {
+    if (businessRole) {
+      workflow.localState.actions.handleFocusBusinessRole(businessRole);
+    } else {
+      workflow.localState.actions.handleExitFocus();
+    }
+  }, [workflow.localState.actions]);
+
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* En-tête moderne et épuré */}
+    <FocusProvider onFocusChange={handleFocusChange}>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* En-tête moderne et épuré */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -156,7 +167,6 @@ export default function RoleAnalysisPage() {
               businessRolesToShow={workflow.calculations.businessRolesToShow}
               totalBusinessRolePages={workflow.calculations.totalBusinessRolePages}
               currentBusinessRolePage={workflow.localState.state.currentBusinessRolePage}
-              focusedBusinessRole={workflow.localState.state.focusedBusinessRole}
               businessRoleFilter={workflow.localState.state.businessRoleFilter}
               simpleRoleFilter={workflow.localState.state.simpleRoleFilter}
               showFilters={workflow.localState.state.showFilters}
@@ -230,5 +240,6 @@ export default function RoleAnalysisPage() {
         </DialogActions>
       </Dialog>
     </Container>
+    </FocusProvider>
   );
 }

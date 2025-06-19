@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { TransactionBlock } from '../TransactionBlock';
 import { CoverageAnalysis, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
+import { useBusinessRoleFocus } from '../../../contexts/FocusContext';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
 const SimpleRoleRow = React.memo(function SimpleRoleRow({
@@ -220,9 +221,6 @@ export interface BusinessRoleAnalysisCardProps {
   usageWeight: number;
   businessRoleTransactions: any[];
   simpleRoleTransactions: SimpleRoleTransaction[];
-  focusedBusinessRole: string | null;
-  onFocusBusinessRole: (businessRole: string) => void;
-  onExitFocus: () => void;
   simpleRoleFilter: string;
   globalSelectedRoles: Set<string>;
   onGlobalSelectionChange: (businessRole: string, selectedRoles: Set<string>) => void;
@@ -258,7 +256,7 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     prevProps.coverageWeight !== nextProps.coverageWeight ||
     prevProps.sizeWeight !== nextProps.sizeWeight ||
     prevProps.usageWeight !== nextProps.usageWeight ||
-    prevProps.focusedBusinessRole !== nextProps.focusedBusinessRole ||
+
     prevProps.simpleRoleFilter !== nextProps.simpleRoleFilter
   ) {
     console.log(`[PERF] CHANGE détecté pour ${businessRole} - Props de base`);
@@ -321,10 +319,8 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     return false;
   }
 
-  // 🚀 AMÉLIORATION : Comparaison des fonctions handlers
+  // 🚀 AMÉLIORATION : Comparaison des fonctions handlers (focus maintenant géré par Context)
   if (
-    prevProps.onFocusBusinessRole !== nextProps.onFocusBusinessRole ||
-    prevProps.onExitFocus !== nextProps.onExitFocus ||
     prevProps.onGlobalSelectionChange !== nextProps.onGlobalSelectionChange ||
     prevProps.onToggleZeroCoverageRoles !== nextProps.onToggleZeroCoverageRoles
   ) {
@@ -345,9 +341,6 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   usageWeight,
   businessRoleTransactions,
   simpleRoleTransactions,
-  focusedBusinessRole,
-  onFocusBusinessRole,
-  onExitFocus,
   simpleRoleFilter,
   globalSelectedRoles,
   onGlobalSelectionChange,
@@ -360,6 +353,9 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [expandedRow, setExpandedRow] = React.useState<number | null>(null);
+  
+  // 🚀 OPTIMISATION : Utilisation du Context Focus isolé
+  const { isFocused: isInFocusMode, handleFocus, handleExitFocus } = useBusinessRoleFocus(analysis.businessRole);
   
   // États pour le système de tri
   const [sortField, setSortField] = React.useState<'roleName' | 'coveragePercentage' | 'sizeScore' | 'usageFrequency' | 'globalScore'>('globalScore');
@@ -925,7 +921,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     );
   }, [tooltipSortField, tooltipSortDirection, handleTooltipSort, getTooltipSortIcon, theme]);
 
-  const isInFocusMode = focusedBusinessRole === analysis.businessRole;
+  // ✅ isInFocusMode maintenant fourni par useBusinessRoleFocus
 
   // Ajuster automatiquement le nombre de lignes en mode focus
   React.useEffect(() => {
@@ -1157,7 +1153,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               <Button
                 size="small"
                 variant="outlined"
-                onClick={() => onFocusBusinessRole(analysis.businessRole)}
+                onClick={handleFocus}
                 sx={{ minWidth: 100 }}
               >
                 Focus
@@ -1166,7 +1162,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               <Button
                 size="small"
                 variant="contained"
-                onClick={onExitFocus}
+                onClick={handleExitFocus}
                 sx={{ minWidth: 100 }}
               >
                 Quitter Focus

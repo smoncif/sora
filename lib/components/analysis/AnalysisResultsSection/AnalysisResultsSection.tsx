@@ -23,6 +23,7 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
+import { useFocus } from '../../../contexts/FocusContext';
 
 export interface AnalysisResultsSectionProps {
   // États des données
@@ -30,7 +31,6 @@ export interface AnalysisResultsSectionProps {
   businessRolesToShow: any[];
   totalBusinessRolePages: number;
   currentBusinessRolePage: number;
-  focusedBusinessRole: string | null;
   
   // Filtres
   businessRoleFilter: string;
@@ -56,7 +56,6 @@ export function AnalysisResultsSection({
   businessRolesToShow,
   totalBusinessRolePages,
   currentBusinessRolePage,
-  focusedBusinessRole,
   businessRoleFilter,
   simpleRoleFilter,
   showFilters,
@@ -69,6 +68,9 @@ export function AnalysisResultsSection({
   BusinessRoleAnalysisCardComponent,
 }: AnalysisResultsSectionProps) {
   const theme = useTheme();
+  
+  // 🚀 OPTIMISÉ : Hook Focus Context pour gérer l'état du focus
+  const { focusedBusinessRole } = useFocus();
 
   // 🚀 OPTIMISÉ : Fonction stable pour récupérer les rôles sélectionnés par rôle métier
   // Utilise directement la fonction fournie par sharedBusinessRoleProps pour éviter les re-renders

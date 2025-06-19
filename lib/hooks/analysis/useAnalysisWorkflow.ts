@@ -99,9 +99,6 @@ export interface SharedBusinessRoleProps {
   }>;
   businessRoleTransactions: any[];
   simpleRoleTransactions: any[];
-  focusedBusinessRole: string | null;
-  onFocusBusinessRole: (businessRole: string) => void;
-  onExitFocus: () => void;
   onGlobalSelectionChange: (businessRole: string, selectedRoles: Set<string>) => void;
 }
 
@@ -284,7 +281,7 @@ export const useAnalysisWorkflow = (
     console.log('[PERF][useEffect] fileManager.state', fileManager.state);
   }, [fileManager.state]);
   
-  // Getter pour props partagées des composants
+  // 🚀 OPTIMISÉ : Getter pour props partagées des composants (focus géré par Context)
   const getSharedBusinessRoleProps = useCallback((): SharedBusinessRoleProps => {
     return {
       coverageWeight: configuration.state.coverageWeight,
@@ -300,15 +297,15 @@ export const useAnalysisWorkflow = (
       transactionDetailsCache: staticData.transactionDetailsCache, // 🚀 UTILISER LES DONNÉES STATIQUES
       businessRoleTransactions: fileManager.state.analysisResult?.businessRoleTransactions || [],
       simpleRoleTransactions: fileManager.state.analysisResult?.simpleRoleTransactions || [],
-      focusedBusinessRole: localState.state.focusedBusinessRole,
-      onFocusBusinessRole: localState.actions.handleFocusBusinessRole,
-      onExitFocus: localState.actions.handleExitFocus,
       onGlobalSelectionChange: selections.handleSelectionChange,
     };
   }, [
-    configuration.state,
-    localState.state,
-    localState.actions,
+    configuration.state.coverageWeight,
+    configuration.state.sizeWeight,
+    configuration.state.usageWeight,
+    configuration.state.includeFrequency,
+    localState.state.simpleRoleFilter,
+    localState.state.showZeroCoverageRoles,
     selections.handleSelectionChange,
     selections.getSelectedRolesForBusinessRole,
     staticData.staticScoresCache, // 🚀 DÉPENDANCE STATIQUE
