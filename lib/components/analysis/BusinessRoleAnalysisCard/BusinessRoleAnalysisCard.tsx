@@ -33,6 +33,7 @@ import { CoverageAnalysis, SimpleRoleTransaction } from 'lib/types/roleAnalysis'
 import { useBusinessRoleFocus } from '../../../contexts/FocusContext';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
+// 🚀 OPTIMISÉ : SimpleRoleRow avec memoization avancée
 const SimpleRoleRow = React.memo(function SimpleRoleRow({
   role,
   index,
@@ -99,8 +100,8 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
             label={`${role.coveragePercentage.toFixed(1)}%`}
             size="small"
             sx={{
-              backgroundColor: alpha(getScoreColor(role.coveragePercentage), 0.1),
-              color: getScoreColor(role.coveragePercentage),
+                        backgroundColor: alpha(getScoreColor(role.coveragePercentage), 0.1),
+          color: getScoreColor(role.coveragePercentage),
               fontWeight: 600,
               minWidth: 60
             }}
@@ -129,8 +130,8 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
             label={role.globalScore.toFixed(1)}
             size="small"
             sx={{
-              backgroundColor: alpha(getScoreColor(role.globalScore), 0.1),
-              color: getScoreColor(role.globalScore),
+                        backgroundColor: alpha(getScoreColor(role.globalScore), 0.1),
+          color: getScoreColor(role.globalScore),
               fontWeight: 600
             }}
           />
@@ -333,6 +334,36 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
   return true;
 };
 
+// Cache global pour les détails des rôles - PERSISTANT entre renders
+const detailsGlobalCache = new Map<string, any>();
+
+// Version avec cache des remainingUsageScore pour éviter les reduce répétés
+const usageScoreCache = new Map<string, number>();
+
+// 🚀 NETTOYAGE AUTOMATIQUE : Éviter la fuite mémoire des caches
+const cleanupCaches = () => {
+  const maxCacheSize = 1000; // Limite pour éviter la fuite mémoire
+  
+  if (detailsGlobalCache.size > maxCacheSize) {
+    console.log(`[PERF] Nettoyage cache détails: ${detailsGlobalCache.size} → ${maxCacheSize / 2}`);
+    // Garder seulement la moitié des entrées les plus récentes
+    const entries = Array.from(detailsGlobalCache.entries());
+    detailsGlobalCache.clear();
+    entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
+      detailsGlobalCache.set(key, value);
+    });
+  }
+  
+  if (usageScoreCache.size > maxCacheSize) {
+    console.log(`[PERF] Nettoyage cache usage: ${usageScoreCache.size} → ${maxCacheSize / 2}`);
+    const entries = Array.from(usageScoreCache.entries());
+    usageScoreCache.clear();
+    entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
+      usageScoreCache.set(key, value);
+    });
+  }
+};
+
 export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysisCard({ 
   analysis, 
   includeFrequency,
@@ -512,13 +543,25 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     };
   }, [selectedRoles, analysis.simpleRoles, analysis.uniqueTransactions, staticData]);
 
-  // 🚀 FONCTION DE DÉTAILS OPTIMISÉE (utilise les données pré-calculées)
+  // 🚀 OPTIMISÉ : Hash des sélections pour détecter les vrais changements
+  const selectionHash = React.useMemo(() => {
+    return Array.from(selectedRoles).sort().join('|');
+  }, [selectedRoles]);
+
+  // 🚀 FONCTION DE DÉTAILS OPTIMISÉE v2 (cache global + éviter reduce répétés)
   const getDetails = React.useCallback((roleName: string) => {
+    // 🚀 CACHE GLOBAL : Utilisation du cache persistent entre renders
+    const globalCacheKey = `${analysis.businessRole}:${roleName}:${selectionHash}`;
+    
+    if (detailsGlobalCache.has(globalCacheKey)) {
+      return detailsGlobalCache.get(globalCacheKey);
+    }
+
     const allSimpleRoleTx = staticData.transactionsByRole.get(roleName) || [];
     const roleData = analysis.simpleRoles.find(r => r.roleName === roleName);
     
     if (!roleData) {
-      return { 
+      const emptyResult = { 
         covered: [], 
         coveredButAlreadySelected: [], 
         nonUtilisees: [], 
@@ -526,29 +569,42 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         orphelines: [], 
         total: 0 
       };
+      detailsGlobalCache.set(globalCacheKey, emptyResult);
+      return emptyResult;
     }
 
-    const covered = (roleData.coveredTransactions || []).filter(tx => 
-      dynamicData.remainingTxSet.has(tx)
-    );
+    // 🚀 OPTIMISÉ : Calculs avec Sets pré-existants (plus rapide que filter)
+    const coveredTransactions = roleData.coveredTransactions || [];
+    const covered: string[] = [];
+    const coveredButAlreadySelected: string[] = [];
     
-    const coveredButAlreadySelected = (roleData.coveredTransactions || []).filter(tx => 
-      !dynamicData.remainingTxSet.has(tx) && staticData.businessRoleTxSet.has(tx)
-    );
+    // Une seule boucle au lieu de 2 filter()
+    for (const tx of coveredTransactions) {
+      if (dynamicData.remainingTxSet.has(tx)) {
+        covered.push(tx);
+      } else if (staticData.businessRoleTxSet.has(tx)) {
+        coveredButAlreadySelected.push(tx);
+      }
+    }
     
+    // 🚀 OPTIMISÉ : Calcul des non utilisées avec Set intersection
     const nonUtilisees = allSimpleRoleTx.filter(tx => 
       !staticData.businessRoleTxSet.has(tx)
     );
     
-    const nonCouvertes = staticData.originalTransactions.filter(tx => 
-      !allSimpleRoleTx.includes(tx) && dynamicData.remainingTxSet.has(tx)
-    );
+    // 🚀 OPTIMISÉ : Pre-filter avec Sets pour éviter double parcours
+    const nonCouvertes: string[] = [];
+    for (const tx of staticData.originalTransactions) {
+      if (!allSimpleRoleTx.includes(tx) && dynamicData.remainingTxSet.has(tx)) {
+        nonCouvertes.push(tx);
+      }
+    }
     
     const orphelines = staticData.maxAchievableInfo.orphanTransactions.filter(tx =>
       dynamicData.remainingTxSet.has(tx)
     );
 
-    return { 
+    const result = { 
       covered, 
       coveredButAlreadySelected, 
       nonUtilisees, 
@@ -556,18 +612,45 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       orphelines, 
       total: covered.length + nonUtilisees.length + nonCouvertes.length + orphelines.length 
     };
-  }, [staticData, analysis.simpleRoles, dynamicData]);
 
-  // 🚀 SCORES ENRICHIS (optimisés avec séparation statique/dynamique)
+    // 🚀 CACHE GLOBAL : Sauvegarder pour éviter recalculs
+    detailsGlobalCache.set(globalCacheKey, result);
+    return result;
+  }, [staticData, analysis.simpleRoles, analysis.businessRole, dynamicData, selectionHash]);
+
+  // 🚀 OPTIMISÉ : Stabilisation des coefficients de pondération
+  const stableWeights = React.useMemo(() => ({
+    coverage: coverageWeight / 100,
+    size: sizeWeight / 100,
+    usage: usageWeight / 100
+  }), [coverageWeight, sizeWeight, usageWeight]);
+
+  // 🚀 OPTIMISÉ : Stabilisation des critères de filtrage et tri
+  const stableFilterSort = React.useMemo(() => ({
+    filter: simpleRoleFilter.trim().toLowerCase(),
+    sortField,
+    sortDirection,
+    shouldShowZeroCoverage
+  }), [simpleRoleFilter, sortField, sortDirection, shouldShowZeroCoverage]);
+
+  // 🚀 SCORES ENRICHIS v2 (cache global + optimisation reduce)
   const enrichedRoles = React.useMemo(() => {
-    console.log(`[PERF] Calcul des SCORES pour ${analysis.businessRole} - ${analysis.simpleRoles.length} rôles`);
+    console.log(`[PERF] 🚀 Calcul OPTIMISÉ v2 des SCORES pour ${analysis.businessRole} - ${analysis.simpleRoles.length} rôles`);
     
-    return analysis.simpleRoles
-      .map(role => {
-        // Note: Hash calculé pour référence future, mais pas encore utilisé
-        // const roleSelectionHash = `${analysis.businessRole}:${role.roleName}:${Array.from(selectedRoles).sort().join(',')}`;
+    // 🚀 NETTOYAGE : Maintenir la performance des caches
+    cleanupCaches();
+    
+    // Processing en chunks pour éviter les blocages UI
+    const CHUNK_SIZE = 50;
+    const processChunk = (startIdx: number, endIdx: number) => {
+      return analysis.simpleRoles.slice(startIdx, endIdx).map(role => {
+        // 🚀 CACHE GLOBAL : Vérifier le cache des détails
+        const globalCacheKey = `${analysis.businessRole}:${role.roleName}:${selectionHash}`;
+        let details = detailsGlobalCache.get(globalCacheKey);
         
-        const details = getDetails(role.roleName);
+        if (!details) {
+          details = getDetails(role.roleName);
+        }
         
         // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache
         const dynamicCoveragePercentage = dynamicData.totalRemainingTransactions > 0 
@@ -575,8 +658,8 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           : 0;
 
         // 🚀 CACHE STATIQUE : Récupération rapide des scores pré-calculés
-        const cacheKey = `${analysis.businessRole}:${role.roleName}`;
-        const cachedScores = staticScoresCache.get(cacheKey) || {
+        const staticCacheKey = `${analysis.businessRole}:${role.roleName}`;
+        const cachedScores = staticScoresCache.get(staticCacheKey) || {
           sizeScore: 0,
           usageFrequency: 0,
           totalRoleTransactions: 0,
@@ -585,22 +668,33 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           totalBusinessRoleExecutions: 0
         };
 
-        // 🚀 CALCUL INCRÉMENTAL : Usage uniquement pour les transactions restantes
-        const remainingUsageScore = details.covered.reduce((sum, tx) => {
-          return sum + (dynamicData.remainingExecutionMap.get(tx) || 0);
-        }, 0);
+        // 🚀 OPTIMISATION MAJEURE : Cache des remainingUsageScore pour éviter reduce répétés
+        const usageCacheKey = `${globalCacheKey}:usage`;
+        let remainingUsageScore = usageScoreCache.get(usageCacheKey);
+        
+        if (remainingUsageScore === undefined) {
+          // 🚀 OPTIMISÉ : Calcul direct avec Map.get au lieu de reduce
+          remainingUsageScore = 0;
+          for (const tx of details.covered) {
+            const execCount = dynamicData.remainingExecutionMap.get(tx);
+            if (execCount !== undefined) {
+              remainingUsageScore += execCount;
+            }
+          }
+          usageScoreCache.set(usageCacheKey, remainingUsageScore);
+        }
 
         const dynamicUsagePercentage = dynamicData.totalRemainingExecutions > 0
           ? (remainingUsageScore / dynamicData.totalRemainingExecutions) * 100
           : 0;
 
-        // 🚀 SCORE PONDÉRÉ : Calcul rapide avec coefficients pré-normalisés
+        // 🚀 SCORE PONDÉRÉ OPTIMISÉ : Calcul rapide avec coefficients stables
         const globalScore = includeFrequency
-          ? (dynamicCoveragePercentage * (coverageWeight / 100)) +
-            (cachedScores.sizeScore * (sizeWeight / 100)) +
-            (dynamicUsagePercentage * (usageWeight / 100))
-          : (dynamicCoveragePercentage * (coverageWeight / 100)) +
-            (cachedScores.sizeScore * (sizeWeight / 100));
+          ? (dynamicCoveragePercentage * stableWeights.coverage) +
+            (cachedScores.sizeScore * stableWeights.size) +
+            (dynamicUsagePercentage * stableWeights.usage)
+          : (dynamicCoveragePercentage * stableWeights.coverage) +
+            (cachedScores.sizeScore * stableWeights.size);
 
         return {
           ...role,
@@ -617,64 +711,49 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
             cachedSimpleRoleExecutions: cachedScores.simpleRoleExecutions
           })
         };
-      })
-      .filter(role => {
-        // 🎯 FILTRAGE : par nom de rôle
-        if (simpleRoleFilter.trim()) {
-          if (!role.roleName.toLowerCase().includes(simpleRoleFilter.toLowerCase())) {
-            return false;
-          }
-        }
-        
-        // 🎯 NOUVEAU : Filtrage par affichage des rôles 0% couverture
-        if (!shouldShowZeroCoverage && role.coveragePercentage === 0) {
-          return false;
-        }
-        
-        return true;
-      })
-      .sort((a, b) => {
-        let aValue: number;
-        let bValue: number;
-        
-        switch (sortField) {
-          case 'roleName':
-            return sortDirection === 'asc' 
-              ? a.roleName.localeCompare(b.roleName)
-              : b.roleName.localeCompare(a.roleName);
-          case 'coveragePercentage':
-            aValue = a.coveragePercentage;
-            bValue = b.coveragePercentage;
-            break;
-          case 'sizeScore':
-            aValue = a.sizeScore;
-            bValue = b.sizeScore;
-            break;
-          case 'usageFrequency':
-            aValue = a.usageFrequency;
-            bValue = b.usageFrequency;
-            break;
-          case 'globalScore':
-          default:
-            aValue = a.globalScore;
-            bValue = b.globalScore;
-            break;
-        }
-        
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       });
+    };
+
+    // Traitement par chunks
+    let allProcessedRoles: any[] = [];
+    for (let i = 0; i < analysis.simpleRoles.length; i += CHUNK_SIZE) {
+      const endIdx = Math.min(i + CHUNK_SIZE, analysis.simpleRoles.length);
+      allProcessedRoles = allProcessedRoles.concat(processChunk(i, endIdx));
+    }
+
+    // 🚀 FILTRAGE OPTIMISÉ : Une seule passe avec conditions pré-calculées
+    const filteredRoles = stableFilterSort.filter 
+      ? allProcessedRoles.filter(role => 
+          role.roleName.toLowerCase().includes(stableFilterSort.filter) &&
+          (stableFilterSort.shouldShowZeroCoverage || role.coveragePercentage > 0)
+        )
+      : allProcessedRoles.filter(role => 
+          stableFilterSort.shouldShowZeroCoverage || role.coveragePercentage > 0
+        );
+
+    // 🚀 TRI OPTIMISÉ : Comparateur stable
+    return filteredRoles.sort((a, b) => {
+      if (stableFilterSort.sortField === 'roleName') {
+        const comparison = a.roleName.localeCompare(b.roleName);
+        return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
+      }
+      
+      const aValue = a[stableFilterSort.sortField] || 0;
+      const bValue = b[stableFilterSort.sortField] || 0;
+      const comparison = aValue - bValue;
+      
+      return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
+    });
   }, [
     analysis.simpleRoles, 
+    analysis.businessRole,
     getDetails, 
-    simpleRoleFilter, 
-    sortField, 
-    sortDirection, 
-    shouldShowZeroCoverage,
+    stableFilterSort,
     dynamicData,
     includeFrequency,
-    coverageWeight,
-    sizeWeight,
-    usageWeight
+    stableWeights,
+    staticScoresCache,
+    selectionHash
   ]);
 
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -686,6 +765,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     setPage(0);
   };
 
+  // 🚀 OPTIMISÉ : Handler stable pour les sélections
   const handleSelectionChange = React.useCallback((roleName: string, isSelected: boolean) => {
     const newSelected = new Set(selectedRoles);
     if (isSelected) {
@@ -697,24 +777,37 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     onGlobalSelectionChange(analysis.businessRole, newSelected);
   }, [selectedRoles, onGlobalSelectionChange, analysis.businessRole]);
 
-  const paginatedRoles = enrichedRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // 🚀 OPTIMISÉ : Pagination stable
+  const stablePaginationHandlers = React.useMemo(() => ({
+    changePage: (event: unknown, newPage: number) => setPage(newPage),
+    changeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement>) => {
+      setRowsPerPage(parseInt(event.target.value, 10));
+      setPage(0);
+    }
+  }), []);
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return theme.palette.success.main;
-    if (score >= 60) return theme.palette.warning.main;
-    if (score >= 40) return theme.palette.warning.light;
-    return theme.palette.error.main;
-  };
+  // 🚀 OPTIMISÉ : Fonctions utilitaires stables
+  const stableUtilityFunctions = React.useMemo(() => ({
+    getScoreColor: (score: number) => {
+      if (score >= 80) return theme.palette.success.main;
+      if (score >= 60) return theme.palette.warning.main;
+      if (score >= 40) return theme.palette.warning.light;
+      return theme.palette.error.main;
+    },
+    getSortIcon: (field: typeof sortField) => {
+      if (sortField !== field) return null;
+      return sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
+    },
+    getTooltipSortIcon: (field: typeof tooltipSortField) => {
+      if (tooltipSortField !== field) return null;
+      return tooltipSortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
+    }
+  }), [theme.palette, sortField, sortDirection, tooltipSortField, tooltipSortDirection]);
 
-  const getSortIcon = (field: typeof sortField) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
-  };
-
-  const getTooltipSortIcon = (field: typeof tooltipSortField) => {
-    if (tooltipSortField !== field) return null;
-    return tooltipSortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
-  };
+  // 🚀 OPTIMISÉ : Pagination memoizée pour éviter recalculs
+  const paginatedRoles = React.useMemo(() => {
+    return enrichedRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [enrichedRoles, page, rowsPerPage]);
 
   // Composant de tableau pour les tooltips avec tri - VERSION CORRIGÉE
   const TransactionTooltipTable = React.useCallback(({ 
@@ -828,7 +921,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   Transaction
                 </span>
-                {getTooltipSortIcon('transaction')}
+                {stableUtilityFunctions.getTooltipSortIcon('transaction')}
               </Box>
               <Box 
                 sx={{ 
@@ -850,7 +943,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                 onClick={() => handleTooltipSort('execution')}
               >
                 <span>Exec.</span>
-                {getTooltipSortIcon('execution')}
+                {stableUtilityFunctions.getTooltipSortIcon('execution')}
               </Box>
             </Box>
 
@@ -919,7 +1012,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         )}
       </Box>
     );
-  }, [tooltipSortField, tooltipSortDirection, handleTooltipSort, getTooltipSortIcon, theme]);
+  }, [tooltipSortField, tooltipSortDirection, handleTooltipSort, stableUtilityFunctions]);
 
   // ✅ isInFocusMode maintenant fourni par useBusinessRoleFocus
 
@@ -1022,7 +1115,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   🎯 Couverture
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  <span style={{ color: getScoreColor((dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100) }}>
+                  <span style={{ color: stableUtilityFunctions.getScoreColor((dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100) }}>
                     {dynamicData.coveredTransactionsCount}
                   </span>
                   <span style={{ color: theme.palette.text.secondary }}> / </span>
@@ -1392,7 +1485,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   Nom du Rôle
-                  {getSortIcon('roleName')}
+                  {stableUtilityFunctions.getSortIcon('roleName')}
                 </Box>
               </TableCell>
               <TableCell 
@@ -1402,7 +1495,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   Couverture Restante
-                  {getSortIcon('coveragePercentage')}
+                                      {stableUtilityFunctions.getSortIcon('coveragePercentage')}
                 </Box>
               </TableCell>
               <TableCell 
@@ -1412,7 +1505,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   Score Taille
-                  {getSortIcon('sizeScore')}
+                                      {stableUtilityFunctions.getSortIcon('sizeScore')}
                 </Box>
               </TableCell>
               {includeFrequency && (
@@ -1423,7 +1516,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     Usage Restant
-                    {getSortIcon('usageFrequency')}
+                    {stableUtilityFunctions.getSortIcon('usageFrequency')}
                   </Box>
                 </TableCell>
               )}
@@ -1434,7 +1527,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   Score Global
-                  {getSortIcon('globalScore')}
+                  {stableUtilityFunctions.getSortIcon('globalScore')}
                 </Box>
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 600 }}>Détails</TableCell>
@@ -1451,7 +1544,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   index={index}
                   isSelected={isRoleSelected}
                   includeFrequency={includeFrequency}
-                  getScoreColor={getScoreColor}
+                  getScoreColor={stableUtilityFunctions.getScoreColor}
                   isExpanded={expandedRow === index}
                   onSelectionChange={handleSelectionChange}
                   onToggleExpansion={handleToggleExpansion}
