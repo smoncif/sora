@@ -1,12 +1,28 @@
-import { NextRequest } from 'next/server';
-import { updateSession } from './lib/utils/supabase/middleware';
+import { NextRequest, NextResponse } from 'next/server';
+import { updateSession, SupabaseAuthMiddleware } from './lib/utils/supabase/middleware';
 
 /**
  * Middleware Next.js pour rafraîchir les sessions Supabase
  * Ce middleware s'exécute sur chaque requête qui correspond au pattern matcher
  */
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  // Mettre à jour la session Supabase
+  const response = await updateSession(request);
+  
+  // Si c'est la page d'accueil (/), vérifier l'authentification
+  if (request.nextUrl.pathname === '/') {
+    const { user } = await SupabaseAuthMiddleware.checkAuthentication(request);
+    
+    if (!user) {
+      // Rediriger vers la page de login si non connecté
+      return NextResponse.redirect(new URL('/login', request.url));
+    } else {
+      // Rediriger vers le dashboard si connecté
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  }
+  
+  return response;
 }
 
 /**
