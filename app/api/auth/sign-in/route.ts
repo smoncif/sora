@@ -6,7 +6,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
  * Route API pour la connexion
  * 
  * Cette route gère la connexion côté serveur et la gestion des cookies de session.
- * Elle est utilisée comme fallback si la connexion directe côté client échoue.
+ * Elle vérifie également que l'utilisateur a confirmé son email et a été approuvé par un admin.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Créer un client Supabase avec les cookies
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,13 +48,107 @@ export async function POST(request: NextRequest) {
       password,
     });
     
-    // Gérer les erreurs
+    // Gérer les erreurs de connexion
     if (error) {
-
+      console.error('❌ Sign-in error:', error);
       return NextResponse.json(
         { success: false, message: error.message },
         { status: 401 }
       );
+    }
+
+    // Vérifier le statut de validation de l'utilisateur
+    if (data.user) {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('status, email_confirmed, admin_approved, rejection_reason')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('❌ Error fetching user profile:', profileError);
+          // Si on ne peut pas récupérer le profil, on laisse passer pour éviter de bloquer les comptes existants
+        } else if (profile) {
+          // Vérifier le statut de validation
+          switch (profile.status) {
+            case 'pending_email_confirmation':
+              // Déconnecter l'utilisateur
+              await supabase.auth.signOut();
+              return NextResponse.json(
+                { 
+                  success: false, 
+                  message: 'Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception.',
+                  code: 'EMAIL_NOT_CONFIRMED'
+                },
+                { status: 403 }
+              );
+
+            case 'pending_admin_approval':
+              // Déconnecter l'utilisateur
+              await supabase.auth.signOut();
+              return NextResponse.json(
+                { 
+                  success: false, 
+                  message: 'Votre compte est en attente d\'approbation par un administrateur. Vous recevrez un email une fois votre compte approuvé.',
+                  code: 'PENDING_ADMIN_APPROVAL'
+                },
+                { status: 403 }
+              );
+
+            case 'rejected':
+              // Déconnecter l'utilisateur
+              await supabase.auth.signOut();
+              const rejectionMessage = profile.rejection_reason 
+                ? `Votre compte a été rejeté. Raison : ${profile.rejection_reason}`
+                : 'Votre compte a été rejeté par un administrateur.';
+              return NextResponse.json(
+                { 
+                  success: false, 
+                  message: rejectionMessage,
+                  code: 'ACCOUNT_REJECTED'
+                },
+                { status: 403 }
+              );
+
+            case 'suspended':
+              // Déconnecter l'utilisateur
+              await supabase.auth.signOut();
+              return NextResponse.json(
+                { 
+                  success: false, 
+                  message: 'Votre compte a été suspendu. Contactez un administrateur pour plus d\'informations.',
+                  code: 'ACCOUNT_SUSPENDED'
+                },
+                { status: 403 }
+              );
+
+            case 'inactive':
+              // Déconnecter l'utilisateur
+              await supabase.auth.signOut();
+              return NextResponse.json(
+                { 
+                  success: false, 
+                  message: 'Votre compte est désactivé. Contactez un administrateur.',
+                  code: 'ACCOUNT_INACTIVE'
+                },
+                { status: 403 }
+              );
+
+            case 'active':
+              // Tout est bon, continuer
+              break;
+
+            default:
+              // Statut inconnu, laisser passer par précaution
+              console.warn('⚠️ Unknown user status:', profile.status);
+              break;
+          }
+        }
+      } catch (validationError) {
+        console.error('❌ Error during validation check:', validationError);
+        // En cas d'erreur de validation, on laisse passer pour éviter de bloquer
+      }
     }
     
     // Renvoyer les données de la session
@@ -68,7 +162,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-
+    console.error('❌ Server error in sign-in:', error);
     return NextResponse.json(
       { success: false, message: 'Erreur serveur' },
       { status: 500 }

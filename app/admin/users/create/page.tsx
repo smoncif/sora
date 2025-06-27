@@ -85,7 +85,7 @@ export default function CreateUserPage() {
       
       // Redirection après un court délai
       setTimeout(() => {
-        router.push('/admin/users');
+        router.push('/settings/users-management');
       }, 1500);
     } catch (err) {
       setError('Une erreur s\'est produite lors de la création de l\'utilisateur.');
@@ -104,7 +104,7 @@ export default function CreateUserPage() {
   };
 
   const handleCancel = () => {
-    router.push('/admin/users');
+    router.push('/settings/users-management');
   };
 
   return (

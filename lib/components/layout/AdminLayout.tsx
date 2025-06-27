@@ -21,7 +21,9 @@ import {
   ListItemText,
   Divider,
   Breadcrumbs,
-  Link as MuiLink
+  Link as MuiLink,
+  Button,
+  CircularProgress
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Link from 'next/link';
@@ -59,18 +61,37 @@ interface AdminLayoutProps {
  */
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [year, setYear] = useState('');
-  const { user, signOut, isAuthenticated, hasRole } = useAuth();
+  const { user, signOut, isAuthenticated, hasRole, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Vérifier si l'utilisateur a le rôle admin
   useEffect(() => {
-    if (!isAuthenticated || !hasRole(UserRole.ADMIN)) {
-      throw new Error('access-denied: Insufficient permissions');
+    // Attendre que l'authentification soit initialisée
+    if (loading) {
+      setAuthLoading(true);
+      return;
     }
-  }, [isAuthenticated, hasRole, router]);
+
+    setAuthLoading(false);
+
+    if (!isAuthenticated) {
+      // Rediriger vers la page de connexion
+      router.push('/login?redirect=/admin');
+      return;
+    }
+
+    if (!hasRole(UserRole.ADMIN)) {
+      setAccessDenied(true);
+      return;
+    }
+
+    setAccessDenied(false);
+  }, [isAuthenticated, hasRole, router, loading]);
 
   useEffect(() => {
     setYear(new Date().getFullYear().toString());
@@ -101,7 +122,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   // Navigation pour l'administration
   const adminNavItems = [
     { text: 'Tableau de bord', href: '/admin', icon: <DashboardIcon /> },
-    { text: 'Gestion des utilisateurs', href: '/admin/users', icon: <PeopleIcon /> },
+          { text: 'Gestion des utilisateurs', href: '/settings/users-management', icon: <PeopleIcon /> },
     { text: 'Profils et permissions', href: '/admin/profiles', icon: <SecurityIcon /> },
     { text: 'Configuration des modules', href: '/admin/modules', icon: <LayersIcon /> },
     { text: 'Licences', href: '/admin/licenses', icon: <KeyIcon /> },
@@ -151,6 +172,75 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   const breadcrumbItems = generateBreadcrumbs();
+
+  // Affichage conditionnel selon l'état d'authentification
+  if (authLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress size={40} />
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            Vérification des permissions...
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Container maxWidth="sm">
+          <Box sx={{ textAlign: 'center', p: 4 }}>
+            <SecurityIcon sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
+            <Typography variant="h4" gutterBottom color="error">
+              Accès Non Autorisé
+            </Typography>
+            <Typography variant="body1" paragraph color="text.secondary">
+              Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
+            </Typography>
+            <Typography variant="body2" paragraph color="text.secondary">
+              Erreur: access-denied: Insufficient permissions
+            </Typography>
+            <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => router.push('/')}
+                startIcon={<HomeIcon />}
+              >
+                Retour à l'accueil
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => signOut()}
+                startIcon={<ExitToAppIcon />}
+              >
+                Se déconnecter
+              </Button>
+            </Box>
+            
+            {/* Informations de débogage pour l'admin */}
+            {user && (
+              <Box sx={{ mt: 4, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Informations de débogage:
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Email: {user.email}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Rôle actuel: {user.role}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Rôle requis: {UserRole.ADMIN}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Container>
+      </Box>
+    );
+  }
 
   const drawer = (
     <div>

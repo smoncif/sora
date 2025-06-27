@@ -10,11 +10,14 @@ import {
   InputAdornment,
   IconButton,
   Box,
-  Grid as MuiGrid
+  Grid as MuiGrid,
+  Typography
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from 'lib/hooks/auth/useAuth';
 import { UserRole } from 'lib/types/auth';
+import { alpha } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 
 // Pour résoudre le problème de linter avec Grid
 const Grid = MuiGrid;
@@ -43,6 +46,7 @@ export interface RegisterFormProps {
 export const RegisterForm = ({ onSuccess, redirectTo = '/login' }: RegisterFormProps) => {
   const router = useRouter();
   const { signUp } = useAuth();
+  const theme = useTheme();
   
   const [formValues, setFormValues] = useState<FormState>({
     firstName: '',
@@ -190,7 +194,58 @@ export const RegisterForm = ({ onSuccess, redirectTo = '/login' }: RegisterFormP
           Inscription réussie !
         </Alert>
         <Box sx={{ mb: 3 }}>
-          Votre compte a été créé avec succès. Veuillez vérifier votre boîte de réception pour confirmer votre adresse email.
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Votre compte a été créé avec succès. Pour pouvoir vous connecter, vous devez :
+          </Typography>
+          <Box sx={{ 
+            background: alpha(theme.palette.info.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+            borderRadius: 2,
+            p: 2,
+            mb: 2,
+            textAlign: 'left'
+          }}>
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'info.main' }}>
+              🔶 Étapes de validation requises :
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box component="span" sx={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                width: 20, 
+                height: 20, 
+                borderRadius: '50%', 
+                backgroundColor: 'warning.main', 
+                color: 'white', 
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}>
+                1
+              </Box>
+              <strong>Confirmer votre adresse email</strong> - Vérifiez votre boîte de réception et cliquez sur le lien de confirmation
+            </Typography>
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box component="span" sx={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                width: 20, 
+                height: 20, 
+                borderRadius: '50%', 
+                backgroundColor: 'warning.main', 
+                color: 'white', 
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}>
+                2
+              </Box>
+              <strong>Attendre l'approbation d'un administrateur</strong> - Un administrateur doit valider votre compte avant que vous puissiez vous connecter
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary">
+            Vous recevrez un email de confirmation une fois que votre compte aura été approuvé par un administrateur.
+          </Typography>
         </Box>
         <Button
           variant="contained"

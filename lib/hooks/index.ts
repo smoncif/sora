@@ -4,11 +4,20 @@
  * Ce dossier contient des hooks React personnalisés pour une logique d'état réutilisable.
  */
 
-// Export des sous-dossiers de hooks
-export * from './auth';
+// Export des hooks d'authentification
+export { useAuth } from './auth';
+
+// Export des hooks d'analyse
+export * from './analysis';
+
+// Export des hooks de rôles
 export * from './roles';
 
-// Export des hooks qui ne sont pas dans des sous-dossiers
+// Export des hooks d'administration
+export * from './admin';
+
+// Hooks génériques
+export { useTheme } from './useTheme';
 export { useRoleAnalysisWorker } from './useRoleAnalysisWorker';
 
 // Réexportation d'autres hooks spécifiques au besoin

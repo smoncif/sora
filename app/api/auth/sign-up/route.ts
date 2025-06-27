@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from 'lib/utils/supabase/server';
 import { UserRole } from 'lib/types/auth';
-import type { CookieOptions } from '@supabase/ssr';
 
 /**
  * Route API pour l'inscription
@@ -12,10 +10,16 @@ import type { CookieOptions } from '@supabase/ssr';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Récupérer les données du corps de la requête
-    const { email, password, firstName, lastName, role, ...otherMetadata } = await request.json();
+    const { 
+      email, 
+      password, 
+      firstName,
+      lastName,
+      role,
+      ...otherMetadata 
+    } = await request.json();
     
-    // Valider les données obligatoires
+    // Validation des champs requis
     if (!email || !password) {
       return NextResponse.json(
         { success: false, message: 'Email et mot de passe requis' },
@@ -23,45 +27,25 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Valider le mot de passe
-    if (password.length < 6) {
+    // Validation de l'email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       return NextResponse.json(
-        { success: false, message: 'Le mot de passe doit contenir au moins 6 caractères' },
+        { success: false, message: 'Format d\'email invalide' },
         { status: 400 }
       );
     }
     
-    // Créer un client Supabase avec les cookies
-    const cookieStore = cookies();
-    
-    // Utiliser la syntaxe type-safe pour la configuration des cookies
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name, value, options) {
-            try {
-              cookieStore.set(name, value, options as unknown as CookieOptions);
-            } catch (error) {
-              // Gestion silencieuse des erreurs de cookie
+    // Validation du mot de passe
+    if (password.length < 8) {
+      return NextResponse.json(
+        { success: false, message: 'Le mot de passe doit contenir au moins 8 caractères' },
+        { status: 400 }
+      );
+    }
 
-            }
-          },
-          remove(name, options) {
-            try {
-              cookieStore.delete(name);
-            } catch (error) {
-              // Gestion silencieuse des erreurs de cookie
-
-            }
-          },
-        },
-      }
-    );
+    // Créer le client Supabase
+    const supabase = await createClient();
     
     // Construire les métadonnées utilisateur
     const userMetadata = {
@@ -69,6 +53,8 @@ export async function POST(request: NextRequest) {
       last_name: lastName,
       full_name: firstName && lastName ? `${firstName} ${lastName}` : undefined,
       role: role || UserRole.USER, // Par défaut, donner le rôle utilisateur
+      status: 'pending_email_confirmation', // Statut initial : en attente de confirmation email
+      admin_approved: false, // Non approuvé par admin
       created_at: new Date().toISOString(),
       ...otherMetadata,
     };
@@ -80,13 +66,13 @@ export async function POST(request: NextRequest) {
       options: {
         data: userMetadata,
         // URL de redirection après la confirmation par email (si nécessaire)
-        emailRedirectTo: `${new URL(request.url).origin}/auth/callback`,
+        emailRedirectTo: `${new URL(request.url).origin}/auth/callback?next=pending-approval`,
       },
     });
     
     // Gérer les erreurs
     if (error) {
-
+      console.error('❌ Supabase auth error:', error);
       return NextResponse.json(
         { success: false, message: error.message },
         { status: 401 }
@@ -96,16 +82,48 @@ export async function POST(request: NextRequest) {
     // Vérifier si l'email a besoin d'être confirmé
     const emailConfirmationRequired = !data.user?.confirmed_at;
     
+    // Si l'utilisateur est créé, créer aussi un profil dans la table profiles
+    if (data.user) {
+      try {
+        // Utiliser le client admin pour créer le profil
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            username: data.user.email?.split('@')[0] || '',
+            full_name: userMetadata.full_name || '',
+            role: userMetadata.role,
+            status: 'pending_email_confirmation',
+            email_confirmed: false,
+            admin_approved: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+        if (profileError) {
+          console.error('❌ Error creating profile:', profileError);
+          // Continuer même si la création du profil échoue
+        }
+      } catch (profileCreationError) {
+        console.error('❌ Error in profile creation:', profileCreationError);
+        // Continuer même si la création du profil échoue
+      }
+    }
+    
     // Renvoyer les données de l'utilisateur
     return NextResponse.json({
       success: true,
       data: {
         user: data.user,
         emailConfirmationRequired,
+        message: emailConfirmationRequired 
+          ? 'Compte créé avec succès. Veuillez vérifier votre email pour confirmer votre compte, puis attendre l\'approbation d\'un administrateur.'
+          : 'Compte créé avec succès. En attente d\'approbation par un administrateur.',
       },
     });
   } catch (error: any) {
-
+    console.error('❌ Server error in sign-up:', error);
     return NextResponse.json(
       { success: false, message: 'Erreur serveur' },
       { status: 500 }
