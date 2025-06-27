@@ -11,7 +11,11 @@
     "test": "jest",
     "test:auth": "jest tests/auth",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel",
+    "vercel-build": "npm run build",
+    "postinstall": "npm run generate-templates"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

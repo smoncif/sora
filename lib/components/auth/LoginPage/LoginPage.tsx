@@ -9,7 +9,7 @@ import {
   Button,
 } from '@mui/material';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { LoginForm } from '../LoginForm';
 
 /**
@@ -22,6 +22,15 @@ export interface LoginPageProps {
   redirectAfterLogin?: string;
 }
 
+// Composant de chargement pour le Suspense
+const LoginFormSkeleton = () => (
+  <Box sx={{ p: 2, textAlign: 'center' }}>
+    <Typography variant="body2" color="text.secondary">
+      Chargement...
+    </Typography>
+  </Box>
+);
+
 export const LoginPage = ({ redirectAfterLogin }: LoginPageProps) => {
   // Effet pour compléter la déconnexion si l'utilisateur vient d'être déconnecté
   useEffect(() => {
@@ -33,7 +42,7 @@ export const LoginPage = ({ redirectAfterLogin }: LoginPageProps) => {
           credentials: 'include',
         });
       } catch (error) {
-
+        // Ignorer les erreurs de déconnexion
       }
     };
     
@@ -69,8 +78,10 @@ export const LoginPage = ({ redirectAfterLogin }: LoginPageProps) => {
               Connexion
             </Typography>
 
-            {/* Formulaire de connexion */}
-            <LoginForm redirectAfterLogin={redirectAfterLogin} />
+            {/* Formulaire de connexion avec Suspense */}
+            <Suspense fallback={<LoginFormSkeleton />}>
+              <LoginForm redirectAfterLogin={redirectAfterLogin} />
+            </Suspense>
 
             {/* Liens vers d'autres pages */}
             <Box sx={{ mt: 2, textAlign: 'center' }}>
