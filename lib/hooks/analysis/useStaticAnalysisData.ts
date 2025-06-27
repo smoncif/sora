@@ -140,9 +140,9 @@ export const useStaticAnalysisData = (
         const totalBusinessRoleExecutions = currentBusinessRoleTransactions
           .reduce((sum: number, tx: any) => sum + (tx.executionCount || 0), 0);
         
-        // Score de taille (basé sur le nombre de transactions)
+        // Score de taille (basé sur le nombre de transactions couvertes par le rôle simple)
         const sizeScore = totalRoleTransactions > 0 
-          ? Math.min(100, (totalRoleTransactions / Math.max(1, analysis.totalTransactions)) * 100)
+          ? Math.min(100, (originalCoveredCount / totalRoleTransactions) * 100)
           : 0;
         
         // Score d'usage global (basé sur les exécutions totales)

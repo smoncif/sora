@@ -18,17 +18,14 @@ import {
   TablePagination,
   useTheme,
   alpha,
-  Switch,
-  FormControlLabel,
   Checkbox,
 } from '@mui/material';
 import {
   ArrowUpward,
   ArrowDownward,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import { TransactionBlock } from '../TransactionBlock';
+import { ZeroCoverageToggle } from '../ZeroCoverageToggle';
 import { CoverageAnalysis, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 import { useBusinessRoleFocus } from '../../../contexts/FocusContext';
 
@@ -113,6 +110,9 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
         <TableCell align="center">
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
             {role.sizeScore.toFixed(1)}%
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {role.totalRoleTransactions} tx
           </Typography>
         </TableCell>
         {includeFrequency && (
@@ -240,8 +240,7 @@ export interface BusinessRoleAnalysisCardProps {
     orphelines: string[];
     total: number;
   }>;
-  showZeroCoverageRoles: Map<string, boolean>;
-  onToggleZeroCoverageRoles: (businessRole: string, show: boolean) => void;
+
 }
 
 // 🚀 Fonction de comparaison optimisée pour React.memo
@@ -313,8 +312,7 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
   // Comparaison des Maps de cache (par référence, car elles sont stables)
   if (
     prevProps.staticScoresCache !== nextProps.staticScoresCache ||
-    prevProps.transactionDetailsCache !== nextProps.transactionDetailsCache ||
-    prevProps.showZeroCoverageRoles !== nextProps.showZeroCoverageRoles
+    prevProps.transactionDetailsCache !== nextProps.transactionDetailsCache
   ) {
     console.log(`[PERF] CHANGE détecté pour ${businessRole} - Caches/Maps`);
     return false;
@@ -322,8 +320,7 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
 
   // 🚀 AMÉLIORATION : Comparaison des fonctions handlers (focus maintenant géré par Context)
   if (
-    prevProps.onGlobalSelectionChange !== nextProps.onGlobalSelectionChange ||
-    prevProps.onToggleZeroCoverageRoles !== nextProps.onToggleZeroCoverageRoles
+    prevProps.onGlobalSelectionChange !== nextProps.onGlobalSelectionChange
   ) {
     console.log(`[PERF] CHANGE détecté pour ${businessRole} - Handlers (normal, peut être ignoré)`);
     // Note: On retourne true car les fonctions changent souvent mais ne nécessitent pas de re-rendu
@@ -377,8 +374,6 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   onGlobalSelectionChange,
   staticScoresCache,
   transactionDetailsCache,
-  showZeroCoverageRoles,
-  onToggleZeroCoverageRoles,
 }: BusinessRoleAnalysisCardProps) {
   const theme = useTheme();
   const [page, setPage] = React.useState(0);
@@ -402,7 +397,12 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
 
   
   // 🎯 NOUVEAU : État local pour afficher/masquer les rôles 0% couverture
-  const shouldShowZeroCoverage = showZeroCoverageRoles.get(analysis.businessRole) ?? false;
+  const [shouldShowZeroCoverage, setShouldShowZeroCoverage] = React.useState(false);
+
+  // Handler local pour le toggle indépendant
+  const handleToggleZeroCoverage = React.useCallback((_businessRole: string, show: boolean) => {
+    setShouldShowZeroCoverage(show);
+  }, []);
 
   // 🚀 NOUVEAU : Log de performance pour traquer les re-rendus
   console.log(`[PERF] RENDU BusinessRoleAnalysisCard pour ${analysis.businessRole}`);
@@ -706,6 +706,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           remainingUsageScore,
           remainingCoveredCount: details.covered.length,
           alreadySelectedCount: details.coveredButAlreadySelected.length,
+          totalRoleTransactions: cachedScores.totalRoleTransactions,
           ...(includeFrequency && { 
             cachedTotalExecutions: cachedScores.totalBusinessRoleExecutions,
             cachedSimpleRoleExecutions: cachedScores.simpleRoleExecutions
@@ -1447,32 +1448,20 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
 
         {/* Contrôles d'affichage */}
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={shouldShowZeroCoverage}
-                onChange={(e) => onToggleZeroCoverageRoles(analysis.businessRole, e.target.checked)}
-                      size="small"
-              />
-            }
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {shouldShowZeroCoverage ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                <Typography variant="caption">
-                  Afficher rôles 0% ({analysis.simpleRoles.filter(r => {
-                    const details = getDetails(r.roleName);
-                    return details.covered.length === 0;
-                  }).length})
-                </Typography>
-              </Box>
-            }
-            sx={{ mr: 2 }}
+          <ZeroCoverageToggle
+            businessRole={analysis.businessRole}
+            isChecked={shouldShowZeroCoverage}
+            zeroCoverageCount={analysis.simpleRoles.filter(r => {
+              const details = getDetails(r.roleName);
+              return details.covered.length === 0;
+            }).length}
+            onToggle={handleToggleZeroCoverage}
           />
           
           <Typography variant="caption" color="text.secondary">
             {enrichedRoles.length} rôle(s) affiché(s) sur {analysis.simpleRoles.length}
           </Typography>
-                  </Box>
+        </Box>
 
         {/* Tableau des rôles simples */}
         <Table size="small">

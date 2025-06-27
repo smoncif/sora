@@ -49,12 +49,21 @@ export function OverviewStatsSection({
 }: OverviewStatsSectionProps) {
   const theme = useTheme();
 
-  // Fonction pour déduplicquer les transactions par combinaison unique (transaction + rôle métier)
-  const deduplicateTransactions = useCallback((rawTransactions: Array<{ transaction: string; executionCount: number; businessRole: string }>) => {
+  // Fonction pour obtenir les transactions uniques (sans doublon par nom de transaction)
+  const getUniqueTransactionsCount = useCallback((rawTransactions: Array<{ transaction: string; executionCount: number; businessRole: string }>) => {
+    const uniqueTransactions = new Set<string>();
+    rawTransactions.forEach(tx => {
+      uniqueTransactions.add(tx.transaction);
+    });
+    return uniqueTransactions.size;
+  }, []);
+
+  // Fonction pour déduplicquer les transactions par combinaison unique (transaction + rôle métier) pour l'affichage détaillé
+  const deduplicateTransactionsForDisplay = useCallback((rawTransactions: Array<{ transaction: string; executionCount: number; businessRole: string }>) => {
     const transactionMap = new Map<string, { transaction: string; executionCount: number; businessRole: string }>();
     
     rawTransactions.forEach(tx => {
-      const key = `${tx.transaction}||${tx.businessRole}`; // Clé unique par combinaison
+      const key = `${tx.transaction}||${tx.businessRole}`; // Clé unique par combinaison pour l'affichage détaillé
       const existing = transactionMap.get(key);
       
       if (existing) {
@@ -73,20 +82,23 @@ export function OverviewStatsSection({
     return Array.from(transactionMap.values());
   }, []);
 
-  // Déduplicquer les transactions reçues en props
-  const deduplicatedTransactions = React.useMemo(() => 
-    deduplicateTransactions(uncoveredTransactionsData.transactions),
-    [uncoveredTransactionsData.transactions, deduplicateTransactions]
+  // Compter les transactions uniques (pour l'affichage du nombre)
+  const uniqueTransactionsCount = React.useMemo(() => 
+    getUniqueTransactionsCount(uncoveredTransactionsData.transactions),
+    [uncoveredTransactionsData.transactions, getUniqueTransactionsCount]
   );
 
-  // Recalculer le total des exécutions avec les données déduplicées
+  // Déduplicquer les transactions par combinaison transaction+rôle pour l'affichage détaillé
+  const deduplicatedTransactionsForDisplay = React.useMemo(() => 
+    deduplicateTransactionsForDisplay(uncoveredTransactionsData.transactions),
+    [uncoveredTransactionsData.transactions, deduplicateTransactionsForDisplay]
+  );
+
+  // Recalculer le total des exécutions avec les données déduplicées pour l'affichage
   const deduplicatedTotalExecutions = React.useMemo(() => 
-    deduplicatedTransactions.reduce((sum, tx) => sum + tx.executionCount, 0),
-    [deduplicatedTransactions]
+    deduplicatedTransactionsForDisplay.reduce((sum, tx) => sum + tx.executionCount, 0),
+    [deduplicatedTransactionsForDisplay]
   );
-
-  // Utiliser le count dédupliqué
-  const deduplicatedCount = deduplicatedTransactions.length;
 
   // État local pour le dialog des transactions non couvertes
   const [uncoveredTransactionsDialog, setUncoveredTransactionsDialog] = useState<{
@@ -107,12 +119,12 @@ export function OverviewStatsSection({
   const handleShowUncoveredTransactions = useCallback(() => {
     setUncoveredTransactionsDialog({
       open: true,
-      transactions: deduplicatedTransactions,
+      transactions: deduplicatedTransactionsForDisplay,
       totalExecutions: deduplicatedTotalExecutions,
       sortField: 'executionCount',
       sortDirection: 'desc',
     });
-  }, [deduplicatedTransactions, deduplicatedTotalExecutions]);
+  }, [deduplicatedTransactionsForDisplay, deduplicatedTotalExecutions]);
 
   // Handler pour fermer le dialog des transactions non couvertes
   const handleCloseUncoveredTransactionsDialog = useCallback(() => {
@@ -278,10 +290,10 @@ export function OverviewStatsSection({
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box 
-              onClick={deduplicatedCount > 0 ? handleShowUncoveredTransactions : undefined}
+              onClick={uniqueTransactionsCount > 0 ? handleShowUncoveredTransactions : undefined}
               sx={{ 
-                cursor: deduplicatedCount > 0 ? 'pointer' : 'default',
-                '&:hover': deduplicatedCount > 0 ? {
+                cursor: uniqueTransactionsCount > 0 ? 'pointer' : 'default',
+                '&:hover': uniqueTransactionsCount > 0 ? {
                   transform: 'translateY(-2px)',
                   transition: 'transform 0.2s ease-in-out',
                 } : {},
@@ -289,9 +301,9 @@ export function OverviewStatsSection({
             >
               <StatsCard
                 title="Non couvertes"
-                value={deduplicatedCount}
+                value={uniqueTransactionsCount}
                 icon={WarningIcon}
-                color={deduplicatedCount > 0 ? 'warning' : 'success'}
+                color={uniqueTransactionsCount > 0 ? 'warning' : 'success'}
               />
             </Box>
           </Grid>
@@ -319,14 +331,6 @@ export function OverviewStatsSection({
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <Box sx={{ mb: 3 }}>
-            <Alert severity="warning" sx={{ borderRadius: 2 }}>
-              <Typography variant="body2">
-                <strong>{uncoveredTransactionsDialog.transactions.length} transactions</strong> ne sont couvertes par aucun rôle simple.
-              </Typography>
-            </Alert>
-          </Box>
-          
           {uncoveredTransactionsDialog.transactions.length > 0 && (
             <Box sx={{ 
               maxHeight: 400, 

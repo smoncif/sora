@@ -30,6 +30,7 @@ interface EnrichedRole {
   remainingCoveredCount: number;
   alreadySelectedCount: number;
   remainingUsageScore: number;
+  totalRoleTransactions: number;
   details: {
     covered: string[];
     coveredButAlreadySelected: string[];
@@ -164,6 +165,9 @@ const VirtualizedTableRow = memo(({
           <Box sx={{ width: '80px', textAlign: 'center', flexShrink: 0 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {role.sizeScore.toFixed(1)}%
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {role.totalRoleTransactions} tx
             </Typography>
           </Box>
 
@@ -435,6 +439,7 @@ export const VirtualizedBusinessRoleTable = memo<VirtualizedBusinessRoleTablePro
         >
           <List
             height={height - 48}
+            width="100%"
             itemCount={enrichedRoles.length}
             itemSize={itemHeight}
             itemData={itemData}
