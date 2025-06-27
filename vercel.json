@@ -1,10 +1,5 @@
 {
   "version": 2,
   "name": "sora",
-  "regions": ["cdg1"],
-  "functions": {
-    "app/api/**/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  }
+  "regions": ["cdg1"]
 } 
