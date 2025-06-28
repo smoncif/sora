@@ -888,16 +888,26 @@ const darkTheme = createTheme({
         root: {
           borderRadius: 8,
           border: `1px solid ${colors.neutral[700]}`,
-          backgroundColor: alpha(colors.neutral[800], 0.7),
+          backgroundColor: `${colors.neutral[800]} !important`,
+          // Spécificité pour les menus et popovers
+          '&.MuiMenu-paper, &.MuiPopover-paper': {
+            backgroundColor: `${colors.neutral[800]} !important`,
+            borderRadius: 12,
+            boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.4)',
+            border: `1px solid ${colors.neutral[700]}`,
+          },
         },
         elevation1: {
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+          backgroundColor: `${colors.neutral[800]} !important`,
         },
         elevation2: {
           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+          backgroundColor: `${colors.neutral[800]} !important`,
         },
         elevation3: {
           boxShadow: '0 10px 15px rgba(0, 0, 0, 0.3)',
+          backgroundColor: `${colors.neutral[800]} !important`,
         },
       },
     },
@@ -1104,15 +1114,24 @@ const darkTheme = createTheme({
       },
     },
     
-    // Menus et Popups pour le thème sombre
+    // Menus pour le thème sombre
     MuiMenu: {
       styleOverrides: {
+        root: {
+          '& .MuiPaper-root': {
+            backgroundColor: `${colors.neutral[800]} !important`,
+            borderRadius: 12,
+            boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.4)',
+            border: `1px solid ${colors.neutral[700]}`,
+            marginTop: '8px',
+          },
+        },
         paper: {
           borderRadius: 12,
-          backgroundColor: colors.neutral[800],
+          backgroundColor: `${colors.neutral[800]} !important`,
+          boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.4)',
           border: `1px solid ${colors.neutral[700]}`,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-          minWidth: 200,
+          marginTop: '8px',
         },
       },
     },
@@ -1121,12 +1140,14 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           color: colors.neutral[200],
-          padding: '12px 16px',
           fontSize: '0.875rem',
           fontWeight: 400,
+          padding: '12px 16px',
+          borderRadius: '8px',
+          margin: '2px 8px',
           transition: 'all 0.2s ease',
           '&:hover': {
-            backgroundColor: alpha(colors.neutral[700], 0.5),
+            backgroundColor: alpha(colors.neutral[700], 0.6),
             color: colors.neutral[100],
           },
           '&.Mui-selected': {
@@ -1136,62 +1157,70 @@ const darkTheme = createTheme({
               backgroundColor: alpha(colors.primary[400], 0.3),
             },
           },
-          // Style pour les icônes dans les menu items
-          '& .MuiSvgIcon-root': {
+          '&.Mui-disabled': {
+            color: colors.neutral[500],
+          },
+          // Styles pour les icônes dans les menu items
+          '& .MuiListItemIcon-root': {
+            color: 'inherit',
+            minWidth: '36px',
+          },
+          '& .MuiListItemText-primary': {
+            fontSize: '0.875rem',
+            fontWeight: 400,
+          },
+          '& .MuiListItemText-secondary': {
             color: colors.neutral[400],
-            marginRight: '12px',
-          },
-          '&:hover .MuiSvgIcon-root': {
-            color: colors.neutral[300],
+            fontSize: '0.75rem',
           },
         },
       },
     },
     
-    // Popover pour le thème sombre
-    MuiPopover: {
-      styleOverrides: {
-        paper: {
-          backgroundColor: colors.neutral[800],
-          border: `1px solid ${colors.neutral[700]}`,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-          borderRadius: 12,
-        },
-      },
-    },
-    
-    // Drawer/Sidebar pour le thème sombre
-    MuiDrawer: {
-      styleOverrides: {
-        paper: {
-          backgroundColor: colors.neutral[800],
-          borderRight: `1px solid ${colors.neutral[700]}`,
-          color: colors.neutral[200],
-        },
-      },
-    },
-    
-    // List et ListItem pour les menus de navigation
-    MuiList: {
+    MuiMenuList: {
       styleOverrides: {
         root: {
-          backgroundColor: 'transparent',
-          color: colors.neutral[200],
-          padding: '8px 0',
+          backgroundColor: colors.neutral[800],
+          padding: '8px',
         },
       },
     },
     
+    // Dividers dans les menus
+    MuiDivider: {
+      styleOverrides: {
+        root: {
+          borderColor: colors.neutral[700],
+          margin: '8px 0',
+        },
+      },
+    },
+    
+    // Popover pour les menus
+    MuiPopover: {
+      styleOverrides: {
+        root: {
+          '& .MuiPaper-root': {
+            backgroundColor: `${colors.neutral[800]} !important`,
+            border: `1px solid ${colors.neutral[700]}`,
+            boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.4)',
+          },
+        },
+        paper: {
+          backgroundColor: `${colors.neutral[800]} !important`,
+          border: `1px solid ${colors.neutral[700]}`,
+          boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.4)',
+        },
+      },
+    },
+    
+    // ListItem pour menus et listes
     MuiListItem: {
       styleOverrides: {
         root: {
           color: colors.neutral[200],
-          padding: '8px 16px',
-          borderRadius: '8px',
-          margin: '2px 8px',
           '&:hover': {
             backgroundColor: alpha(colors.neutral[700], 0.4),
-            color: colors.neutral[100],
           },
           '&.Mui-selected': {
             backgroundColor: alpha(colors.primary[400], 0.2),
@@ -1209,7 +1238,6 @@ const darkTheme = createTheme({
         primary: {
           color: colors.neutral[200],
           fontSize: '0.875rem',
-          fontWeight: 400,
         },
         secondary: {
           color: colors.neutral[400],
@@ -1221,78 +1249,8 @@ const darkTheme = createTheme({
     MuiListItemIcon: {
       styleOverrides: {
         root: {
-          color: colors.neutral[400],
-          minWidth: '36px',
-          '& .MuiSvgIcon-root': {
-            fontSize: '1.25rem',
-            color: colors.neutral[400],
-          },
-        },
-      },
-    },
-    
-    // Divider pour séparer les sections
-    MuiDivider: {
-      styleOverrides: {
-        root: {
-          borderColor: colors.neutral[700],
-          margin: '8px 0',
-        },
-      },
-    },
-    
-    // AppBar/Header pour le thème sombre
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          backgroundColor: colors.neutral[800],
-          color: colors.neutral[100],
-          borderBottom: `1px solid ${colors.neutral[700]}`,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
-        },
-      },
-    },
-    
-    // Toolbar pour les headers
-    MuiToolbar: {
-      styleOverrides: {
-        root: {
-          color: colors.neutral[100],
-          '& .MuiIconButton-root': {
-            color: colors.neutral[300],
-            '&:hover': {
-              backgroundColor: alpha(colors.neutral[700], 0.3),
-              color: colors.neutral[100],
-            },
-          },
-        },
-      },
-    },
-    
-    // Avatar pour l'utilisateur connecté
-    MuiAvatar: {
-      styleOverrides: {
-        root: {
-          backgroundColor: colors.primary[500],
-          color: colors.neutral[900],
-          border: `2px solid ${colors.neutral[600]}`,
-          fontSize: '1rem',
-          fontWeight: 600,
-        },
-      },
-    },
-    
-    // IconButton général
-    MuiIconButton: {
-      styleOverrides: {
-        root: {
           color: colors.neutral[300],
-          padding: '8px',
-          borderRadius: '8px',
-          '&:hover': {
-            backgroundColor: alpha(colors.neutral[700], 0.3),
-            color: colors.neutral[100],
-          },
+          minWidth: '36px',
         },
       },
     },
