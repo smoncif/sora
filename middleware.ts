@@ -2,26 +2,51 @@ import { NextRequest, NextResponse } from 'next/server';
 import { updateSession, SupabaseAuthMiddleware } from './lib/utils/supabase/middleware';
 
 /**
- * Middleware Next.js pour rafraîchir les sessions Supabase
- * Ce middleware s'exécute sur chaque requête qui correspond au pattern matcher
+ * Routes publiques autorisées (accessibles sans authentification)
+ */
+const PUBLIC_ROUTES = [
+  '/login',
+  '/register', 
+  '/auth/callback'
+];
+
+/**
+ * Vérifie si une route est publique
+ */
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+}
+
+/**
+ * Middleware Next.js pour protection globale de l'authentification
+ * Ce middleware s'exécute sur chaque requête et protège toutes les routes
  */
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  
   // Mettre à jour la session Supabase
   const response = await updateSession(request);
   
-  // Si c'est la page d'accueil (/), vérifier l'authentification
-  if (request.nextUrl.pathname === '/') {
-    const { user } = await SupabaseAuthMiddleware.checkAuthentication(request);
-    
-    if (!user) {
-      // Rediriger vers la page de login si non connecté
-      return NextResponse.redirect(new URL('/login', request.url));
-    } else {
-      // Rediriger vers le dashboard si connecté
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+  // Si c'est une route publique, permettre l'accès
+  if (isPublicRoute(pathname)) {
+    return response;
   }
   
+  // Pour toutes les autres routes, vérifier l'authentification
+  const { user } = await SupabaseAuthMiddleware.checkAuthentication(request);
+  
+  if (!user) {
+    // Rediriger vers la page de login si non connecté
+    console.log(`🔒 Accès bloqué pour utilisateur non connecté sur: ${pathname}`);
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  
+  // Si c'est la page d'accueil (/), rediriger vers le dashboard
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+  
+  // Utilisateur connecté, permettre l'accès
   return response;
 }
 
