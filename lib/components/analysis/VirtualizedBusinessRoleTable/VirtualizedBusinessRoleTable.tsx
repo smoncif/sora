@@ -211,7 +211,7 @@ const VirtualizedTableRow = memo(({
 
         {/* Ligne de détails expansible */}
         {isExpanded && (
-          <Box sx={{ px: 3, py: 2, bgcolor: alpha(theme.palette.grey[50], 0.5) }}>
+          <Box sx={{ px: 3, py: 2, bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.5) }}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3 }}>
               {/* Transactions couvertes */}
               <Box>

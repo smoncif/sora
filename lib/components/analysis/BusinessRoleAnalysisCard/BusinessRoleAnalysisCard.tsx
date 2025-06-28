@@ -151,7 +151,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
       <TableRow>
         <TableCell colSpan={includeFrequency ? 7 : 6} sx={{ p: 0 }}>
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-            <Box sx={{ p: 3, bgcolor: alpha(theme.palette.grey[50], 0.5) }}>
+            <Box sx={{ p: 3, bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.5) }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3 }}>
                 {/* Transactions couvertes */}
                 <TransactionBlock
@@ -881,20 +881,20 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               width: '6px',
             },
             '&::-webkit-scrollbar-track': {
-              background: alpha(theme.palette.grey[300], 0.1),
+              background: alpha(theme.palette.divider, 0.1),
             },
             '&::-webkit-scrollbar-thumb': {
-              background: alpha(theme.palette.grey[400], 0.5),
+              background: alpha(theme.palette.text.secondary, 0.3),
               borderRadius: '3px',
             },
             '&::-webkit-scrollbar-thumb:hover': {
-              background: alpha(theme.palette.grey[400], 0.7),
+              background: alpha(theme.palette.text.secondary, 0.5),
             },
           }}>
             {/* En-têtes fixes */}
             <Box sx={{ 
               display: 'flex',
-              bgcolor: alpha(theme.palette.grey[100], 0.9),
+              bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.6 : 0.9),
               borderBottom: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
               position: 'sticky',
               top: 0,
@@ -956,7 +956,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   sx={{ 
                     display: 'flex',
                     '&:nth-of-type(odd)': { 
-                      bgcolor: alpha(theme.palette.grey[50], 0.3) 
+                      bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.2 : 0.3) 
                     },
                     '&:hover': {
                       bgcolor: alpha(theme.palette.primary.main, 0.04)
@@ -1077,9 +1077,9 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
               gap: 2, 
               mb: 2,
               p: 2,
-              bgcolor: alpha(theme.palette.grey[50], 0.5),
+              bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
               borderRadius: 2,
-              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+              border: `1px solid ${alpha(theme.palette.divider, theme.palette.mode === 'dark' ? 0.3 : 0.1)}`
             }}>
               {/* Transactions du rôle métier */}
               <Tooltip
@@ -1433,7 +1433,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           <Box sx={{ 
             width: '100%', 
             height: 6, 
-            bgcolor: alpha(theme.palette.grey[300], 0.2), 
+            bgcolor: alpha(theme.palette.divider, theme.palette.mode === 'dark' ? 0.3 : 0.2), 
             borderRadius: 1,
             overflow: 'hidden'
           }}>
