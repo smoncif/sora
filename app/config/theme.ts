@@ -745,7 +745,58 @@ const darkTheme = createTheme({
     },
   },
   
-  typography: lightTheme.typography,
+  typography: {
+    ...lightTheme.typography,
+    // Override des couleurs de typography pour le mode sombre
+    h1: {
+      ...lightTheme.typography.h1,
+      color: colors.neutral[100],
+    },
+    h2: {
+      ...lightTheme.typography.h2,
+      color: colors.neutral[100],
+    },
+    h3: {
+      ...lightTheme.typography.h3,
+      color: colors.neutral[100],
+    },
+    h4: {
+      ...lightTheme.typography.h4,
+      color: colors.neutral[100],
+    },
+    h5: {
+      ...lightTheme.typography.h5,
+      color: colors.neutral[100],
+    },
+    h6: {
+      ...lightTheme.typography.h6,
+      color: colors.neutral[100],
+    },
+    subtitle1: {
+      ...lightTheme.typography.subtitle1,
+      color: colors.neutral[200],
+    },
+    subtitle2: {
+      ...lightTheme.typography.subtitle2,
+      color: colors.neutral[300],
+    },
+    body1: {
+      ...lightTheme.typography.body1,
+      color: colors.neutral[200],
+    },
+    body2: {
+      ...lightTheme.typography.body2,
+      color: colors.neutral[300],
+    },
+    caption: {
+      ...lightTheme.typography.caption,
+      color: colors.neutral[400],
+    },
+    overline: {
+      ...lightTheme.typography.overline,
+      color: colors.neutral[400],
+    },
+  },
   shape: lightTheme.shape,
   shadows: lightTheme.shadows,
   
@@ -775,6 +826,472 @@ const darkTheme = createTheme({
           borderRadius: '4px',
           '&:hover': {
             backgroundColor: colors.neutral[500],
+          },
+        },
+      },
+    },
+    
+    // Cartes adaptées au thème sombre
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          backgroundColor: alpha(colors.neutral[800], 0.6),
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+          border: `1px solid ${colors.neutral[700]}`,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+            borderColor: colors.neutral[600],
+          },
+          // Cartes avec thèmes colorés pour le mode sombre
+          '&.card-primary': {
+            backgroundColor: alpha(colors.primary[800], 0.3),
+            borderColor: colors.primary[600],
+            '&:hover': {
+              borderColor: colors.primary[500],
+              boxShadow: `0 12px 40px ${alpha(colors.primary[400], 0.2)}`,
+            },
+          },
+          '&.card-secondary': {
+            backgroundColor: alpha(colors.secondary[800], 0.3),
+            borderColor: colors.secondary[600],
+            '&:hover': {
+              borderColor: colors.secondary[500],
+              boxShadow: `0 12px 40px ${alpha(colors.secondary[400], 0.2)}`,
+            },
+          },
+          '&.card-success': {
+            backgroundColor: alpha(colors.success[800], 0.3),
+            borderColor: colors.success[600],
+            '&:hover': {
+              borderColor: colors.success[500],
+              boxShadow: `0 12px 40px ${alpha(colors.success[400], 0.2)}`,
+            },
+          },
+          '&.card-warning': {
+            backgroundColor: alpha(colors.warning[800], 0.3),
+            borderColor: colors.warning[600],
+            '&:hover': {
+              borderColor: colors.warning[500],
+              boxShadow: `0 12px 40px ${alpha(colors.warning[400], 0.2)}`,
+            },
+          },
+        },
+      },
+    },
+    
+    // Paper adapté au thème sombre
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          border: `1px solid ${colors.neutral[700]}`,
+          backgroundColor: alpha(colors.neutral[800], 0.7),
+        },
+        elevation1: {
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+        },
+        elevation2: {
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+        },
+        elevation3: {
+          boxShadow: '0 10px 15px rgba(0, 0, 0, 0.3)',
+        },
+      },
+    },
+    
+    // Tooltips pour le thème sombre
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          backgroundColor: colors.neutral[700],
+          color: colors.neutral[100],
+          fontSize: '0.95rem',
+          fontWeight: 400,
+          borderRadius: 12,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+          border: `1px solid ${colors.neutral[600]}`,
+          padding: '12px 16px',
+          maxWidth: 340,
+          lineHeight: 1.6,
+        },
+        arrow: {
+          color: colors.neutral[700],
+          filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))',
+        },
+      },
+    },
+    
+    // Tables pour le thème sombre
+    MuiTable: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'transparent',
+        },
+      },
+    },
+    
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          backgroundColor: alpha(colors.neutral[700], 0.3),
+        },
+      },
+    },
+    
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          color: colors.neutral[200],
+          borderBottom: `1px solid ${colors.neutral[700]}`,
+          '&.MuiTableCell-head': {
+            color: colors.neutral[100],
+            fontWeight: 600,
+            backgroundColor: alpha(colors.neutral[700], 0.3),
+          },
+        },
+      },
+    },
+    
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          '&:nth-of-type(odd)': {
+            backgroundColor: alpha(colors.neutral[800], 0.3),
+          },
+          '&:hover': {
+            backgroundColor: alpha(colors.neutral[700], 0.2),
+          },
+        },
+      },
+    },
+    
+    // TextField pour le thème sombre
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 12,
+            backgroundColor: alpha(colors.neutral[800], 0.4),
+            color: colors.neutral[100],
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: colors.neutral[600],
+            },
+            '&:hover': {
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: colors.neutral[500],
+              },
+            },
+            '&.Mui-focused': {
+              backgroundColor: alpha(colors.neutral[800], 0.6),
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderWidth: '2px',
+                borderColor: colors.primary[400],
+                boxShadow: `0 0 0 3px ${alpha(colors.primary[400], 0.1)}`,
+              },
+            },
+          },
+          '& .MuiInputLabel-root': {
+            fontWeight: 500,
+            color: colors.neutral[400],
+            '&.Mui-focused': {
+              color: colors.primary[400],
+            },
+          },
+          '& .MuiFormHelperText-root': {
+            color: colors.neutral[400],
+          },
+        },
+      },
+    },
+    
+    // Typography globale pour les éléments dans les cartes
+    MuiTypography: {
+      styleOverrides: {
+        root: {
+          '&.MuiTypography-h1': {
+            color: colors.neutral[100],
+          },
+          '&.MuiTypography-h2': {
+            color: colors.neutral[100],
+          },
+          '&.MuiTypography-h3': {
+            color: colors.neutral[100],
+          },
+          '&.MuiTypography-h4': {
+            color: colors.neutral[100],
+          },
+          '&.MuiTypography-h5': {
+            color: colors.neutral[100],
+          },
+          '&.MuiTypography-h6': {
+            color: colors.neutral[100],
+          },
+          '&.MuiTypography-subtitle1': {
+            color: colors.neutral[200],
+          },
+          '&.MuiTypography-subtitle2': {
+            color: colors.neutral[300],
+          },
+          '&.MuiTypography-body1': {
+            color: colors.neutral[200],
+          },
+          '&.MuiTypography-body2': {
+            color: colors.neutral[300],
+          },
+          '&.MuiTypography-caption': {
+            color: colors.neutral[400],
+          },
+          '&.MuiTypography-overline': {
+            color: colors.neutral[400],
+          },
+        },
+      },
+    },
+    
+    // Boutons pour le thème sombre
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          padding: '10px 20px',
+          fontSize: '0.875rem',
+          fontWeight: 500,
+          textTransform: 'none',
+          boxShadow: 'none',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)',
+          },
+        },
+        contained: {
+          background: `linear-gradient(135deg, ${colors.primary[400]} 0%, ${colors.primary[500]} 50%, ${colors.primary[600]} 100%)`,
+          color: colors.neutral[900],
+          '&:hover': {
+            background: `linear-gradient(135deg, ${colors.primary[300]} 0%, ${colors.primary[400]} 50%, ${colors.primary[500]} 100%)`,
+            boxShadow: `0 8px 25px ${alpha(colors.primary[400], 0.4)}`,
+          },
+          '&.MuiButton-containedSecondary': {
+            background: `linear-gradient(135deg, ${colors.secondary[400]} 0%, ${colors.secondary[500]} 50%, ${colors.secondary[600]} 100%)`,
+            '&:hover': {
+              background: `linear-gradient(135deg, ${colors.secondary[300]} 0%, ${colors.secondary[400]} 50%, ${colors.secondary[500]} 100%)`,
+              boxShadow: `0 8px 25px ${alpha(colors.secondary[400], 0.4)}`,
+            },
+          },
+        },
+        outlined: {
+          borderWidth: '1.5px',
+          borderColor: colors.primary[500],
+          color: colors.primary[400],
+          backgroundColor: alpha(colors.neutral[800], 0.4),
+          '&:hover': {
+            borderColor: colors.primary[400],
+            backgroundColor: alpha(colors.neutral[700], 0.4),
+            color: colors.primary[300],
+          },
+        },
+        text: {
+          color: colors.neutral[300],
+          '&:hover': {
+            backgroundColor: alpha(colors.neutral[700], 0.2),
+            color: colors.primary[400],
+          },
+        },
+      },
+    },
+    
+    // Menus et Popups pour le thème sombre
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 12,
+          backgroundColor: colors.neutral[800],
+          border: `1px solid ${colors.neutral[700]}`,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          minWidth: 200,
+        },
+      },
+    },
+    
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          color: colors.neutral[200],
+          padding: '12px 16px',
+          fontSize: '0.875rem',
+          fontWeight: 400,
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            backgroundColor: alpha(colors.neutral[700], 0.5),
+            color: colors.neutral[100],
+          },
+          '&.Mui-selected': {
+            backgroundColor: alpha(colors.primary[400], 0.2),
+            color: colors.primary[300],
+            '&:hover': {
+              backgroundColor: alpha(colors.primary[400], 0.3),
+            },
+          },
+          // Style pour les icônes dans les menu items
+          '& .MuiSvgIcon-root': {
+            color: colors.neutral[400],
+            marginRight: '12px',
+          },
+          '&:hover .MuiSvgIcon-root': {
+            color: colors.neutral[300],
+          },
+        },
+      },
+    },
+    
+    // Popover pour le thème sombre
+    MuiPopover: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: colors.neutral[800],
+          border: `1px solid ${colors.neutral[700]}`,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          borderRadius: 12,
+        },
+      },
+    },
+    
+    // Drawer/Sidebar pour le thème sombre
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: colors.neutral[800],
+          borderRight: `1px solid ${colors.neutral[700]}`,
+          color: colors.neutral[200],
+        },
+      },
+    },
+    
+    // List et ListItem pour les menus de navigation
+    MuiList: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'transparent',
+          color: colors.neutral[200],
+          padding: '8px 0',
+        },
+      },
+    },
+    
+    MuiListItem: {
+      styleOverrides: {
+        root: {
+          color: colors.neutral[200],
+          padding: '8px 16px',
+          borderRadius: '8px',
+          margin: '2px 8px',
+          '&:hover': {
+            backgroundColor: alpha(colors.neutral[700], 0.4),
+            color: colors.neutral[100],
+          },
+          '&.Mui-selected': {
+            backgroundColor: alpha(colors.primary[400], 0.2),
+            color: colors.primary[300],
+            '&:hover': {
+              backgroundColor: alpha(colors.primary[400], 0.3),
+            },
+          },
+        },
+      },
+    },
+    
+    MuiListItemText: {
+      styleOverrides: {
+        primary: {
+          color: colors.neutral[200],
+          fontSize: '0.875rem',
+          fontWeight: 400,
+        },
+        secondary: {
+          color: colors.neutral[400],
+          fontSize: '0.75rem',
+        },
+      },
+    },
+    
+    MuiListItemIcon: {
+      styleOverrides: {
+        root: {
+          color: colors.neutral[400],
+          minWidth: '36px',
+          '& .MuiSvgIcon-root': {
+            fontSize: '1.25rem',
+            color: colors.neutral[400],
+          },
+        },
+      },
+    },
+    
+    // Divider pour séparer les sections
+    MuiDivider: {
+      styleOverrides: {
+        root: {
+          borderColor: colors.neutral[700],
+          margin: '8px 0',
+        },
+      },
+    },
+    
+    // AppBar/Header pour le thème sombre
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: colors.neutral[800],
+          color: colors.neutral[100],
+          borderBottom: `1px solid ${colors.neutral[700]}`,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+        },
+      },
+    },
+    
+    // Toolbar pour les headers
+    MuiToolbar: {
+      styleOverrides: {
+        root: {
+          color: colors.neutral[100],
+          '& .MuiIconButton-root': {
+            color: colors.neutral[300],
+            '&:hover': {
+              backgroundColor: alpha(colors.neutral[700], 0.3),
+              color: colors.neutral[100],
+            },
+          },
+        },
+      },
+    },
+    
+    // Avatar pour l'utilisateur connecté
+    MuiAvatar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: colors.primary[500],
+          color: colors.neutral[900],
+          border: `2px solid ${colors.neutral[600]}`,
+          fontSize: '1rem',
+          fontWeight: 600,
+        },
+      },
+    },
+    
+    // IconButton général
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          color: colors.neutral[300],
+          padding: '8px',
+          borderRadius: '8px',
+          '&:hover': {
+            backgroundColor: alpha(colors.neutral[700], 0.3),
+            color: colors.neutral[100],
           },
         },
       },
