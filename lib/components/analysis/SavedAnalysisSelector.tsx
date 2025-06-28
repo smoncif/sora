@@ -31,6 +31,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
   Warning as WarningIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { SavedAnalysisMetadata, getSavedAnalyses, deleteSavedAnalysis } from 'lib/services/analysis/savedAnalysisService';
 
@@ -77,6 +78,29 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return 'À l\'instant';
+    } else if (diffInMinutes < 60) {
+      return `Il y a ${diffInMinutes} min`;
+    } else if (diffInHours < 24) {
+      return `Il y a ${diffInHours}h`;
+    } else if (diffInDays === 1) {
+      return 'Hier';
+    } else if (diffInDays < 7) {
+      return `Il y a ${diffInDays} jours`;
+    } else {
+      return formatDate(dateString).split(' ')[0];
+    }
   };
 
   const getProgressColor = (progress: number) => {
@@ -198,20 +222,56 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
 
   return (
     <Box>
-      <Typography variant="body1" sx={{ 
-        mb: 3,
-        color: theme.palette.text.primary,
-        fontWeight: 500,
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 2.5 
       }}>
-        {analyses.length} analyse{analyses.length > 1 ? 's' : ''} sauvegardée{analyses.length > 1 ? 's' : ''}
-      </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6" sx={{ 
+            color: theme.palette.text.primary,
+            fontWeight: 600,
+            fontSize: '1.1rem',
+          }}>
+            Analyses sauvegardées
+          </Typography>
+          <Tooltip title="Actualiser la liste">
+            <IconButton
+              size="small"
+              onClick={loadSavedAnalyses}
+              disabled={loadingAnalyses}
+              sx={{
+                color: theme.palette.primary.main,
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                },
+              }}
+            >
+              <RefreshIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        <Chip
+          label={`${analyses.length} analyse${analyses.length > 1 ? 's' : ''}`}
+          size="small"
+          color="primary"
+          variant="outlined"
+          sx={{ 
+            fontSize: '0.75rem',
+            height: 24,
+          }}
+        />
+      </Box>
 
       <Box sx={{
         maxHeight: 280,
         overflowY: 'auto',
+        overflowX: 'hidden',
         border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
         borderRadius: 2,
         bgcolor: theme.palette.background.paper,
+        width: '100%',
         '&::-webkit-scrollbar': {
           width: '8px',
         },
@@ -231,12 +291,13 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
           <Box key={analysis.id}>
             <Box
               sx={{
-                p: 2,
+                p: 1.5,
                 display: 'flex',
-                alignItems: 'center',
-                gap: 2,
+                alignItems: 'stretch',
+                gap: 1.5,
                 cursor: 'pointer',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                minHeight: 65,
                 '&:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.04),
                   transform: 'translateX(4px)',
@@ -248,7 +309,16 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
               }}
               onClick={() => !loading && handleAnalysisSelect(analysis.id)}
             >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
+              {/* Section titre et description */}
+              <Box sx={{ 
+                width: 180,
+                flexShrink: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                py: 0.3,
+                pr: 1,
+              }}>
                 <Typography variant="h6" sx={{ 
                   fontWeight: 600,
                   color: theme.palette.text.primary,
@@ -270,48 +340,21 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    mb: 0.8,
                   }}>
                     {analysis.description}
                   </Typography>
                 )}
-
-                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                    <RoleIcon sx={{ fontSize: 13, color: alpha(theme.palette.text.secondary, 0.6) }} />
-                    <Typography variant="caption" sx={{ 
-                      fontSize: '0.7rem',
-                      color: alpha(theme.palette.text.secondary, 0.8),
-                    }}>
-                      {analysis.metadata.totalBusinessRoles} rôles métier
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                    <AssignmentIcon sx={{ fontSize: 13, color: alpha(theme.palette.text.secondary, 0.6) }} />
-                    <Typography variant="caption" sx={{ 
-                      fontSize: '0.7rem',
-                      color: alpha(theme.palette.text.secondary, 0.8),
-                    }}>
-                      {analysis.metadata.totalSimpleRoles} rôles simples
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                    <TransactionIcon sx={{ fontSize: 13, color: alpha(theme.palette.text.secondary, 0.6) }} />
-                    <Typography variant="caption" sx={{ 
-                      fontSize: '0.7rem',
-                      color: alpha(theme.palette.text.secondary, 0.8),
-                    }}>
-                      {analysis.metadata.totalTransactions} transactions
-                    </Typography>
-                  </Box>
-                </Box>
               </Box>
 
+              {/* Section avancement */}
               <Box sx={{ 
-                minWidth: 180,
+                width: 160,
+                flexShrink: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 0.8,
+                justifyContent: 'center',
+                gap: 0.6,
+                py: 0.3,
               }}>
                 <Box sx={{ 
                   display: 'flex', 
@@ -319,9 +362,10 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
                   alignItems: 'center',
                 }}>
                   <Typography variant="caption" sx={{ 
-                    fontSize: '0.7rem',
+                    fontSize: '0.65rem',
                     fontWeight: 500,
                     color: theme.palette.text.secondary,
+                    whiteSpace: 'nowrap',
                   }}>
                     Avancement
                   </Typography>
@@ -346,88 +390,105 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
                     bgcolor: alpha(theme.palette.divider, 0.1),
                   }}
                 />
-                <Typography variant="caption" sx={{ 
-                  fontSize: '0.65rem',
-                  color: alpha(theme.palette.text.secondary, 0.7),
-                  textAlign: 'center',
-                }}>
-                  {analysis.selectedRolesCount} / {analysis.metadata.totalBusinessRoles} rôles sélectionnés
-                </Typography>
               </Box>
 
+              {/* Section timing */}
               <Box sx={{ 
-                minWidth: 140,
+                width: 120,
+                flexShrink: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'flex-end',
-                gap: 0.8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.3,
+                textAlign: 'center',
+                py: 0.3,
               }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                  <ScheduleIcon sx={{ fontSize: 13, color: alpha(theme.palette.text.secondary, 0.6) }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                  <ScheduleIcon sx={{ 
+                    fontSize: 11,
+                    color: theme.palette.primary.main,
+                  }} />
                   <Typography variant="caption" sx={{ 
                     fontSize: '0.7rem',
-                    color: alpha(theme.palette.text.secondary, 0.8),
-                  }}>
-                    {formatDate(analysis.updated_at).split(' ')[0]}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center' }}>
-                  <Tooltip title="Supprimer cette analyse">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleDeleteClick(analysis, e)}
-                      disabled={loading || deleting}
-                      sx={{
-                        color: alpha(theme.palette.error.main, 0.7),
-                        padding: '4px',
-                        '&:hover': {
-                          color: theme.palette.error.main,
-                          bgcolor: alpha(theme.palette.error.main, 0.1),
-                        },
-                      }}
-                    >
-                      <DeleteIcon sx={{ fontSize: 15 }} />
-                    </IconButton>
-                  </Tooltip>
-
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAnalysisSelect(analysis.id);
-                    }}
-                    disabled={loading}
-                    startIcon={loading ? <CircularProgress size={12} /> : <CheckCircleIcon />}
-                    sx={{
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.75rem',
-                      px: 1.5,
-                      py: 0.4,
-                      minWidth: 'auto',
-                    }}
-                  >
-                    {loading ? 'Chargement...' : 'Charger'}
-                  </Button>
-                </Box>
-
-                {analysis.metadata.fileName && (
-                  <Typography variant="caption" sx={{ 
-                    fontSize: '0.65rem',
-                    color: alpha(theme.palette.text.secondary, 0.6),
-                    fontStyle: 'italic',
-                    textAlign: 'right',
-                    maxWidth: 140,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    color: theme.palette.primary.main,
+                    fontWeight: 600,
                     whiteSpace: 'nowrap',
                   }}>
-                    {analysis.metadata.fileName}
+                    {formatRelativeTime(analysis.updated_at)}
                   </Typography>
-                )}
+                </Box>
+                <Typography variant="caption" sx={{ 
+                  fontSize: '0.6rem',
+                  color: alpha(theme.palette.text.secondary, 0.7),
+                  lineHeight: 1.1,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                }}>
+                  {formatDate(analysis.updated_at).split(' ').slice(0, 2).join(' ')}
+                </Typography>
+              </Box>
+                
+              {/* Section boutons d'action */}
+              <Box sx={{ 
+                width: 120,
+                flexShrink: 0,
+                display: 'flex', 
+                gap: 0.6,
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                py: 0.3,
+              }}>
+                <Tooltip title="Supprimer cette analyse">
+                  <IconButton
+                    size="small"
+                    onClick={(e: React.MouseEvent) => handleDeleteClick(analysis, e)}
+                    disabled={loading || deleting}
+                    sx={{
+                      color: alpha(theme.palette.error.main, 0.7),
+                      padding: '4px',
+                      '&:hover': {
+                        color: theme.palette.error.main,
+                        bgcolor: alpha(theme.palette.error.main, 0.1),
+                        transform: 'scale(1.1)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <DeleteIcon sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Tooltip>
+
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    handleAnalysisSelect(analysis.id);
+                  }}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={10} /> : <CheckCircleIcon sx={{ fontSize: 14 }} />}
+                  sx={{
+                    borderRadius: 1.5,
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.7rem',
+                    px: 1,
+                    py: 0.3,
+                    minWidth: 70,
+                    maxWidth: 80,
+                    boxShadow: 1,
+                    '&:hover': {
+                      boxShadow: 2,
+                      transform: 'translateY(-1px)',
+                    },
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {loading ? 'Chargement...' : 'Charger'}
+                </Button>
               </Box>
             </Box>
 

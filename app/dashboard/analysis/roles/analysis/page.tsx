@@ -26,6 +26,7 @@ import { BusinessRoleAnalysisCard } from 'lib/components/analysis/BusinessRoleAn
 import { useAnalysisWorkflow } from 'lib/hooks/analysis/useAnalysisWorkflow';
 import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
 import { FocusProvider } from 'lib/contexts/FocusContext';
+import { SaveAnalysisDialog } from 'lib/components/analysis/SaveAnalysisDialog';
 
 /**
  * Page d'analyse des rôles métier optimisée
@@ -37,7 +38,9 @@ export default function RoleAnalysisPage() {
   const theme = useTheme();
   
   // 🚀 WORKFLOW UNIFIÉ : Hook principal avec tous les sous-hooks intégrés
-  const workflow = useAnalysisWorkflow();
+  const workflow = useAnalysisWorkflow(undefined, {
+    userId: user?.id, // Passer l'userId pour les fonctions d'authentification
+  });
   
   // 🔒 MÉMORISATION : Props partagées pour éviter les re-renders en boucle
   const sharedBusinessRoleProps = React.useMemo(() => {
@@ -68,6 +71,75 @@ export default function RoleAnalysisPage() {
       workflow.localState.actions.handleExitFocus();
     }
   }, [workflow.localState.actions]);
+
+  // 🔧 DIAGNOSTIC temporaire (à supprimer en production)
+  const testOptimizations = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { diagnostics } = await import('lib/services/analysis/savedAnalysisService');
+      
+      console.log('🔧 DIAGNOSTIC Système de sauvegarde:');
+      console.log('📊 Cache:', diagnostics.getCacheInfo());
+      console.log('💾 Mémoire:', diagnostics.getMemoryUsage());
+      
+      const connection = await diagnostics.testConnection();
+      console.log('🔗 Connexion:', connection);
+      
+      const count = await diagnostics.getUserAnalysesCount(user.id);
+      console.log('📁 Analyses utilisateur:', count);
+      
+    } catch (error) {
+      console.error('❌ Erreur diagnostic:', error);
+    }
+  };
+
+  // 🚀 NOUVEAU : Déterminer les valeurs initiales selon le contexte
+  const isUpdateMode = workflow.fileManager.state.importType === 'saved' && !!workflow.fileManager.state.loadedAnalysisId;
+  const initialAnalysisName = React.useMemo(() => {
+    if (isUpdateMode && workflow.fileManager.state.analysisResult) {
+      // Mode mise à jour : utiliser le nom de l'analyse chargée
+      return workflow.fileManager.state.analysisResult.name || '';
+    }
+    // Mode nouvelle sauvegarde : utiliser la configuration locale
+    return workflow.configuration.state.analysisName || '';
+  }, [isUpdateMode, workflow.fileManager.state.analysisResult, workflow.configuration.state.analysisName]);
+
+  const initialAnalysisDescription = React.useMemo(() => {
+    if (isUpdateMode && workflow.fileManager.state.analysisResult) {
+      // Mode mise à jour : utiliser la description de l'analyse chargée
+      return workflow.fileManager.state.analysisResult.description || '';
+    }
+    // Mode nouvelle sauvegarde : utiliser la configuration locale
+    return workflow.configuration.state.analysisDescription || '';
+  }, [isUpdateMode, workflow.fileManager.state.analysisResult, workflow.configuration.state.analysisDescription]);
+
+  // Handler pour la sauvegarde optimisé
+  const handleSaveAnalysis = async (name: string, description: string) => {
+    console.log('[PAGE] 🚀 Début handleSaveAnalysis', { name, description, isUpdateMode });
+    
+    try {
+      // Passer directement les métadonnées à la fonction de sauvegarde
+      await workflow.saveCurrentAnalysis({
+        name: name.trim(),
+        description: description.trim()
+      });
+      
+      console.log('[PAGE] ✅ Sauvegarde réussie');
+      
+      // Mettre à jour l'état de configuration pour la cohérence (optionnel)
+      workflow.configuration.actions.setAnalysisName(name.trim());
+      workflow.configuration.actions.setAnalysisDescription(description.trim());
+      
+      // Fermer le dialog seulement en cas de succès
+      workflow.exportManager.actions.setSaveDialogOpen(false);
+      
+    } catch (error) {
+      console.error('[PAGE] ❌ Erreur lors de la sauvegarde:', error);
+      // Ne pas fermer le dialog en cas d'erreur pour que l'utilisateur puisse réessayer
+      // L'erreur sera affichée par le composant SaveAnalysisDialog via workflow.exportManager.state.saveError
+    }
+  };
 
   return (
     <FocusProvider onFocusChange={handleFocusChange}>
@@ -119,7 +191,7 @@ export default function RoleAnalysisPage() {
             user={user}
             onImportTypeChange={workflow.fileManager.actions.setImportType}
             onFileUpload={workflow.startNewAnalysis}
-            onLoadSavedAnalysis={workflow.fileManager.actions.handleLoadSavedAnalysis}
+            onLoadSavedAnalysis={workflow.loadSavedAnalysis}
             onResumeFromFile={workflow.fileManager.actions.handleResumeFromFile}
           />
         </Box>
@@ -182,63 +254,16 @@ export default function RoleAnalysisPage() {
         </Fade>
       )}
 
-      {/* Dialog de sauvegarde - VERSION SIMPLIFIÉE */}
-      <Dialog 
-        open={workflow.exportManager.state.saveDialogOpen} 
-        onClose={() => workflow.exportManager.actions.setSaveDialogOpen(false)} 
-        maxWidth="sm" 
-        fullWidth
-        PaperProps={{
-          sx: { borderRadius: 3 }
-        }}
-      >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-            Sauvegarder l&apos;analyse
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            fullWidth
-            label="Nom de l'analyse"
-            value={workflow.configuration.state.analysisName}
-            onChange={(e) => workflow.configuration.actions.setAnalysisName(e.target.value)}
-            variant="outlined"
-            sx={{ mb: 3 }}
-          />
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Description (optionnelle)"
-            value={workflow.configuration.state.analysisDescription}
-            onChange={(e) => workflow.configuration.actions.setAnalysisDescription(e.target.value)}
-            variant="outlined"
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button 
-            onClick={() => workflow.exportManager.actions.setSaveDialogOpen(false)}
-            sx={{ textTransform: 'none' }}
-          >
-            Annuler
-          </Button>
-          <Button 
-            variant="contained" 
-            onClick={async () => {
-              await workflow.saveCurrentAnalysis();
-              workflow.exportManager.actions.setSaveDialogOpen(false);
-            }}
-            disabled={workflow.exportManager.state.saving}
-            sx={{ 
-              textTransform: 'none',
-              minWidth: 120
-            }}
-          >
-            {workflow.exportManager.state.saving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Dialog de sauvegarde optimisé */}
+      <SaveAnalysisDialog
+        open={workflow.exportManager.state.saveDialogOpen}
+        onClose={() => workflow.exportManager.actions.setSaveDialogOpen(false)}
+        onSave={handleSaveAnalysis}
+        initialName={initialAnalysisName}
+        initialDescription={initialAnalysisDescription}
+        isUpdate={isUpdateMode}
+        saving={workflow.exportManager.state.saving}
+      />
     </Container>
     </FocusProvider>
   );

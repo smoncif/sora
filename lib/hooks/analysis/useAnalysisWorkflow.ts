@@ -38,6 +38,7 @@ import {
   type StaticAnalysisData 
 } from './useStaticAnalysisData';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
+import { reconstructSelectedRoles } from 'lib/services/analysis/savedAnalysisService';
 
 // Interface principale du workflow d'analyse - VERSION OPTIMISÉE
 export interface AnalysisWorkflow {
@@ -61,9 +62,10 @@ export interface AnalysisWorkflow {
   
   // Actions de haut niveau
   startNewAnalysis: (file: File) => Promise<void>;
-  saveCurrentAnalysis: () => Promise<void>;
+  saveCurrentAnalysis: (customMetadata?: { name?: string; description?: string }) => Promise<void>;
   exportCurrentAnalysis: (format?: 'excel' | 'pdf' | 'csv' | 'json') => Promise<void>;
   resetWorkflow: () => void;
+  loadSavedAnalysis: (analysisId: string) => Promise<void>;
   
   // Getters utilitaires
   getCurrentAnalysisResult: () => SimplifiedAnalysisResult | null;
@@ -127,13 +129,16 @@ export interface WorkflowConfig {
   defaultExportFormat?: 'excel' | 'pdf' | 'csv' | 'json';
   enableAutoSave?: boolean;
   autoSaveInterval?: number; // en millisecondes
+  userId?: string; // Pour les fonctions nécessitant l'authentification
 }
 
-const defaultConfig: Required<WorkflowConfig> = {
+// Configuration par défaut
+const defaultConfig: Required<Omit<WorkflowConfig, 'userId'>> & Pick<WorkflowConfig, 'userId'> = {
   autoValidateConfiguration: true,
   defaultExportFormat: 'excel',
   enableAutoSave: false,
-  autoSaveInterval: 5 * 60 * 1000, // 5 minutes
+  autoSaveInterval: 30000,
+  userId: undefined,
 };
 
 export const useAnalysisWorkflow = (
@@ -221,7 +226,11 @@ export const useAnalysisWorkflow = (
   
   // Initialisation des sous-hooks de données (avec cache intégré)
   const fileManager = useAnalysisFileManager(fileManagerCallbacks, cache); // 🚀 OPTIMISATION
-  const configuration = useAnalysisConfiguration(configurationCallbacks);
+  const configuration = useAnalysisConfiguration(
+    configurationCallbacks, 
+    undefined, 
+    { analysisResult: fileManager.state.analysisResult } // 🚀 PASSAGE de l'analysisResult pour la restauration
+  );
   const exportManager = useAnalysisExport(exportCallbacks);
   
   const selections = useAnalysisSelections({
@@ -266,6 +275,21 @@ export const useAnalysisWorkflow = (
       localState.actions.resetLocalState();
       cache.precomputeCache();
     }
+  }, [fileManager.state.analysisResult]);
+  
+  // 🚀 NOUVEAU : Restaurer les sélections depuis une analyse chargée
+  useEffect(() => {
+    const analysisResult = fileManager.state.analysisResult;
+    
+    // Vérifier si l'analyse contient des sélections utilisateur à restaurer
+    if (analysisResult && analysisResult.userSelections && Object.keys(analysisResult.userSelections).length > 0) {
+      console.log('[WORKFLOW] Restauration des sélections depuis analyse chargée', analysisResult.userSelections);
+      // Restaurer les sélections utilisateur
+      const selectedRolesMap = reconstructSelectedRoles(analysisResult);
+      selections.synchronizeSelectedRoles(selectedRolesMap);
+    }
+    
+    // Note: Les coefficients sont maintenant restaurés automatiquement par useAnalysisConfiguration
   }, [fileManager.state.analysisResult]);
   
   // LOG: tous les changements de state principaux
@@ -334,22 +358,94 @@ export const useAnalysisWorkflow = (
     localState.actions
   ]);
   
+  // 🚀 NOUVEAU : Détecter si c'est une analyse chargée (mise à jour vs nouvelle sauvegarde)
+  const isLoadedAnalysis = fileManager.state.importType === 'saved' && fileManager.state.loadedAnalysisId;
+  
   // Action de haut niveau : Sauvegarder l'analyse actuelle
-  const saveCurrentAnalysis = useCallback(async () => {
+  const saveCurrentAnalysis = useCallback(async (customMetadata?: { name?: string; description?: string }) => {
+    const actionType = isLoadedAnalysis ? 'mise à jour' : 'sauvegarde';
+    console.log(`[WORKFLOW] 🚀 Début ${actionType} analyse`, { 
+      customMetadata, 
+      loadedAnalysisId: fileManager.state.loadedAnalysisId,
+      isUpdate: isLoadedAnalysis
+    });
+    
     const analysisResult = fileManager.state.analysisResult;
     if (!analysisResult) {
-      callbacks?.onError?.('Aucune analyse à sauvegarder', 'save');
+      console.error(`❌ Aucune analyse à ${actionType === 'mise à jour' ? 'mettre à jour' : 'sauvegarder'}`);
+      callbacks?.onError?.(`Aucune analyse à ${actionType === 'mise à jour' ? 'mettre à jour' : 'sauvegarder'}`, 'save');
       return;
     }
     
+    // 🚀 STABILISÉ : Récupérer les données actuelles directement (pas de dépendances sur state)
+    const currentSelections = selections.state.selectedRoles;
+    const currentConfig = configuration.state;
+    
+    console.log('[WORKFLOW] 📊 Données actuelles:', {
+      selections: currentSelections.size,
+      coefficients: {
+        coverageWeight: currentConfig.coverageWeight,
+        sizeWeight: currentConfig.sizeWeight,
+        usageWeight: currentConfig.usageWeight,
+      }
+    });
+    
+    // Utiliser les métadonnées personnalisées si fournies, sinon utiliser la configuration
     const metadata = {
-      name: configuration.state.analysisName || `Analyse ${new Date().toLocaleDateString()}`,
-      description: configuration.state.analysisDescription || 'Analyse automatique',
+      name: customMetadata?.name || currentConfig.analysisName || `Analyse ${new Date().toLocaleDateString()}`,
+      description: customMetadata?.description || currentConfig.analysisDescription || 'Analyse automatique',
+      createdBy: mergedConfig.userId,
     };
     
-    callbacks?.onPhaseChange?.('saving');
-    await exportManager.actions.handleSaveAnalysis(analysisResult, metadata);
-  }, [fileManager.state.analysisResult, configuration.state, exportManager.actions, callbacks]);
+    // 🚀 NOUVEAU : Enrichir l'analysisResult avec les données ACTUELLES avant la sauvegarde
+    const enrichedAnalysisResult = {
+      ...analysisResult,
+      // Convertir les sélections actuelles en format sérialisable
+      userSelections: Object.fromEntries(
+        Array.from(currentSelections.entries()).map(([businessRole, simpleRoles]) => [
+          businessRole,
+          Array.from(simpleRoles)
+        ])
+      ),
+      // Mettre à jour les paramètres avec les coefficients actuels
+      analysisParams: {
+        ...analysisResult.analysisParams,
+        coverageWeight: currentConfig.coverageWeight,
+        sizeWeight: currentConfig.sizeWeight,
+        usageWeight: currentConfig.usageWeight,
+      }
+    };
+    
+    console.log(`[WORKFLOW] 📤 Envoi vers ${actionType}:`, { metadata, enrichedData: !!enrichedAnalysisResult.userSelections });
+    
+    // 🚀 NOUVEAU : Utiliser la bonne fonction selon le contexte
+    try {
+      if (isLoadedAnalysis && fileManager.state.loadedAnalysisId) {
+        // Mise à jour d'une analyse existante
+        await exportManager.actions.handleUpdateAnalysis(
+          fileManager.state.loadedAnalysisId,
+          enrichedAnalysisResult, 
+          metadata
+        );
+        console.log('[WORKFLOW] ✅ Mise à jour terminée avec succès');
+      } else {
+        // Nouvelle sauvegarde
+        await exportManager.actions.handleSaveAnalysis(enrichedAnalysisResult, metadata);
+        console.log('[WORKFLOW] ✅ Sauvegarde terminée avec succès');
+      }
+    } catch (error) {
+      console.error(`[WORKFLOW] ❌ Erreur lors de la ${actionType}:`, error);
+      throw error;
+    }
+  }, [
+    fileManager.state.analysisResult, // Seule dépendance stable
+    fileManager.state.loadedAnalysisId, // Pour déterminer si c'est une mise à jour
+    fileManager.state.importType, // Pour déterminer si c'est une analyse chargée
+    isLoadedAnalysis, // État dérivé
+    exportManager.actions, // Actions stables
+    callbacks,
+    mergedConfig.userId
+  ]); // ✅ CORRIGÉ : Inclure les dépendances nécessaires pour la détection de mise à jour
   
   // Action de haut niveau : Exporter l'analyse actuelle
   const exportCurrentAnalysis = useCallback(async (format = mergedConfig.defaultExportFormat) => {
@@ -520,30 +616,32 @@ export const useAnalysisWorkflow = (
     console.log(`[PERF][CALLBACK] ${name}`, ...args);
   };
   
+  // Wrapper pour le chargement d'analyse sauvegardée avec userId automatique
+  const loadSavedAnalysisWithUser = useCallback(async (analysisId: string) => {
+    if (!mergedConfig.userId) {
+      throw new Error('Utilisateur non authentifié. Impossible de charger l\'analyse.');
+    }
+    return fileManager.actions.handleLoadSavedAnalysis(analysisId, mergedConfig.userId);
+  }, [fileManager.actions, mergedConfig.userId]);
+  
   return {
-    // Sous-hooks de données
     fileManager,
     configuration,
     exportManager,
-    
-    // Sous-hooks de traitement
     cache,
     calculations,
     selections,
     localState,
-    staticData, // 🚀 DONNÉES STATIQUES
-    
-    // États dérivés
+    staticData,
     isReady,
     hasAnalysisResult,
     canExport,
     canSave,
-    
-    // Actions de haut niveau
     startNewAnalysis,
     saveCurrentAnalysis,
     exportCurrentAnalysis,
     resetWorkflow,
+    loadSavedAnalysis: loadSavedAnalysisWithUser, // 🚀 NOUVEAU wrapper avec userId
     getCurrentAnalysisResult,
     getWorkflowStatus,
     getSharedBusinessRoleProps,

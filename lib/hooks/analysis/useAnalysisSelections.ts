@@ -60,12 +60,18 @@ export const useAnalysisSelections = (
     return memoMap;
   }, [state.selectedRoles]);
   
-  // 🔄 RÉINITIALISATION : Reset des sélections quand l'analyse change
+  // 🔄 RÉINITIALISATION : Reset des sélections quand l'analyse change (sauf si elle contient des sélections à restaurer)
   useEffect(() => {
     if (analysisResult) {
-      setState({
-        selectedRoles: new Map(),
-      });
+      // Ne reset que si l'analyse ne contient pas de sélections à restaurer
+      const hasSelectionsToRestore = analysisResult.userSelections && 
+        Object.keys(analysisResult.userSelections).length > 0;
+      
+      if (!hasSelectionsToRestore) {
+        setState({
+          selectedRoles: new Map(),
+        });
+      }
     }
   }, [analysisResult]);
   

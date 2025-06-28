@@ -177,15 +177,6 @@ export function FileUploadSection({
 
             {importType === 'saved' && (
               <Box>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 500,
-                  color: theme.palette.text.primary,
-                  mb: 2,
-                  fontSize: '1rem',
-                }}>
-                  Charger une analyse sauvegardée
-                </Typography>
-                
                 {!user?.id ? (
                   <Alert severity="warning" sx={{ borderRadius: 2 }}>
                     Vous devez être connecté pour accéder aux analyses sauvegardées.

@@ -6,12 +6,16 @@ import {
   createSimplifiedAnalysisResult 
 } from 'lib/services/role/simplifiedAnalysisService';
 import { parseResumeFile } from 'lib/services/analysis/resumeAnalysisService';
+import { getSavedAnalysisById } from 'lib/services/analysis/savedAnalysisService';
 
 // Types pour la gestion des fichiers
 export interface FileManagerState {
   // Données du fichier
   analysisResult: SimplifiedAnalysisResult | null;
   importType: 'new' | 'saved' | 'resume';
+  
+  // 🚀 NOUVEAU : ID de l'analyse chargée (pour les mises à jour)
+  loadedAnalysisId: string | null;
   
   // États de traitement
   loading: boolean;
@@ -23,13 +27,14 @@ export interface FileManagerState {
 export interface FileManagerActions {
   // Actions principales
   handleFileUpload: (file: File) => Promise<void>;
-  handleLoadSavedAnalysis: (analysisId: string) => Promise<void>;
+  handleLoadSavedAnalysis: (analysisId: string, userId?: string) => Promise<void>;
   handleResumeFromFile: (file: File) => Promise<void>;
   handleReset: () => void;
   
   // Setters d'état
   setAnalysisResult: (result: SimplifiedAnalysisResult | null) => void;
   setImportType: (type: 'new' | 'saved' | 'resume') => void;
+  setLoadedAnalysisId: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setProgress: (progress: number) => void;
@@ -54,6 +59,7 @@ export interface FileManagerCallbacks {
 const initialState: FileManagerState = {
   analysisResult: null,
   importType: 'new',
+  loadedAnalysisId: null,
   loading: false,
   error: null,
   progress: 0,
@@ -80,6 +86,10 @@ export const useAnalysisFileManager = (
     setState(prev => ({ ...prev, importType: type }));
     memoizedCallbacks?.onImportType?.(type);
   }, [memoizedCallbacks]);
+  
+  const setLoadedAnalysisId = useCallback((id: string | null) => {
+    setState(prev => ({ ...prev, loadedAnalysisId: id }));
+  }, []);
   
   const setLoading = useCallback((loading: boolean) => {
     setState(prev => ({ ...prev, loading }));
@@ -139,6 +149,7 @@ export const useAnalysisFileManager = (
       // Mise à jour du résultat
       setAnalysisResult(result);
       setImportType('new');
+      setLoadedAnalysisId(null); // 🚀 Reset car nouveau fichier
       setProgress(90);
       setProcessingStep('Finalisation...');
 
@@ -170,28 +181,99 @@ export const useAnalysisFileManager = (
       setProgress(0);
       setProcessingStep('');
     }
-  }, [setLoading, setError, setProgress, setProcessingStep, setAnalysisResult, setImportType, cache]);
+  }, [setLoading, setError, setProgress, setProcessingStep, setAnalysisResult, setImportType, setLoadedAnalysisId, cache]);
   
   // Action : Charger une analyse sauvegardée
-  const handleLoadSavedAnalysis = useCallback(async (analysisId: string) => {
+  const handleLoadSavedAnalysis = useCallback(async (analysisId: string, userId?: string) => {
     setLoading(true);
     setError(null);
+    setProgress(0);
     setProcessingStep('Chargement de l\'analyse...');
     
     try {
-      // TODO: Implémenter le chargement depuis la base de données
-      // const savedAnalysis = await loadSavedAnalysis(analysisId);
-      // setAnalysisResult(savedAnalysis);
+      console.log('🔄 Chargement de l\'analyse depuis Supabase:', analysisId);
+      
+      // Récupérer l'analyse depuis la base de données
+      // Si userId n'est pas fourni, on essaie de le récupérer depuis l'auth
+      if (!userId) {
+        // On peut utiliser l'utilisateur connecté par défaut
+        // Mais il serait mieux de passer userId en paramètre
+        throw new Error('ID utilisateur requis pour charger l\'analyse');
+      }
+      
+      setProgress(20);
+      setProcessingStep('Récupération des données...');
+      
+      const savedAnalysis = await getSavedAnalysisById(analysisId, userId);
+      console.log('✅ Analyse chargée avec succès:', savedAnalysis.metadata?.fileName);
+      
+      setProgress(40);
+      
+      // 🚀 NOUVEAU : Vérifier si l'analyse a besoin d'un recalcul des analyses de couverture
+      let finalAnalysis = savedAnalysis;
+      
+      if (savedAnalysis.coverageAnalyses.length === 0 && 
+          savedAnalysis.businessRoleTransactions.length > 0 && 
+          savedAnalysis.simpleRoleTransactions.length > 0) {
+        
+        console.log('🔄 Recalcul des analyses de couverture nécessaire pour version compressée');
+        setProcessingStep('Recalcul des analyses de couverture...');
+        setProgress(60);
+        
+        try {
+          // Recalculer les analyses de couverture depuis les données de base
+          const recalculatedAnalysis = calculateCoverageAnalysis(
+            savedAnalysis.businessRoleTransactions,
+            savedAnalysis.simpleRoleTransactions,
+            savedAnalysis.analysisParams?.minCoverageThreshold || 0
+          );
+          
+          setProgress(80);
+          setProcessingStep('Finalisation du recalcul...');
+          
+          // Reconstituer l'analyse complète avec les nouvelles analyses de couverture
+          finalAnalysis = {
+            ...savedAnalysis,
+            coverageAnalyses: recalculatedAnalysis
+          };
+          
+          console.log('✅ Recalcul terminé, analyses de couverture restaurées:', recalculatedAnalysis.length);
+          
+        } catch (recalcError) {
+          console.warn('⚠️ Erreur lors du recalcul (non critique):', recalcError);
+          // Continuer avec l'analyse originale même si le recalcul échoue
+        }
+      } else {
+        console.log('ℹ️ Analyse complète, pas de recalcul nécessaire');
+      }
+      
+      setProgress(90);
+      setProcessingStep('Mise à jour de l\'interface...');
+      
+      // Mettre à jour l'état avec l'analyse finale
+      setAnalysisResult(finalAnalysis);
       setImportType('saved');
-      setLoading(false);
-      setProcessingStep('');
+      setLoadedAnalysisId(analysisId); // 🚀 Stocker l'ID pour les futures mises à jour
+      
+      setProgress(100);
+      setProcessingStep('Analyse chargée avec succès !');
+      
+      // Petit délai pour afficher le succès
+      setTimeout(() => {
+        setLoading(false);
+        setProgress(0);
+        setProcessingStep('');
+      }, 500);
+      
     } catch (error) {
-      console.error('Erreur lors du chargement:', error);
-      setError(error instanceof Error ? error.message : 'Erreur lors du chargement');
+      console.error('❌ Erreur lors du chargement:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement de l\'analyse';
+      setError(errorMessage);
       setLoading(false);
+      setProgress(0);
       setProcessingStep('');
     }
-  }, [setLoading, setError, setProcessingStep, setImportType]);
+  }, [setLoading, setError, setProgress, setProcessingStep, setAnalysisResult, setImportType, setLoadedAnalysisId]);
   
   // Action : Reprendre depuis un fichier
   const handleResumeFromFile = useCallback(async (file: File) => {
@@ -233,6 +315,7 @@ export const useAnalysisFileManager = (
     handleReset,
     setAnalysisResult,
     setImportType,
+    setLoadedAnalysisId,
     setLoading,
     setError,
     setProgress,

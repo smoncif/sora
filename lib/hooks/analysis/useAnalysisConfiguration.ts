@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 
 // Types pour la configuration de l'analyse
 export interface AnalysisConfigurationState {
@@ -52,26 +53,55 @@ export interface ConfigurationCallbacks {
   onValidationErrors?: (errors: string[]) => void;
 }
 
-// Configuration par défaut
-const defaultConfiguration: AnalysisConfigurationState = {
-  analysisName: '',
-  analysisDescription: '',
-  coverageWeight: 40,
-  sizeWeight: 30,
-  usageWeight: 30,
-  includeFrequency: true,
-  isValid: false,
-  validationErrors: [],
-};
+export interface ConfigurationConfig {
+  analysisResult?: SimplifiedAnalysisResult | null; // Pour la restauration automatique des paramètres
+}
 
 export const useAnalysisConfiguration = (
   callbacks?: ConfigurationCallbacks,
-  initialConfig?: Partial<AnalysisConfigurationState>
+  initialConfig?: Partial<AnalysisConfigurationState>,
+  config?: ConfigurationConfig
 ): AnalysisConfiguration => {
-  const [state, setState] = useState<AnalysisConfigurationState>({
-    ...defaultConfiguration,
-    ...initialConfig,
-  });
+  
+  // Configuration par défaut
+  const defaultConfiguration: AnalysisConfigurationState = {
+    analysisName: '',
+    analysisDescription: '',
+    coverageWeight: 50,
+    sizeWeight: 50,
+    usageWeight: 0,
+    includeFrequency: true,
+    isValid: false,
+    validationErrors: ['Le nom de l\'analyse est requis'],
+  };
+  
+  // Fusionner avec la configuration initiale si fournie
+  const mergedInitialConfig = { ...defaultConfiguration, ...initialConfig };
+  
+  // État principal
+  const [state, setState] = useState<AnalysisConfigurationState>(mergedInitialConfig);
+  
+  // 🚀 NOUVEAU : Restaurer automatiquement les coefficients depuis analysisResult
+  useEffect(() => {
+    if (config?.analysisResult?.analysisParams) {
+      const { coverageWeight, sizeWeight, usageWeight } = config.analysisResult.analysisParams;
+      
+      if (coverageWeight !== undefined && sizeWeight !== undefined && usageWeight !== undefined) {
+        console.log('[CONFIG] Restauration des coefficients depuis analyse chargée', { coverageWeight, sizeWeight, usageWeight });
+        setState(prev => ({
+          ...prev,
+          coverageWeight,
+          sizeWeight,
+          usageWeight,
+        }));
+        
+        // Notifier les callbacks - utilisation directe pour éviter les dépendances cycliques
+        setTimeout(() => {
+          callbacks?.onWeights?.({ coverageWeight, sizeWeight, usageWeight });
+        }, 0);
+      }
+    }
+  }, [config?.analysisResult]); // ✅ CORRIGÉ : Retirer callbacks des dépendances pour éviter les boucles
   
   // Helper pour mise à jour d'état
   const updateState = useCallback((updates: Partial<AnalysisConfigurationState>) => {

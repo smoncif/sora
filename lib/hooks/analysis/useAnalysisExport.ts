@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useAuth } from 'lib/hooks/useAuth';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 import { exportAnalysisToExcel } from 'lib/services/analysis/exportAnalysisService';
+import { saveAnalysisWithSelections } from 'lib/services/analysis/savedAnalysisService';
 
 // Types pour la gestion des exports
 export interface ExportState {
@@ -33,6 +34,7 @@ export interface ExportActions {
   
   // Actions de sauvegarde
   handleSaveAnalysis: (analysisResult: SimplifiedAnalysisResult, metadata: AnalysisMetadata) => Promise<void>;
+  handleUpdateAnalysis: (analysisId: string, analysisResult: SimplifiedAnalysisResult, metadata: AnalysisMetadata) => Promise<void>;
   handleQuickSave: (analysisResult: SimplifiedAnalysisResult) => Promise<void>;
   
   // Configuration d'export
@@ -171,7 +173,7 @@ export const useAnalysisExport = (
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10);
     const timeStr = now.toTimeString().slice(0, 5).replace(':', '');
-    const baseName = analysisResult.metadata?.name || 'analyse-roles';
+    const baseName = analysisResult.metadata?.fileName || 'analyse-roles';
     return `${baseName}_${dateStr}_${timeStr}.${format}`;
   }, []);
   
@@ -203,12 +205,45 @@ export const useAnalysisExport = (
       setExportProgress(50);
       setExportStep('Traitement des données...');
       
-      await exportAnalysisToExcel(analysisResult, {
-        filename,
-        includeCharts: config.includeCharts,
-        includeRawData: config.includeRawData,
-        includeMetadata: config.includeMetadata,
-      });
+      // Récupérer les sélections utilisateur
+      const userSelections = new Map<string, Set<string>>();
+      if (analysisResult.userSelections) {
+        Object.entries(analysisResult.userSelections).forEach(([businessRole, simpleRoles]) => {
+          userSelections.set(businessRole, new Set(simpleRoles));
+        });
+      }
+
+      // Préparer les métadonnées d'export
+      const exportMetadata = {
+        analysisName: analysisResult.metadata?.fileName || 'analyse',
+        analysisDescription: 'Export automatique',
+        exportedAt: new Date().toISOString(),
+        exportedBy: user?.email,
+        version: '1.0',
+        analysisParams: {
+          includeFrequency: analysisResult.analysisParams?.includeFrequency ?? true,
+          minCoverageThreshold: analysisResult.analysisParams?.minCoverageThreshold ?? 0,
+          coverageWeight: analysisResult.analysisParams?.coverageWeight ?? 50,
+          sizeWeight: analysisResult.analysisParams?.sizeWeight ?? 50,
+          usageWeight: analysisResult.analysisParams?.usageWeight ?? 0,
+        }
+      };
+
+      await exportAnalysisToExcel(
+        analysisResult, 
+        userSelections, 
+        exportMetadata, 
+        {
+          fileName: filename,
+          includeMetadata: config.includeMetadata,
+          includeProgressInfo: true,
+          includeUserSelections: true,
+          onProgress: (progress, stage) => {
+            setExportProgress(20 + (progress * 0.7)); // Map 0-100 to 20-90
+            setExportStep(stage);
+          }
+        }
+      );
       
       setExportProgress(90);
       setExportStep('Finalisation...');
@@ -242,6 +277,7 @@ export const useAnalysisExport = (
     setExportProgress, 
     setExportStep,
     generateFilename,
+    user,
     callbacks
   ]);
   
@@ -280,7 +316,6 @@ export const useAnalysisExport = (
       const dataToExport = {
         ...(config.includeMetadata && { metadata: analysisResult.metadata }),
         analysis: analysisResult,
-        ...(config.includeRawData && { rawData: analysisResult.rawData }),
         exportedAt: new Date().toISOString(),
         exportedBy: user?.email,
       };
@@ -311,23 +346,105 @@ export const useAnalysisExport = (
     analysisResult: SimplifiedAnalysisResult, 
     metadata: AnalysisMetadata
   ) => {
+    if (!user?.id) {
+      setSaveError('Utilisateur non authentifié');
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
     
     try {
-      // TODO: Implémenter la sauvegarde en base de données
-      console.log('Sauvegarde à implémenter', analysisResult, metadata);
+      // Récupérer les sélections utilisateur depuis analysisResult (qui devrait maintenant être enrichi)
+      const userSelections = new Map<string, Set<string>>();
+      if (analysisResult.userSelections) {
+        Object.entries(analysisResult.userSelections).forEach(([businessRole, simpleRoles]) => {
+          userSelections.set(businessRole, new Set(simpleRoles));
+        });
+      }
+
+      // Utiliser les coefficients enrichis dans analysisResult
+      const currentWeights = {
+        coverageWeight: analysisResult.analysisParams?.coverageWeight ?? 50,
+        sizeWeight: analysisResult.analysisParams?.sizeWeight ?? 50,
+        usageWeight: analysisResult.analysisParams?.usageWeight ?? 0,
+      };
+
+      // Sauvegarder l'analyse avec le service
+      const savedAnalysis = await saveAnalysisWithSelections(
+        analysisResult,
+        userSelections,
+        metadata.name,
+        metadata.description,
+        user.id,
+        currentWeights
+      );
       
       updateState({ lastSavedAt: new Date() });
-      callbacks?.onSaveComplete?.('temp-id');
+      callbacks?.onSaveComplete?.(savedAnalysis.id);
       
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
+      console.error('❌ Erreur sauvegarde:', error);
       setSaveError(error instanceof Error ? error.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
-  }, [setSaving, setSaveError, updateState, callbacks]);
+  }, [user?.id, setSaving, setSaveError, updateState, callbacks]);
+
+  // 🚀 NOUVEAU : Action de mise à jour d'une analyse existante
+  const handleUpdateAnalysis = useCallback(async (
+    analysisId: string,
+    analysisResult: SimplifiedAnalysisResult, 
+    metadata: AnalysisMetadata
+  ) => {
+    if (!user?.id) {
+      setSaveError('Utilisateur non authentifié');
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    
+    try {
+      // Récupérer les sélections utilisateur depuis analysisResult (qui devrait maintenant être enrichi)
+      const userSelections = new Map<string, Set<string>>();
+      if (analysisResult.userSelections) {
+        Object.entries(analysisResult.userSelections).forEach(([businessRole, simpleRoles]) => {
+          userSelections.set(businessRole, new Set(simpleRoles));
+        });
+      }
+
+      // Utiliser les coefficients enrichis dans analysisResult
+      const currentWeights = {
+        coverageWeight: analysisResult.analysisParams?.coverageWeight ?? 50,
+        sizeWeight: analysisResult.analysisParams?.sizeWeight ?? 50,
+        usageWeight: analysisResult.analysisParams?.usageWeight ?? 0,
+      };
+
+      // Importer la fonction de mise à jour
+      const { updateAnalysisWithSelections } = await import('lib/services/analysis/savedAnalysisService');
+
+      // Mettre à jour l'analyse avec le service
+      const updatedAnalysis = await updateAnalysisWithSelections(
+        analysisId,
+        analysisResult,
+        userSelections,
+        metadata.name,
+        metadata.description,
+        user.id,
+        currentWeights
+      );
+      
+      updateState({ lastSavedAt: new Date() });
+      callbacks?.onSaveComplete?.(updatedAnalysis.id);
+      
+    } catch (error) {
+      console.error('❌ Erreur mise à jour:', error);
+      setSaveError(error instanceof Error ? error.message : 'Erreur lors de la mise à jour');
+    } finally {
+      setSaving(false);
+    }
+  }, [user?.id, setSaving, setSaveError, updateState, callbacks]);
   
   const handleQuickSave = useCallback(async (analysisResult: SimplifiedAnalysisResult) => {
     const metadata: AnalysisMetadata = {
@@ -360,6 +477,7 @@ export const useAnalysisExport = (
     handleExportCsv,
     handleExportJson,
     handleSaveAnalysis,
+    handleUpdateAnalysis,
     handleQuickSave,
     setExportFormat,
     setIncludeCharts,
