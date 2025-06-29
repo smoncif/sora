@@ -5,8 +5,9 @@ import {
   calculateCoverageAnalysis, 
   createSimplifiedAnalysisResult 
 } from 'lib/services/role/simplifiedAnalysisService';
-import { parseResumeFile } from 'lib/services/analysis/resumeAnalysisService';
+import { parseResumeFile, validateResumeFile } from 'lib/services/analysis/resumeAnalysisService';
 import { getSavedAnalysisById } from 'lib/services/analysis/savedAnalysisService';
+import * as XLSX from 'xlsx';
 
 // Types pour la gestion des fichiers
 export interface FileManagerState {
@@ -77,9 +78,12 @@ export const useAnalysisFileManager = (
   
   // 🚀 OPTIMISÉ : Setters avec callbacks synchrones 
   const setAnalysisResult = useCallback((result: SimplifiedAnalysisResult | null) => {
+    console.log('🔄 setAnalysisResult appelé avec:', !!result, result?.id);
     setState(prev => ({ ...prev, analysisResult: result }));
     // Callback direct pour éviter les boucles asynchrones
+    console.log('🔔 Appel du callback onAnalysisResult...');
     memoizedCallbacks?.onAnalysisResult?.(result);
+    console.log('✅ setAnalysisResult terminé');
   }, [memoizedCallbacks]);
   
   const setImportType = useCallback((type: 'new' | 'saved' | 'resume') => {
@@ -281,6 +285,8 @@ export const useAnalysisFileManager = (
     
     setLoading(true);
     setError(null);
+    console.log('📊 État initial défini: loading=true, error=null');
+    
     setProgress(0);
     setProcessingStep('Reprise de l\'analyse...');
     
@@ -288,6 +294,32 @@ export const useAnalysisFileManager = (
       console.log('📄 Validation du type de fichier...');
       if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
         throw new Error('Le fichier doit être un fichier Excel (.xlsx ou .xls)');
+      }
+      
+      // 🔍 NOUVEAU : Test préliminaire de validation
+      console.log('🔍 Test de validation de la structure du fichier...');
+      const isValidResumeFile = await validateResumeFile(file);
+      console.log('✓ Résultat validation:', isValidResumeFile);
+      
+      if (!isValidResumeFile) {
+        console.warn('⚠️ Le fichier ne semble pas être un fichier de reprise valide, tentative de parsing quand même...');
+        
+        // 🔍 DEBUG : Lister les feuilles du fichier Excel pour diagnostic
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          console.log('📋 DEBUG: Feuilles trouvées dans le fichier:', workbook.SheetNames);
+          
+          // Vérifier les feuilles attendues
+          const expectedSheets = ['Metadata', 'BusinessRoleTransactions', 'SimpleRoleTransactions', 'UserSelections', 'ProgressInfo'];
+          const missingSheets = expectedSheets.filter(sheet => !workbook.SheetNames.includes(sheet));
+          const extraSheets = workbook.SheetNames.filter(sheet => !expectedSheets.includes(sheet));
+          
+          console.log('📋 DEBUG: Feuilles manquantes:', missingSheets);
+          console.log('📋 DEBUG: Feuilles supplémentaires:', extraSheets);
+        } catch (debugError) {
+          console.error('📋 DEBUG: Erreur lors de l\'inspection du fichier:', debugError);
+        }
       }
       
       setProgress(10);
@@ -362,10 +394,14 @@ export const useAnalysisFileManager = (
       setProcessingStep('Mise à jour de l\'interface...');
       
       console.log('🔄 Mise à jour de l\'état avec l\'analyse reconstituée...');
+      console.log('📝 analysisResult avant setAnalysisResult:', !!analysisResult, analysisResult?.id);
+      
       // Mettre à jour l'état avec l'analyse reconstituée
       setAnalysisResult(analysisResult);
       setImportType('resume');
       setLoadedAnalysisId(null); // Pas d'ID car chargé depuis fichier local
+      
+      console.log('📝 États définis: analysisResult={...}, importType=resume, loadedAnalysisId=null');
       
       setProgress(100);
       setProcessingStep('Analyse reprise avec succès !');
@@ -388,8 +424,11 @@ export const useAnalysisFileManager = (
     } catch (error) {
       console.error('❌ Erreur lors de la reprise depuis Excel:', error);
       console.error('📊 Stack trace:', error instanceof Error ? error.stack : 'Pas de stack disponible');
+      console.error('📊 Erreur complète:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise de l\'analyse';
+      console.error('📨 Message d\'erreur qui sera affiché:', errorMessage);
+      
       setError(errorMessage);
       setLoading(false);
       setProgress(0);
