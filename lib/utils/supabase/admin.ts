@@ -12,6 +12,12 @@ export function createAdminClient() {
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error('Variables d\'environnement Supabase manquantes pour le client admin')
   }
+
+  // Log de sécurité pour tracer l'utilisation
+  console.log('🔑 Admin client created at:', new Date().toISOString(), {
+    environment: process.env.NODE_ENV,
+    caller: new Error().stack?.split('\n')[2]?.trim()
+  })
   
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
