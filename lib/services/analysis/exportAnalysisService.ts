@@ -62,6 +62,13 @@ export async function exportAnalysisToExcel(
   metadata: ExportMetadata,
   options: ExportOptions = {}
 ): Promise<void> {
+  console.log('[EXPORT_SERVICE] 🚀 exportAnalysisToExcel appelé');
+  console.log('[EXPORT_SERVICE] 📊 Données reçues:');
+  console.log('  - userSelections:', userSelections.size, 'rôles métier');
+  console.log('  - metadata.analysisParams:', metadata.analysisParams);
+  console.log('  - analysisResult.analysisParams:', analysisResult.analysisParams);
+  console.log('  - Exemple userSelections:', Array.from(userSelections.entries()).slice(0, 2));
+  
   const {
     includeMetadata = true,
     includeProgressInfo = true,
@@ -141,6 +148,8 @@ export async function exportAnalysisToExcel(
  * Crée la feuille de métadonnées
  */
 function createMetadataSheet(metadata: ExportMetadata): XLSX.WorkSheet {
+  console.log('[EXPORT_SERVICE] 📝 createMetadataSheet - metadata reçue:', metadata.analysisParams);
+  
   const data = [
     ['Propriété', 'Valeur'],
     ['analysisName', metadata.analysisName],
@@ -154,6 +163,12 @@ function createMetadataSheet(metadata: ExportMetadata): XLSX.WorkSheet {
     ['sizeWeight', metadata.analysisParams.sizeWeight.toString()],
     ['usageWeight', metadata.analysisParams.usageWeight.toString()]
   ];
+  
+  console.log('[EXPORT_SERVICE] ✅ Données metadata pour Excel:', {
+    coverageWeight: metadata.analysisParams.coverageWeight,
+    sizeWeight: metadata.analysisParams.sizeWeight,
+    usageWeight: metadata.analysisParams.usageWeight
+  });
 
   return XLSX.utils.aoa_to_sheet(data);
 }
@@ -201,26 +216,17 @@ function createSimpleRoleTransactionsSheet(transactions: SimpleRoleTransaction[]
  * Crée la feuille des sélections utilisateur
  */
 function createUserSelectionsSheet(userSelections: Map<string, Set<string>>): XLSX.WorkSheet {
-  const data = [
-    ['Rôle métier', 'Rôle simple sélectionné', 'Date de sélection']
-  ];
-
-  const currentDate = new Date().toISOString().split('T')[0];
-
+  console.log('[EXPORT_SERVICE] 👤 createUserSelectionsSheet - userSelections reçues:', userSelections.size, 'rôles métier');
+  
+  const data = [['Rôle métier', 'Rôles simples sélectionnés (séparés par |)']];
+  
   userSelections.forEach((simpleRoles, businessRole) => {
-    simpleRoles.forEach(simpleRole => {
-      data.push([
-        businessRole,
-        simpleRole,
-        currentDate
-      ]);
-    });
+    const selectedRolesList = Array.from(simpleRoles).join(' | ');
+    data.push([businessRole, selectedRolesList]);
+    console.log(`[EXPORT_SERVICE] 📝 ${businessRole}: ${simpleRoles.size} rôles simples`);
   });
-
-  // Si aucune sélection, ajouter une ligne vide pour préserver la structure
-  if (data.length === 1) {
-    data.push(['', '', '']);
-  }
+  
+  console.log('[EXPORT_SERVICE] ✅ Total lignes dans feuille UserSelections:', data.length - 1); // -1 pour l'en-tête
 
   return XLSX.utils.aoa_to_sheet(data);
 }

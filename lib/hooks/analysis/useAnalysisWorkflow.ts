@@ -449,11 +449,23 @@ export const useAnalysisWorkflow = (
   
   // Action de haut niveau : Exporter l'analyse actuelle
   const exportCurrentAnalysis = useCallback(async (format = mergedConfig.defaultExportFormat) => {
+    console.log('[WORKFLOW] 🚀 exportCurrentAnalysis appelé avec format:', format);
+    
     const analysisResult = fileManager.state.analysisResult;
     if (!analysisResult) {
+      console.log('[WORKFLOW] ❌ Aucune analyse à exporter');
       callbacks?.onError?.('Aucune analyse à exporter', 'export');
       return;
     }
+    
+    console.log('[WORKFLOW] 📊 État actuel avant enrichissement:');
+    console.log('  - Sélections actuelles:', selections.state.selectedRoles.size, 'rôles métier');
+    console.log('  - Coefficients actuels:', {
+      coverage: configuration.state.coverageWeight,
+      size: configuration.state.sizeWeight,
+      usage: configuration.state.usageWeight
+    });
+    console.log('  - Sélections dans analysisResult original:', Object.keys(analysisResult.userSelections || {}).length);
     
     // 🚀 NOUVEAU : Enrichir l'analysisResult avec les données ACTUELLES avant l'export
     const enrichedAnalysisResult = {
@@ -473,6 +485,11 @@ export const useAnalysisWorkflow = (
         usageWeight: configuration.state.usageWeight,
       }
     };
+    
+    console.log('[WORKFLOW] ✅ Données enrichies pour export:');
+    console.log('  - userSelections enrichies:', Object.keys(enrichedAnalysisResult.userSelections).length, 'rôles métier');
+    console.log('  - analysisParams enrichis:', enrichedAnalysisResult.analysisParams);
+    console.log('  - Exemple sélection:', Object.entries(enrichedAnalysisResult.userSelections).slice(0, 2));
     
     console.log('[WORKFLOW] 📤 Export avec sélections actuelles:', Object.keys(enrichedAnalysisResult.userSelections).length, 'rôles métier');
     
