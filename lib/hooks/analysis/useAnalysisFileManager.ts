@@ -277,17 +277,30 @@ export const useAnalysisFileManager = (
   
   // Action : Reprendre depuis un fichier
   const handleResumeFromFile = useCallback(async (file: File) => {
+    console.log('🔄 handleResumeFromFile appelé avec fichier:', file.name, file.size, 'bytes');
+    
     setLoading(true);
     setError(null);
     setProgress(0);
     setProcessingStep('Reprise de l\'analyse...');
     
     try {
+      console.log('📄 Validation du type de fichier...');
+      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        throw new Error('Le fichier doit être un fichier Excel (.xlsx ou .xls)');
+      }
+      
       setProgress(10);
       setProcessingStep('Lecture du fichier Excel de reprise...');
       
+      console.log('📖 Début du parsing avec parseResumeFile...');
       // Parser le fichier de reprise avec toutes ses données
       const resumeData = await parseResumeFile(file);
+      console.log('✅ parseResumeFile terminé:', {
+        analysisName: resumeData.metadata.originalFileName,
+        selectionsCount: resumeData.userSelections.size,
+        progressPercent: resumeData.progressInfo.progressPercentage
+      });
       
       setProgress(30);
       setProcessingStep('Reconstitution de l\'analyse...');
@@ -295,30 +308,43 @@ export const useAnalysisFileManager = (
       // 🚀 IMPLÉMENTATION COMPLÈTE : Reconstituer l'analyse depuis les données de reprise
       const { analysisResult, userSelections, progressInfo, metadata } = resumeData;
       
+      console.log('🔍 Données extraites:', {
+        analysisId: analysisResult.id,
+        businessRoles: analysisResult.coverageAnalyses.length,
+        selectionsEntries: userSelections.size,
+        progressPercent: progressInfo.progressPercentage
+      });
+      
       // Appliquer les sélections utilisateur sauvegardées à l'analyse
       if (userSelections && userSelections.size > 0) {
         setProgress(50);
         setProcessingStep('Application des sélections sauvegardées...');
         
+        console.log('🔄 Conversion des sélections Map vers Object...');
         // Convertir les sélections Map vers l'objet attendu
         const selectionsObject: Record<string, string[]> = {};
         userSelections.forEach((simpleRoles, businessRole) => {
           selectionsObject[businessRole] = Array.from(simpleRoles);
+          console.log(`✓ ${businessRole}: ${simpleRoles.size} rôles simples`);
         });
         
         // Mettre à jour l'analyse avec les sélections
         analysisResult.userSelections = selectionsObject;
         
         console.log('✅ Sélections utilisateur appliquées:', Object.keys(selectionsObject).length, 'rôles métier');
+      } else {
+        console.log('⚠️ Aucune sélection utilisateur trouvée dans le fichier');
       }
       
       setProgress(70);
       setProcessingStep('Finalisation de la reconstruction...');
       
+      console.log('🏷️ Mise à jour des métadonnées...');
       // Mettre à jour les métadonnées et description avec les informations de reprise
       if (analysisResult.metadata) {
         // Utiliser les propriétés existantes du metadata
         analysisResult.metadata.fileName = `[REPRISE] ${metadata.originalFileName}`;
+        console.log('✓ Nom de fichier mis à jour:', analysisResult.metadata.fileName);
       }
       
       // Enrichir la description avec les informations de reprise
@@ -335,6 +361,7 @@ export const useAnalysisFileManager = (
       setProgress(90);
       setProcessingStep('Mise à jour de l\'interface...');
       
+      console.log('🔄 Mise à jour de l\'état avec l\'analyse reconstituée...');
       // Mettre à jour l'état avec l'analyse reconstituée
       setAnalysisResult(analysisResult);
       setImportType('resume');
@@ -352,6 +379,7 @@ export const useAnalysisFileManager = (
       
       // Petit délai pour afficher le succès
       setTimeout(() => {
+        console.log('🎯 Finalisation du chargement, arrêt des indicateurs...');
         setLoading(false);
         setProgress(0);
         setProcessingStep('');
@@ -359,6 +387,8 @@ export const useAnalysisFileManager = (
       
     } catch (error) {
       console.error('❌ Erreur lors de la reprise depuis Excel:', error);
+      console.error('📊 Stack trace:', error instanceof Error ? error.stack : 'Pas de stack disponible');
+      
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise de l\'analyse';
       setError(errorMessage);
       setLoading(false);

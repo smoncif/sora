@@ -455,6 +455,27 @@ export const useAnalysisWorkflow = (
       return;
     }
     
+    // 🚀 NOUVEAU : Enrichir l'analysisResult avec les données ACTUELLES avant l'export
+    const enrichedAnalysisResult = {
+      ...analysisResult,
+      // Convertir les sélections actuelles en format sérialisable
+      userSelections: Object.fromEntries(
+        Array.from(selections.state.selectedRoles.entries()).map(([businessRole, simpleRoles]) => [
+          businessRole,
+          Array.from(simpleRoles)
+        ])
+      ),
+      // Mettre à jour les paramètres avec les coefficients actuels
+      analysisParams: {
+        ...analysisResult.analysisParams,
+        coverageWeight: configuration.state.coverageWeight,
+        sizeWeight: configuration.state.sizeWeight,
+        usageWeight: configuration.state.usageWeight,
+      }
+    };
+    
+    console.log('[WORKFLOW] 📤 Export avec sélections actuelles:', Object.keys(enrichedAnalysisResult.userSelections).length, 'rôles métier');
+    
     const exportConfig = {
       format,
       includeCharts: exportManager.state.includeCharts,
@@ -465,22 +486,26 @@ export const useAnalysisWorkflow = (
     
     switch (format) {
       case 'excel':
-        await exportManager.actions.handleExportExcel(analysisResult, exportConfig);
+        await exportManager.actions.handleExportExcel(enrichedAnalysisResult, exportConfig);
         break;
       case 'pdf':
-        await exportManager.actions.handleExportPdf(analysisResult, exportConfig);
+        await exportManager.actions.handleExportPdf(enrichedAnalysisResult, exportConfig);
         break;
       case 'csv':
-        await exportManager.actions.handleExportCsv(analysisResult, exportConfig);
+        await exportManager.actions.handleExportCsv(enrichedAnalysisResult, exportConfig);
         break;
       case 'json':
-        await exportManager.actions.handleExportJson(analysisResult, exportConfig);
+        await exportManager.actions.handleExportJson(enrichedAnalysisResult, exportConfig);
         break;
       default:
         callbacks?.onError?.(`Format d'export non supporté: ${format}`, 'export');
     }
   }, [
     fileManager.state.analysisResult, 
+    selections.state.selectedRoles,
+    configuration.state.coverageWeight,
+    configuration.state.sizeWeight,
+    configuration.state.usageWeight,
     configuration.state.analysisName,
     exportManager.state,
     exportManager.actions, 
