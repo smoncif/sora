@@ -279,21 +279,93 @@ export const useAnalysisFileManager = (
   const handleResumeFromFile = useCallback(async (file: File) => {
     setLoading(true);
     setError(null);
+    setProgress(0);
     setProcessingStep('Reprise de l\'analyse...');
     
     try {
+      setProgress(10);
+      setProcessingStep('Lecture du fichier Excel de reprise...');
+      
+      // Parser le fichier de reprise avec toutes ses données
       const resumeData = await parseResumeFile(file);
-      // TODO: Reconstituer l'analyse depuis les données de reprise
+      
+      setProgress(30);
+      setProcessingStep('Reconstitution de l\'analyse...');
+      
+      // 🚀 IMPLÉMENTATION COMPLÈTE : Reconstituer l'analyse depuis les données de reprise
+      const { analysisResult, userSelections, progressInfo, metadata } = resumeData;
+      
+      // Appliquer les sélections utilisateur sauvegardées à l'analyse
+      if (userSelections && userSelections.size > 0) {
+        setProgress(50);
+        setProcessingStep('Application des sélections sauvegardées...');
+        
+        // Convertir les sélections Map vers l'objet attendu
+        const selectionsObject: Record<string, string[]> = {};
+        userSelections.forEach((simpleRoles, businessRole) => {
+          selectionsObject[businessRole] = Array.from(simpleRoles);
+        });
+        
+        // Mettre à jour l'analyse avec les sélections
+        analysisResult.userSelections = selectionsObject;
+        
+        console.log('✅ Sélections utilisateur appliquées:', Object.keys(selectionsObject).length, 'rôles métier');
+      }
+      
+      setProgress(70);
+      setProcessingStep('Finalisation de la reconstruction...');
+      
+      // Mettre à jour les métadonnées et description avec les informations de reprise
+      if (analysisResult.metadata) {
+        // Utiliser les propriétés existantes du metadata
+        analysisResult.metadata.fileName = `[REPRISE] ${metadata.originalFileName}`;
+      }
+      
+      // Enrichir la description avec les informations de reprise
+      const resumeInfo = `
+📄 Analyse reprise depuis: ${metadata.originalFileName}
+🕒 Dernière sauvegarde: ${metadata.lastSaved.toLocaleString('fr-FR')}
+📊 Progression: ${progressInfo.progressPercentage}% (${progressInfo.completedBusinessRoles.length}/${progressInfo.totalBusinessRoles} rôles complétés)
+🔄 Version: ${metadata.resumeVersion}`;
+      
+      analysisResult.description = analysisResult.description ? 
+        `${analysisResult.description}\n\n--- INFORMATIONS DE REPRISE ---${resumeInfo}` : 
+        `Analyse reprise depuis Excel${resumeInfo}`;
+      
+      setProgress(90);
+      setProcessingStep('Mise à jour de l\'interface...');
+      
+      // Mettre à jour l'état avec l'analyse reconstituée
+      setAnalysisResult(analysisResult);
       setImportType('resume');
-      setLoading(false);
-      setProcessingStep('');
+      setLoadedAnalysisId(null); // Pas d'ID car chargé depuis fichier local
+      
+      setProgress(100);
+      setProcessingStep('Analyse reprise avec succès !');
+      
+      console.log('✅ Analyse reprise depuis Excel:', {
+        fileName: metadata.originalFileName,
+        businessRoles: analysisResult.coverageAnalyses.length,
+        userSelections: Object.keys(analysisResult.userSelections || {}).length,
+        progress: progressInfo.progressPercentage
+      });
+      
+      // Petit délai pour afficher le succès
+      setTimeout(() => {
+        setLoading(false);
+        setProgress(0);
+        setProcessingStep('');
+      }, 500);
+      
     } catch (error) {
-      console.error('Erreur lors de la reprise:', error);
-      setError(error instanceof Error ? error.message : 'Erreur lors de la reprise');
+      console.error('❌ Erreur lors de la reprise depuis Excel:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise de l\'analyse';
+      setError(errorMessage);
       setLoading(false);
+      setProgress(0);
       setProcessingStep('');
     }
-  }, [setLoading, setError, setProcessingStep, setImportType]);
+  }, [setLoading, setError, setProgress, setProcessingStep, setAnalysisResult, setImportType, setLoadedAnalysisId]);
   
   // Action : Reset complet
   const handleReset = useCallback(() => {
