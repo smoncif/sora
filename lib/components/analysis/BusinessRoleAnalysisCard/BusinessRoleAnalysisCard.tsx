@@ -688,13 +688,20 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           ? (remainingUsageScore / dynamicData.totalRemainingExecutions) * 100
           : 0;
 
-        // 🚀 SCORE PONDÉRÉ OPTIMISÉ : Calcul rapide avec coefficients stables
-        const globalScore = includeFrequency
-          ? (dynamicCoveragePercentage * stableWeights.coverage) +
-            (cachedScores.sizeScore * stableWeights.size) +
-            (dynamicUsagePercentage * stableWeights.usage)
-          : (dynamicCoveragePercentage * stableWeights.coverage) +
-            (cachedScores.sizeScore * stableWeights.size);
+        // 🚀 SCORE PONDÉRÉ OPTIMISÉ : Calcul rapide avec coefficients stables selon formule
+        // Score Global = (wCR × CR) + (wST × ST) + (wUR × UR) / (wCR + wST + wUR)
+        const numerator = includeFrequency
+          ? (dynamicCoveragePercentage * coverageWeight) +
+            (cachedScores.sizeScore * sizeWeight) +
+            (dynamicUsagePercentage * usageWeight)
+          : (dynamicCoveragePercentage * coverageWeight) +
+            (cachedScores.sizeScore * sizeWeight);
+        
+        const denominator = includeFrequency
+          ? coverageWeight + sizeWeight + usageWeight
+          : coverageWeight + sizeWeight;
+        
+        const globalScore = denominator > 0 ? numerator / denominator : 0;
 
         return {
           ...role,
@@ -1555,7 +1562,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           onRowsPerPageChange={handleChangeRowsPerPage}
           rowsPerPageOptions={[5, 10, 25, 50]}
           labelRowsPerPage="Rôles par page:"
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} sur ${count}`}
+          labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
         />
       </CardContent>
     </Card>
