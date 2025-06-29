@@ -44,6 +44,20 @@ export function FileUploadSection({
 }: FileUploadSectionProps) {
   const theme = useTheme();
 
+  // 🔍 DEBUG : Wrapper avec log pour onResumeFromFile
+  const handleResumeFromFileWithLog = React.useCallback(async (file: File) => {
+    console.log('🔄 FileUploadSection: onResumeFromFile appelé avec fichier:', file.name, file.size);
+    console.log('🔄 FileUploadSection: Type de fichier:', file.type);
+    console.log('🔄 FileUploadSection: Dernière modification:', new Date(file.lastModified).toLocaleString());
+    
+    try {
+      await onResumeFromFile(file);
+      console.log('✅ FileUploadSection: onResumeFromFile terminé avec succès');
+    } catch (error) {
+      console.error('❌ FileUploadSection: Erreur dans onResumeFromFile:', error);
+    }
+  }, [onResumeFromFile]);
+
   return (
     <Fade in timeout={600}>
       <Paper 
@@ -205,7 +219,7 @@ export function FileUploadSection({
                 <FileUpload
                   accept=".xlsx,.xls"
                   maxSize={100}
-                  onFileSelect={onResumeFromFile}
+                  onFileSelect={handleResumeFromFileWithLog}
                   loading={loading}
                   error={error}
                   disabled={loading}
