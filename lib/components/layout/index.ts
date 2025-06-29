@@ -22,14 +22,13 @@ export * from './ClientProviders';
 export { default as Providers } from './Providers';
 export * from './Providers';
 
-export { default as MUIProvider } from './MUIProvider';
+export { MUIProvider } from './MUIProvider';
 export * from './MUIProvider';
 
 export { default as DashboardNavigation } from './DashboardNavigation';
 export * from './DashboardNavigation';
 
 // Les autres composants de layout existants
-export { default as AdminLayout } from './AdminLayout';
 export { default as MainLayout } from './MainLayout'; 
 
 

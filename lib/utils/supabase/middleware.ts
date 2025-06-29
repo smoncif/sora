@@ -118,11 +118,45 @@ export class SupabaseAuthMiddleware {
         };
       }
 
-      // Extraire les métadonnées utilisateur
-      const userRole = user.user_metadata?.role as UserRole || UserRole.USER;
-      const userStatus = user.user_metadata?.status || 'active';
+      // Récupérer les informations du profil utilisateur depuis la table profiles (source de vérité)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, status, admin_approved')
+        .eq('id', user.id)
+        .single();
 
-      // Vérifier le statut du compte
+      if (profileError) {
+        console.error('Error fetching user profile for auth check:', profileError);
+        // Fallback sur les métadonnées si la table profiles n'est pas accessible
+        const userRole = user.user_metadata?.role as UserRole || UserRole.USER;
+        const userStatus = user.user_metadata?.status || 'active';
+        
+        return {
+          user: {
+            id: user.id,
+            email: user.email!,
+            role: userRole,
+            status: userStatus,
+            emailConfirmed: true
+          },
+          error: null
+        };
+      }
+
+      const userRole = profile.role as UserRole || UserRole.USER;
+      const userStatus = profile.status || 'active';
+
+      // Vérifier le statut du compte selon le processus de validation
+      
+      // Étape 1: En attente d'approbation admin (email déjà vérifié plus haut)
+      if (!profile.admin_approved) {
+        return {
+          user: null,
+          error: 'Account pending admin approval'
+        };
+      }
+
+      // Étape 3: Vérifier le statut final (après approbation)
       if (userStatus === 'suspended') {
         return {
           user: null,
@@ -133,7 +167,14 @@ export class SupabaseAuthMiddleware {
       if (userStatus === 'inactive') {
         return {
           user: null,
-          error: 'Account inactive'
+          error: 'Account has been deactivated by administrator'
+        };
+      }
+
+      if (userStatus === 'rejected') {
+        return {
+          user: null,
+          error: 'Account has been rejected'
         };
       }
 

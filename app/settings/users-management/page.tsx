@@ -27,6 +27,11 @@ import {
   TablePagination,
   Stack,
   Grid,
+  Switch,
+  FormControlLabel,
+  Select,
+  MenuItem,
+  FormControl,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -34,8 +39,6 @@ import {
   DialogContentText,
 } from '@mui/material';
 import {
-  Edit as EditIcon,
-  Add as AddIcon,
   Search as SearchIcon,
   Person as PersonIcon,
   FilterList as FilterIcon,
@@ -62,7 +65,16 @@ export default function UsersManagementPage() {
   const theme = useTheme();
   const router = useRouter();
   const { userRole, loading: authLoading } = useAuth();
-  const { users, loading, error, refreshUsers, deleteUser } = useUserManagement();
+  const {
+    users,
+    loading,
+    error,
+    refreshUsers,
+    performUserAction,
+    changeUserRole,
+    isUserActionLoading,
+    deleteUser,
+  } = useUserManagement();
   
   // États locaux pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -75,6 +87,18 @@ export default function UsersManagementPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [userToDelete, setUserToDelete] = React.useState<any>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+
+  // Statistiques
+  const stats = React.useMemo(() => {
+    if (!users) return { total: 0, admins: 0, active: 0, pendingApproval: 0 };
+    
+    return {
+      total: users.length,
+      admins: users.filter(user => user.role === 'admin').length,
+      active: users.filter(user => user.status === 'active').length,
+      pendingApproval: users.filter(user => user.status === 'pending_admin_approval').length,
+    };
+  }, [users]);
 
   // Filtrage des utilisateurs
   const filteredUsers = React.useMemo(() => {
@@ -97,18 +121,6 @@ export default function UsersManagementPage() {
     const startIndex = page * rowsPerPage;
     return filteredUsers.slice(startIndex, startIndex + rowsPerPage);
   }, [filteredUsers, page, rowsPerPage]);
-
-  // Statistiques
-  const stats = React.useMemo(() => {
-    if (!users) return { total: 0, admins: 0, active: 0, pendingApproval: 0 };
-    
-    return {
-      total: users.length,
-      admins: users.filter(user => user.role === 'admin').length,
-      active: users.filter(user => user.status === 'active').length,
-      pendingApproval: users.filter(user => user.status === 'pending_admin_approval').length,
-    };
-  }, [users]);
 
   // Formatage des dates
   const formatDate = (dateString: string | null | undefined) => {
@@ -144,14 +156,6 @@ export default function UsersManagementPage() {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
-  
-  const handleEdit = (userId: string) => {
-    router.push(`/admin/users/edit/${userId}`);
-  };
-
-  const handleCreate = () => {
-    router.push('/admin/users/create');
-  };
 
   // Fonctions de gestion de la suppression
   const handleDeleteClick = (user: any) => {
@@ -176,6 +180,43 @@ export default function UsersManagementPage() {
       console.error('Erreur lors de la suppression:', error);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Fonction pour changer le rôle d'un utilisateur
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user') => {
+    try {
+      await changeUserRole(userId, newRole);
+    } catch (error) {
+      console.error('Erreur lors du changement de rôle:', error);
+    }
+  };
+
+  // Fonction pour activer/désactiver un utilisateur
+  const handleToggleUserStatus = async (userId: string, currentStatus: string) => {
+    try {
+      // Déterminer l'action selon le statut actuel
+      let action: 'activate' | 'deactivate' | 'approve';
+      
+      if (currentStatus === 'pending_admin_approval' || currentStatus === 'pending_email_confirmation') {
+        // Si en attente (email ou admin), on approuve directement
+        action = 'approve';
+      } else if (currentStatus === 'active') {
+        // Si actif, on désactive
+        action = 'deactivate';
+      } else if (currentStatus === 'inactive' || currentStatus === 'rejected') {
+        // Si inactif ou rejeté, on réactive
+        action = 'activate';
+      } else {
+        // Fallback - activer
+        action = 'activate';
+      }
+      
+      console.log(`🔄 Changing user ${userId} from ${currentStatus} with action: ${action}`);
+      await performUserAction(userId, action);
+      // Plus besoin de refreshUsers() - la mise à jour est maintenant locale et instantanée ! 🚀
+    } catch (error) {
+      console.error('Erreur lors du changement de statut:', error);
     }
   };
 
@@ -248,29 +289,16 @@ export default function UsersManagementPage() {
   return (
     <Box sx={{ py: 2, px: 3 }}>
       {/* En-tête */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold" gutterBottom>
-            Gestion des utilisateurs
-          </Typography>
-          <Typography variant="h6" color="text.secondary">
-            Administrez les comptes utilisateurs et gérez les permissions
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreate}
-          sx={{
-            background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.dark} 90%)`,
-            boxShadow: `0 3px 5px 2px ${alpha(theme.palette.primary.main, 0.3)}`,
-          }}
-        >
-          Nouvel Utilisateur
-        </Button>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight="bold" gutterBottom>
+          Gestion des utilisateurs
+        </Typography>
+        <Typography variant="h6" color="text.secondary">
+          Administrez les comptes utilisateurs et gérez les permissions
+        </Typography>
       </Box>
 
-      {/* Statistiques rapides */}
+      {/* Statistiques principales */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, md: 3 }}>
           <Card sx={{
@@ -387,6 +415,7 @@ export default function UsersManagementPage() {
             </CardContent>
           </Card>
         </Grid>
+
       </Grid>
 
       {/* Barre d'actions et filtres */}
@@ -464,11 +493,12 @@ export default function UsersManagementPage() {
                 onClick={() => handleStatusFilterChange('active')}
               />
               <Chip
-                label="En attente"
+                label="En attente admin"
                 variant={statusFilter === 'pending_admin_approval' ? 'filled' : 'outlined'}
                 color={statusFilter === 'pending_admin_approval' ? 'secondary' : 'default'}
                 onClick={() => handleStatusFilterChange('pending_admin_approval')}
               />
+
             </Stack>
 
             {/* Bouton de rafraîchissement */}
@@ -537,6 +567,9 @@ export default function UsersManagementPage() {
                       <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
                         Statut de validation
                       </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+                        Activation
+                      </TableCell>
                       <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
                         Dernière connexion
                       </TableCell>
@@ -580,13 +613,40 @@ export default function UsersManagementPage() {
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            icon={getRoleIcon(user.role)}
-                            label={user.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
-                            color={getRoleColor(user.role) as any}
-                            variant="outlined"
-                            size="small"
-                          />
+                          <FormControl size="small" sx={{ minWidth: 130 }}>
+                            <Select
+                              value={user.role}
+                              onChange={(e: any) => handleRoleChange(user.id, e.target.value as 'admin' | 'user')}
+                              disabled={isUserActionLoading(user.id)}
+                              sx={{
+                                '& .MuiSelect-select': {
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  fontSize: '0.875rem',
+                                },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: alpha(theme.palette.divider, 0.3),
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: alpha(theme.palette.primary.main, 0.5),
+                                },
+                              }}
+                            >
+                              <MenuItem value="user">
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <UserIcon fontSize="small" />
+                                  <Typography variant="body2">Utilisateur</Typography>
+                                </Box>
+                              </MenuItem>
+                              <MenuItem value="admin">
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <AdminIcon fontSize="small" />
+                                  <Typography variant="body2">Administrateur</Typography>
+                                </Box>
+                              </MenuItem>
+                            </Select>
+                          </FormControl>
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -595,6 +655,21 @@ export default function UsersManagementPage() {
                             color={getStatusColor(user.status) as any}
                             variant="filled"
                             size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={user.status === 'active'}
+                                onChange={() => handleToggleUserStatus(user.id, user.status)}
+                                size="small"
+                                color="success"
+                                disabled={isUserActionLoading(user.id)}
+                              />
+                            }
+                            label=""
+                            sx={{ m: 0 }}
                           />
                         </TableCell>
                         <TableCell>
@@ -608,26 +683,11 @@ export default function UsersManagementPage() {
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
-                          <Tooltip title="Modifier">
-                            <IconButton 
-                              size="small"
-                              onClick={() => handleEdit(user.id)}
-                              sx={{
-                                background: alpha(theme.palette.primary.main, 0.1),
-                                '&:hover': {
-                                  background: alpha(theme.palette.primary.main, 0.2),
-                                }
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
                           <Tooltip title="Supprimer">
-                            <IconButton 
+                            <IconButton
                               size="small"
                               onClick={() => handleDeleteClick(user)}
                               sx={{
-                                ml: 1,
                                 background: alpha(theme.palette.error.main, 0.1),
                                 color: theme.palette.error.main,
                                 '&:hover': {
@@ -645,7 +705,7 @@ export default function UsersManagementPage() {
                     {/* Ligne vide si aucun utilisateur */}
                     {paginatedUsers.length === 0 && !loading && (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                           <Typography color="text.secondary">
                             {filteredUsers.length === 0 && searchTerm 
                               ? 'Aucun utilisateur trouvé pour votre recherche'
@@ -669,8 +729,8 @@ export default function UsersManagementPage() {
                 onRowsPerPageChange={handleChangeRowsPerPage}
                 rowsPerPageOptions={[5, 10, 25, 50]}
                 labelRowsPerPage="Lignes par page :"
-                labelDisplayedRows={({ from, to, count }) => 
-                  `${from}-${to} sur ${count !== -1 ? count : `plus de ${to}`}`
+                            labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) =>
+              `${from}-${to} sur ${count !== -1 ? count : `plus de ${to}`}`
                 }
                 sx={{
                   borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,

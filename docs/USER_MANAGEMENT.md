@@ -7,14 +7,16 @@ Cette fonctionnalité permet aux administrateurs de gérer les comptes utilisate
 ## Fonctionnalités
 
 ### 1. Listing des Utilisateurs
-- **Page :** `/admin/users`
+- **Page :** `/settings/users-management`
 - **Permissions :** Administrateur uniquement
 - **Fonctionnalités :**
   - Affichage de tous les utilisateurs avec pagination
   - Filtrage par statut (actif, inactif, suspendu)
-  - Filtrage par rôle (admin, éditeur, utilisateur)
+  - Filtrage par rôle (admin, utilisateur)
   - Recherche par email, nom d'utilisateur ou nom complet
   - Indicateurs visuels pour le statut et la confirmation d'email
+  - Changement de rôle en temps réel
+  - Suppression d'utilisateurs avec confirmation
 
 ### 2. Actions sur les Comptes
 
@@ -42,30 +44,26 @@ Cette fonctionnalité permet aux administrateurs de gérer les comptes utilisate
 - **API :** `PATCH /api/admin/users` avec `action: 'confirm_email'`
 - **Effet :** Marque l'email comme confirmé
 
+#### Changement de Rôle
+- **Action :** `change_role`
+- **Description :** Change le rôle d'un utilisateur (admin ↔ user)
+- **API :** `PATCH /api/admin/users` avec `action: 'change_role'`
+- **Effet :** Met à jour le rôle dans la table `profiles`
+
 ### 3. Gestion des Utilisateurs
 
-#### Création d'Utilisateur
-- **Page :** `/admin/users/create`
-- **Champs obligatoires :**
-  - Email
-  - Mot de passe
-  - Nom d'utilisateur
-  - Nom complet
-  - Rôle
-  - Statut initial
+#### ❌ Création d'Utilisateur (Supprimée)
+- Les utilisateurs s'inscrivent maintenant uniquement via `/register`
+- Aucune création manuelle d'utilisateurs par les admins
 
-#### Modification d'Utilisateur
-- **Page :** `/admin/users/edit/[id]`
-- **Champs modifiables :**
-  - Email
-  - Nom d'utilisateur
-  - Nom complet
-  - Rôle
-  - Statut
+#### ❌ Modification d'Utilisateur (Supprimée)  
+- La modification des profils se fait via `/settings/profile`
+- Les admins peuvent seulement changer les rôles et statuts
 
 #### Suppression d'Utilisateur
 - **Action :** Suppression permanente via l'API Supabase
 - **Confirmation :** Dialog de confirmation obligatoire
+- **Interface :** Bouton rouge avec icône poubelle dans le tableau
 
 ## Structure des Données
 
@@ -117,21 +115,6 @@ Récupère la liste de tous les utilisateurs.
 }
 ```
 
-### POST /api/admin/users
-Crée un nouvel utilisateur.
-
-**Request Body :**
-```json
-{
-  "email": "user@example.com",
-  "password": "motdepasse123",
-  "username": "username",
-  "fullName": "Nom Complet",
-  "role": "user",
-  "status": "active"
-}
-```
-
 ### PATCH /api/admin/users
 Met à jour un utilisateur ou exécute une action.
 
@@ -143,13 +126,12 @@ Met à jour un utilisateur ou exécute une action.
 }
 ```
 
-**Request Body (mise à jour) :**
+**Request Body (changement de rôle) :**
 ```json
 {
   "id": "uuid",
-  "email": "newemail@example.com",
-  "role": "editor",
-  "status": "active"
+  "action": "change_role",
+  "role": "admin"
 }
 ```
 
@@ -164,16 +146,14 @@ Supprime un utilisateur de façon permanente.
 import { useUserManagement } from 'lib/hooks/admin/useUserManagement';
 
 const {
-  users,           // Liste des utilisateurs
-  loading,         // État de chargement
-  error,           // Message d'erreur
-  success,         // Message de succès
-  fetchUsers,      // Charger les utilisateurs
-  performUserAction, // Exécuter une action
-  createUser,      // Créer un utilisateur
-  updateUser,      // Mettre à jour un utilisateur
-  deleteUser,      // Supprimer un utilisateur
-  clearMessages    // Effacer les messages
+  users,                // Liste des utilisateurs
+  loading,              // État de chargement
+  error,                // Message d'erreur
+  refreshUsers,         // Recharger les utilisateurs
+  performUserAction,    // Exécuter une action
+  changeUserRole,       // Changer le rôle d'un utilisateur
+  deleteUser,           // Supprimer un utilisateur
+  isUserActionLoading   // Vérifier si une action est en cours
 } = useUserManagement();
 ```
 
@@ -191,6 +171,12 @@ await performUserAction(userId, 'suspend');
 
 // Confirmer l'email d'un utilisateur
 await performUserAction(userId, 'confirm_email');
+
+// Changer le rôle d'un utilisateur
+await changeUserRole(userId, 'admin');
+
+// Supprimer un utilisateur
+await deleteUser(userId);
 ```
 
 ## Sécurité et Permissions
@@ -209,25 +195,21 @@ await performUserAction(userId, 'confirm_email');
 
 ### Composants Principaux
 
-1. **Page de listing** (`/admin/users/page.tsx`)
-   - Tableau avec pagination
-   - Filtres et recherche
-   - Menu d'actions par utilisateur
-
-2. **Page de création** (`/admin/users/create/page.tsx`)
-   - Formulaire de création
-   - Validation en temps réel
-
-3. **Page d'édition** (`/admin/users/edit/[id]/page.tsx`)
-   - Formulaire de modification
-   - Affichage des informations système
+1. **Page de gestion** (`/settings/users-management/page.tsx`)
+   - Tableau avec pagination et filtres
+   - Recherche par email, nom ou username  
+   - Switch d'activation/désactivation en temps réel
+   - Select pour changement de rôle instantané
+   - Bouton de suppression avec confirmation
+   - Statistiques des utilisateurs (total, admins, actifs, en attente)
 
 ### Indicateurs Visuels
 
-- **Puces de statut** avec couleurs et icônes
-- **Indicateur d'email non confirmé** avec icône d'avertissement
-- **Puces de rôle** avec icônes appropriées
-- **Messages de feedback** avec Snackbar
+- **Puces de statut** avec couleurs et icônes appropriées
+- **Select de rôle** avec icônes admin/utilisateur
+- **Switch d'activation** avec feedback visuel
+- **Loading individuel** par utilisateur lors des actions
+- **Messages de feedback** avec toasts/alerts
 
 ## Intégration Supabase
 
@@ -264,8 +246,8 @@ Les dépendances nécessaires sont déjà incluses dans le projet :
 
 ### 3. Utilisation
 1. Se connecter avec un compte administrateur
-2. Naviguer vers `/admin/users`
-3. Commencer à gérer les utilisateurs
+2. Naviguer vers `/settings/users-management`
+3. Commencer à gérer les utilisateurs (activation, rôles, suppression)
 
 ## Dépannage
 

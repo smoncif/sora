@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
               return NextResponse.json(
                 { 
                   success: false, 
-                  message: 'Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception.',
+                  message: 'Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception (et vos spams).',
                   code: 'EMAIL_NOT_CONFIRMED'
                 },
                 { status: 403 }
@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
               // Déconnecter l'utilisateur
               await supabase.auth.signOut();
               const rejectionMessage = profile.rejection_reason 
-                ? `Votre compte a été rejeté. Raison : ${profile.rejection_reason}`
-                : 'Votre compte a été rejeté par un administrateur.';
+                ? `Votre demande de compte a été rejetée. Raison : ${profile.rejection_reason}`
+                : 'Votre demande de compte a été rejetée par un administrateur.';
               return NextResponse.json(
                 { 
                   success: false, 
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
               return NextResponse.json(
                 { 
                   success: false, 
-                  message: 'Votre compte a été suspendu. Contactez un administrateur pour plus d\'informations.',
+                  message: 'Votre compte a été temporairement suspendu. Veuillez contacter un administrateur pour plus d\'informations.',
                   code: 'ACCOUNT_SUSPENDED'
                 },
                 { status: 403 }
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
               return NextResponse.json(
                 { 
                   success: false, 
-                  message: 'Votre compte est désactivé. Contactez un administrateur.',
+                  message: 'Votre compte a été désactivé par un administrateur. Si vous pensez qu\'il s\'agit d\'une erreur, veuillez contacter le support.',
                   code: 'ACCOUNT_INACTIVE'
                 },
                 { status: 403 }

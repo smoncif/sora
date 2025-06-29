@@ -5,7 +5,6 @@
  */
 
 // Export des sous-modules
-export * from './admin';
 export * from './roleAnalysis';
 export * from './fileUpload';
 

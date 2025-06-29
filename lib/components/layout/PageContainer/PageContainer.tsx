@@ -57,7 +57,7 @@ export interface PageContainerProps {
  *   subtitle="Visualisez et optimisez la distribution des rôles"
  *   breadcrumbs={[
  *     { label: 'Accueil', href: '/' },
- *     { label: 'Administration', href: '/admin' },
+ *     { label: 'Tableau de bord', href: '/dashboard' },
  *     { label: 'Analyse des rôles' }
  *   ]}
  *   headerAction={

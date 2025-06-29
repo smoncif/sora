@@ -166,12 +166,14 @@ export const RegisterForm = ({ onSuccess, redirectTo = '/login' }: RegisterFormP
       
     } catch (error: any) {
 
-      if (error.message?.includes('User already registered')) {
-        setAuthError('Un compte avec cet email existe déjà.');
+      if (error.message?.includes('Un compte avec cet email existe déjà')) {
+        setAuthError('Un compte avec cet email existe déjà. Veuillez vous connecter ou utiliser un autre email.');
+      } else if (error.message?.includes('User already registered')) {
+        setAuthError('Un compte avec cet email existe déjà. Veuillez vous connecter ou utiliser un autre email.');
       } else if (error.message?.includes('Password')) {
         setAuthError('Le mot de passe ne respecte pas les exigences de sécurité minimales.');
       } else {
-        setAuthError('Une erreur est survenue lors de l\'inscription. Veuillez réessayer plus tard.');
+        setAuthError(error.message || 'Une erreur est survenue lors de l\'inscription. Veuillez réessayer plus tard.');
       }
     } finally {
       setLoading(false);

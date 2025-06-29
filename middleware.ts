@@ -7,7 +7,9 @@ import { updateSession, SupabaseAuthMiddleware } from './lib/utils/supabase/midd
 const PUBLIC_ROUTES = [
   '/login',
   '/register', 
-  '/auth/callback'
+  '/auth/callback',
+  '/api/auth/sign-up',
+  '/api/auth/sign-out'
 ];
 
 /**

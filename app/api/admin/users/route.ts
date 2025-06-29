@@ -34,86 +34,94 @@ export async function GET(request: NextRequest) {
     );
   }
   
-    // Vérifier que l'utilisateur connecté est admin
+        // Vérifier que l'utilisateur connecté est admin
     const { data: currentUserProfile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
-  
-    if (profileError || currentUserProfile?.role !== 'admin') {
-    return NextResponse.json(
-        { error: 'Forbidden - Admin access required' },
-      { status: 403 }
-    );
-  }
-  
-    // Utiliser le client admin pour contourner RLS si disponible
-    const adminClient = createAdminClient();
-    const clientToUse = adminClient || supabase;
 
-    // Récupérer tous les utilisateurs depuis la table profiles
-    let profiles: any[] = [];
-    let usersError: any = null;
-
-    if (adminClient) {
-      // Avec le client admin, on peut faire une jointure avec auth.users
-      const { data, error } = await adminClient.rpc('get_all_profiles_with_auth');
-      profiles = data || [];
-      usersError = error;
-    } else {
-      // Avec le client normal, récupérer seulement les profils
-      const { data, error } = await clientToUse
-        .from('profiles')
-        .select(`
-          id,
-          email,
-          full_name,
-          role,
-          department,
-          created_at,
-          updated_at
-        `)
-        .order('created_at', { ascending: false });
-      profiles = data || [];
-      usersError = error;
+    if (profileError) {
+      console.error('Error fetching current user profile:', profileError);
+      return NextResponse.json(
+        { error: 'Failed to verify admin access', details: profileError.message },
+        { status: 500 }
+      );
     }
+
+    if (!currentUserProfile || currentUserProfile.role !== 'admin') {
+      console.log('User is not admin:', user.id, currentUserProfile?.role);
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
+    }
+  
+    // Utiliser le client admin pour récupérer tous les utilisateurs (contourne RLS)
+    console.log('👑 Admin access confirmed, using admin client to fetch all users...');
+    const adminClient = createAdminClient();
+    
+    if (!adminClient) {
+      return NextResponse.json(
+        { error: 'Admin client not available' },
+        { status: 500 }
+      );
+    }
+
+    const { data: profiles, error: usersError } = await adminClient
+      .from('profiles')
+      .select(`
+        id,
+        email,
+        full_name,
+        role,
+        department,
+        created_at,
+        updated_at,
+        admin_approved,
+        admin_approved_at,
+        admin_approved_by,
+        rejected_at,
+        rejected_by,
+        rejection_reason,
+        email_confirmation_sent_at,
+        status
+      `)
+      .order('created_at', { ascending: false });
 
     if (usersError) {
       console.error('Error fetching profiles:', usersError);
       
-      // Si échec avec le client normal, essayer une requête SQL directe
-      if (!adminClient) {
-        console.log('Trying direct SQL query as fallback...');
-        try {
-          const { data: directProfiles, error: directError } = await supabase
-            .rpc('get_all_profiles_admin');
-          
-          if (!directError && directProfiles) {
-            const mappedUsers = directProfiles.map((profile: any) => ({
-              id: profile.id,
-              email: profile.email,
-              username: profile.email.split('@')[0],
-              fullName: profile.full_name || '',
-              role: profile.role || 'user',
-              status: 'active' as const,
-              department: profile.department || '',
-              createdAt: profile.created_at,
-              updatedAt: profile.updated_at,
-              lastLogin: profile.last_sign_in_at,
-              emailConfirmed: !!profile.email_confirmed_at,
-              emailConfirmationSentAt: profile.email_confirmed_at
-            }));
+      // Fallback: essayer une requête SQL directe si besoin
+      console.log('Trying direct SQL query as fallback...');
+      try {
+        const { data: directProfiles, error: directError } = await adminClient
+          .rpc('get_all_profiles_admin');
+        
+        if (!directError && directProfiles) {
+          const mappedUsers = directProfiles.map((profile: any) => ({
+            id: profile.id,
+            email: profile.email,
+            username: profile.email.split('@')[0],
+            fullName: profile.full_name || '',
+            role: profile.role || 'user',
+            status: 'active' as const,
+            department: profile.department || '',
+            createdAt: profile.created_at,
+            updatedAt: profile.updated_at,
+            lastLogin: profile.last_sign_in_at,
+            emailConfirmed: !!profile.email_confirmed_at,
+            emailConfirmationSentAt: profile.email_confirmed_at
+          }));
 
-            return NextResponse.json({
-              users: mappedUsers,
-              count: mappedUsers.length,
-              source: 'direct-sql'
-            });
-          }
-        } catch (rpcError) {
-          console.log('RPC fallback also failed:', rpcError);
+          return NextResponse.json({
+            users: mappedUsers,
+            count: mappedUsers.length,
+            source: 'direct-sql'
+          });
         }
+      } catch (rpcError) {
+        console.log('RPC fallback also failed:', rpcError);
       }
       
       return NextResponse.json(
@@ -122,28 +130,84 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Mapper les profils vers le format attendu
+    // Récupérer les données d'authentification pour déterminer le vrai statut
+    const userIds = (profiles || []).map((p: any) => p.id);
+    let authUsersData: any[] = [];
+    
+    if (userIds.length > 0) {
+      try {
+        // Utiliser la fonction RPC avec le client admin pour accéder aux données auth.users
+        const { data: authUsers, error: authError } = await adminClient
+          .rpc('get_auth_users_data', { user_ids: userIds });
+        
+        if (authError) {
+          console.error('Error fetching auth users data via RPC:', authError);
+        } else {
+          authUsersData = authUsers || [];
+          console.log('Successfully fetched auth users data:', authUsersData.length, 'users');
+        }
+      } catch (error) {
+        console.error('Exception while fetching auth users data:', error);
+      }
+    }
+
+    // Mapper les profils vers le format attendu avec le vrai statut
     const usersWithAuthData = (profiles || []).map((profile: any) => {
+      const authUser = authUsersData.find((au: any) => au.id === profile.id);
+      
+      // Déterminer le statut réel basé sur le processus de validation en deux étapes
+      let status: 'active' | 'inactive' | 'suspended' | 'pending_email_confirmation' | 'pending_admin_approval' | 'rejected' = 'pending_email_confirmation';
+      
+      if (authUser) {
+        // Vérifier si l'utilisateur est banni/suspendu
+        if (authUser.banned_until && new Date(authUser.banned_until) > new Date()) {
+          status = 'suspended';
+        }
+        // Vérifier si rejeté par l'admin
+        else if (profile.rejected_at) {
+          status = 'rejected';
+        }
+        // Étape 1: Vérification de l'email
+        else if (!authUser.email_confirmed_at) {
+          status = 'pending_email_confirmation';
+        }
+        // Étape 2: Vérification de l'approbation admin
+        else if (!profile.admin_approved) {
+          status = 'pending_admin_approval';
+        }
+        // Les deux étapes sont validées - utiliser le statut de la base de données
+        else {
+          // Utiliser le statut de la base de données (active, inactive, etc.)
+          status = profile.status || 'active';
+        }
+      }
+      
       return {
         id: profile.id,
         email: profile.email,
         username: profile.email.split('@')[0], // Utiliser la partie avant @ comme username
         fullName: profile.full_name || '',
         role: profile.role || 'user',
-        status: 'active' as const, // Par défaut actif
+        status: status,
         department: profile.department || '',
         createdAt: profile.created_at,
         updatedAt: profile.updated_at,
-        lastLogin: profile.last_sign_in_at || null,
-        emailConfirmed: !!profile.email_confirmed_at,
-        emailConfirmationSentAt: profile.email_confirmed_at || null
+        lastLogin: authUser?.last_sign_in_at || null,
+        emailConfirmed: !!authUser?.email_confirmed_at,
+        emailConfirmationSentAt: profile.email_confirmation_sent_at || null,
+        adminApproved: !!profile.admin_approved,
+        adminApprovedAt: profile.admin_approved_at || null,
+        adminApprovedBy: profile.admin_approved_by || null,
+        rejectedAt: profile.rejected_at || null,
+        rejectedBy: profile.rejected_by || null,
+        rejectionReason: profile.rejection_reason || null
       };
     });
 
     return NextResponse.json({
       users: usersWithAuthData,
       count: usersWithAuthData.length,
-      source: adminClient ? 'admin-client' : 'normal-client'
+      source: 'admin-client'
     });
 
   } catch (error) {
@@ -309,6 +373,17 @@ export async function PATCH(request: NextRequest) {
         message = 'Utilisateur suspendu';
         break;
 
+      case 'change_role':
+        if (!reason || !['admin', 'user'].includes(reason)) {
+          return NextResponse.json(
+            { error: 'Valid role is required (admin or user)' },
+            { status: 400 }
+          );
+        }
+        updateData.role = reason;
+        message = `Rôle utilisateur modifié vers "${reason === 'admin' ? 'Administrateur' : 'Utilisateur'}"`;
+        break;
+
       default:
         return NextResponse.json(
           { error: 'Action not supported' },
@@ -330,14 +405,52 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
+    // Récupérer l'utilisateur mis à jour pour le renvoyer
+    const { data: updatedProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', targetUserId)
+      .single();
+    
+    if (fetchError || !updatedProfile) {
+      console.error('Error fetching updated user profile:', fetchError);
+      // Continuer mais sans les données mises à jour
+    }
+    
     // Si c'est une approbation, on peut aussi envoyer un email de notification
     // (à implémenter selon les besoins)
 
-    return NextResponse.json({
+    const response: any = {
       message,
       action,
       userId: targetUserId
-    });
+    };
+    
+    // Ajouter l'utilisateur mis à jour si disponible
+    if (updatedProfile) {
+      response.updatedUser = {
+        id: updatedProfile.id,
+        email: updatedProfile.email,
+        username: updatedProfile.email?.split('@')[0] || '',
+        fullName: updatedProfile.full_name || '',
+        role: updatedProfile.role || 'user',
+        status: updatedProfile.status,
+        department: updatedProfile.department || '',
+        createdAt: updatedProfile.created_at,
+        updatedAt: updatedProfile.updated_at,
+        lastLogin: null, // Sera mis à jour plus tard si nécessaire
+        emailConfirmed: true, // Sera mis à jour plus tard si nécessaire
+        emailConfirmationSentAt: updatedProfile.email_confirmation_sent_at,
+        adminApproved: !!updatedProfile.admin_approved,
+        adminApprovedAt: updatedProfile.admin_approved_at,
+        adminApprovedBy: updatedProfile.admin_approved_by,
+        rejectedAt: updatedProfile.rejected_at,
+        rejectedBy: updatedProfile.rejected_by,
+        rejectionReason: updatedProfile.rejection_reason
+      };
+    }
+
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('Error in PATCH /api/admin/users:', error);

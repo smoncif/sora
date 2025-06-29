@@ -165,6 +165,12 @@ export interface AuthMethods {
   refreshSession: () => Promise<boolean>;
   
   /**
+   * Rafraîchit le profil utilisateur depuis la base de données
+   * Utile pour mettre à jour le rôle sans se reconnecter
+   */
+  refreshUserProfile: () => Promise<void>;
+  
+  /**
    * Vérifie et force la récupération de la session si nécessaire
    * Utile pour résoudre les erreurs "Auth session missing"
    */

@@ -45,10 +45,49 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [initialized, setInitialized] = useState<boolean>(false);
   
+  // État pour le profil utilisateur depuis la base de données
+  const [userProfile, setUserProfile] = useState<{role: UserRole, status: string} | null>(null);
+
   // Récupération du rôle et des permissions de l'utilisateur
-  const userRole = useMemo(() => userMetadata?.role || null, [userMetadata]);
+  const userRole = useMemo(() => userProfile?.role || null, [userProfile]);
   const userPermissions = useMemo(() => userMetadata?.permissions || [], [userMetadata]);
   
+  /**
+   * Fonction pour récupérer le profil utilisateur depuis la base de données
+   */
+  const fetchUserProfile = useCallback(async (userId: string): Promise<void> => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role, status')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return;
+      }
+
+      if (profile) {
+        setUserProfile({
+          role: profile.role as UserRole,
+          status: profile.status
+        });
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    }
+  }, [supabase]);
+
+  /**
+   * Fonction pour rafraîchir le profil utilisateur (peut être appelée de l'extérieur)
+   */
+  const refreshUserProfile = useCallback(async (): Promise<void> => {
+    if (user?.id) {
+      await fetchUserProfile(user.id);
+    }
+  }, [user?.id, fetchUserProfile]);
+
   /**
    * Fonction pour récupérer la session utilisateur
    */
@@ -68,6 +107,10 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         setSession(sessionData.session);
         setUser(mapSupabaseUserToAppUser(sessionData.session.user));
         setUserMetadata(sessionData.session.user.user_metadata as UserMetadata);
+        
+        // Récupérer le profil utilisateur depuis la base de données
+        await fetchUserProfile(sessionData.session.user.id);
+        
         return true;
       }
       
@@ -85,6 +128,10 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         setSession(refreshData.session);
         setUser(mapSupabaseUserToAppUser(refreshData.session.user));
         setUserMetadata(refreshData.session.user.user_metadata as UserMetadata);
+        
+        // Récupérer le profil utilisateur depuis la base de données
+        await fetchUserProfile(refreshData.session.user.id);
+        
         return true;
       }
       
@@ -92,6 +139,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setUser(null);
       setUserMetadata(null);
       setSession(null);
+      setUserProfile(null);
       return false;
     } catch (error) {
 
@@ -136,6 +184,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
           setUser(null);
           setUserMetadata(null);
           setSession(null);
+          setUserProfile(null);
         } else {
 
         }
@@ -155,6 +204,9 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
           setSession(newSession);
           setUser(mapSupabaseUserToAppUser(newSession.user));
           setUserMetadata(newSession.user.user_metadata as UserMetadata);
+          
+          // Récupérer le profil utilisateur depuis la base de données
+          fetchUserProfile(newSession.user.id);
 
         } else if (event === 'SIGNED_OUT') {
           setSession(null);
@@ -192,10 +244,72 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       });
       
       if (error) {
-
         return { success: false, error: error.message };
       }
 
+      // Vérifier le statut de l'utilisateur après connexion réussie
+      if (data.user) {
+        try {
+          // Étape 1: Vérifier si l'email est confirmé dans Supabase Auth
+          if (!data.user.email_confirmed_at) {
+            await supabase.auth.signOut();
+            return { 
+              success: false, 
+              error: 'Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception (et vos spams).' 
+            };
+          }
+
+          // Étape 2: Récupérer le profil pour vérifier l'approbation admin et le statut
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('status, admin_approved, rejection_reason')
+            .eq('id', data.user.id)
+            .single();
+
+          if (!profileError && profile) {
+            // Vérifier d'abord si le compte est rejeté
+            if (profile.rejection_reason) {
+              await supabase.auth.signOut();
+              const rejectionMessage = `Votre demande de compte a été rejetée. Raison : ${profile.rejection_reason}`;
+              return { 
+                success: false, 
+                error: rejectionMessage 
+              };
+            }
+
+            // Vérifier l'approbation admin (email déjà confirmé à cette étape)
+            if (!profile.admin_approved) {
+              await supabase.auth.signOut();
+              return { 
+                success: false, 
+                error: 'Votre compte est en attente d\'approbation par un administrateur. Vous recevrez un email une fois votre compte approuvé.' 
+              };
+            }
+
+            // Vérifier le statut final du compte (email confirmé + admin approuvé)
+            if (profile.status === 'inactive') {
+              await supabase.auth.signOut();
+              return { 
+                success: false, 
+                error: 'Votre compte a été désactivé par un administrateur. Si vous pensez qu\'il s\'agit d\'une erreur, veuillez contacter le support.' 
+              };
+            }
+
+            if (profile.status === 'suspended') {
+              await supabase.auth.signOut();
+              return { 
+                success: false, 
+                error: 'Votre compte a été temporairement suspendu. Veuillez contacter un administrateur pour plus d\'informations.' 
+              };
+            }
+
+            // Si on arrive ici : email confirmé + admin approuvé + statut valide = OK
+          }
+        } catch (validationError) {
+          console.error('❌ Error during status validation:', validationError);
+          // En cas d'erreur de validation, laisser passer pour éviter de bloquer
+        }
+      }
 
       // Vérifier si la session est bien établie
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -203,14 +317,11 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       const sessionSuccess = await refreshSession();
       
       if (!sessionSuccess) {
-
         return { success: false, error: 'Connexion réussie mais session non établie' };
       }
 
-
       return { success: true };
     } catch (error: any) {
-
       return { success: false, error: error.message || 'Erreur de connexion inconnue' };
     } finally {
       setLoading(false);
@@ -224,28 +335,34 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     try {
       setLoading(true);
       
-      // Créer un utilisateur avec des métadonnées
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            ...metadata,
-            role: metadata?.role || UserRole.USER,
-            // Date au format ISO pour le suivi
-            created_at: new Date().toISOString(),
-          },
+      // Utiliser l'API serveur qui inclut la vérification des doublons et la création du profil
+      const response = await fetch('/api/auth/sign-up', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName: metadata?.first_name || '',
+          lastName: metadata?.last_name || '',
+          role: metadata?.role || UserRole.USER,
+        }),
       });
-      
-      if (error) {
 
-        return { success: false, error: error.message };
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { success: false, error: errorData.message || 'Erreur lors de l\'inscription' };
       }
-      
+
+      const result = await response.json();
+
+      if (!result.success) {
+        return { success: false, error: result.message };
+      }
+
       return { success: true };
     } catch (error: any) {
-
       return { success: false, error: error.message || 'Erreur d\'inscription inconnue' };
     } finally {
       setLoading(false);
@@ -291,6 +408,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setUser(null);
       setSession(null);
       setUserMetadata(null);
+      setUserProfile(null);
 
 
     } catch (error) {
@@ -403,6 +521,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     hasRole,
     hasPermission,
     refreshSession,
+    refreshUserProfile,
     resetPassword,
     confirmPasswordReset,
     checkSession

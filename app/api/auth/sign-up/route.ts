@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from 'lib/utils/supabase/server';
+import { checkEmailExists } from 'lib/utils/supabase/admin';
 import { UserRole } from 'lib/types/auth';
 
 /**
@@ -18,6 +19,8 @@ export async function POST(request: NextRequest) {
       role,
       ...otherMetadata 
     } = await request.json();
+    
+
     
     // Validation des champs requis
     if (!email || !password) {
@@ -41,6 +44,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, message: 'Le mot de passe doit contenir au moins 8 caractères' },
         { status: 400 }
+      );
+    }
+
+    // Vérifier si l'email existe déjà via le client admin (contourne les RLS)
+    const emailAlreadyExists = await checkEmailExists(email);
+    
+    if (emailAlreadyExists) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Un compte avec cet email existe déjà. Veuillez vous connecter ou utiliser "Mot de passe oublié" si vous avez perdu votre mot de passe.' 
+        },
+        { status: 409 }
       );
     }
 
@@ -79,13 +95,25 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Vérifier que l'utilisateur a été créé correctement
+    if (!data.user) {
+      console.error('❌ No user returned from signUp');
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Erreur lors de la création du compte. Veuillez réessayer.' 
+        },
+        { status: 500 }
+      );
+    }
+    
     // Vérifier si l'email a besoin d'être confirmé
     const emailConfirmationRequired = !data.user?.confirmed_at;
     
     // Si l'utilisateur est créé, créer aussi un profil dans la table profiles
     if (data.user) {
       try {
-        // Utiliser le client admin pour créer le profil
+        // Créer le profil utilisateur
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -103,7 +131,7 @@ export async function POST(request: NextRequest) {
 
         if (profileError) {
           console.error('❌ Error creating profile:', profileError);
-          // Continuer même si la création du profil échoue
+          // Continuer même si la création du profil échoue car l'utilisateur auth est déjà créé
         }
       } catch (profileCreationError) {
         console.error('❌ Error in profile creation:', profileCreationError);
