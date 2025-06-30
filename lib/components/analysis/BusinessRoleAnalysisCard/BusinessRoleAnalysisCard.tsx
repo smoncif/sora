@@ -536,6 +536,10 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       remainingExecutionMap.set(tx.transaction, tx.executionCount || 0);
     });
 
+    // 🐛 DEBUG : Log des transactions restantes et leurs exécutions
+    console.log(`[DEBUG-DYNAMIC] ${analysis.businessRole} - Transactions restantes:`, Array.from(remainingExecutionMap.entries()));
+    console.log(`[DEBUG-DYNAMIC] ${analysis.businessRole} - Total remaining executions: ${totalRemainingExecutions}`);
+
     const unusedTransactions = Array.from(allSelectedRoleTransactions).filter(tx => 
       !staticData.businessRoleTxSet.has(tx)
     );
@@ -556,8 +560,16 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
 
   // 🚀 OPTIMISÉ : Hash des sélections pour détecter les vrais changements
   const selectionHash = React.useMemo(() => {
-    return Array.from(selectedRoles).sort().join('|');
-  }, [selectedRoles]);
+    const hash = Array.from(selectedRoles).sort().join('|');
+    
+    // 🐛 CORRECTION : Vider les caches quand les sélections changent
+    console.log(`[DEBUG-CACHE] Sélections changées pour ${analysis.businessRole}: ${hash}`);
+    console.log(`[DEBUG-CACHE] Vidage des caches usage et taille`);
+    usageScoreCache.clear();
+    sizeScoreCache.clear();
+    
+    return hash;
+  }, [selectedRoles, analysis.businessRole]);
 
   // 🚀 FONCTION DE DÉTAILS OPTIMISÉE v2 (cache global + éviter reduce répétés)
   const getDetails = React.useCallback((roleName: string) => {
@@ -658,6 +670,11 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           details = getDetails(role.roleName);
         }
         
+        // 🐛 DEBUG : Log des détails pour Role5 spécifiquement
+        if (role.roleName === 'Role5') {
+          console.log(`[DEBUG-DETAILS] Role5 détails:`, details);
+        }
+        
         // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache
         const dynamicCoveragePercentage = dynamicData.totalRemainingTransactions > 0 
           ? (details.covered.length / dynamicData.totalRemainingTransactions) * 100 
@@ -692,13 +709,29 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         if (remainingUsageScore === undefined) {
           // 🚀 OPTIMISÉ : Calcul direct avec Map.get au lieu de reduce
           remainingUsageScore = 0;
+          
+          // 🐛 DEBUG : Log pour diagnostiquer le problème
+          const debugInfo = {
+            roleName: role.roleName,
+            coveredTransactions: details.covered,
+            remainingExecutionMap: Array.from(dynamicData.remainingExecutionMap.entries()),
+            usageCacheKey
+          };
+          
           for (const tx of details.covered) {
             const execCount = dynamicData.remainingExecutionMap.get(tx);
             if (execCount !== undefined) {
               remainingUsageScore += execCount;
+              console.log(`[DEBUG-USAGE] ${role.roleName}: ${tx} → ${execCount} exec (total: ${remainingUsageScore})`);
+            } else {
+              console.log(`[DEBUG-USAGE] ${role.roleName}: ${tx} → NON TROUVÉE dans remainingExecutionMap`);
             }
           }
+          
+          console.log(`[DEBUG-USAGE] ${role.roleName}: Total calculé = ${remainingUsageScore}`, debugInfo);
           usageScoreCache.set(usageCacheKey, remainingUsageScore);
+        } else {
+          console.log(`[DEBUG-USAGE] ${role.roleName}: Valeur en cache = ${remainingUsageScore}`);
         }
 
         const dynamicUsagePercentage = dynamicData.totalRemainingExecutions > 0
