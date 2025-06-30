@@ -129,21 +129,23 @@ export const useStaticAnalysisData = (
         // Calcul de la fréquence d'exécution totale du rôle simple
         let simpleRoleExecutions = 0;
         if (analysisResult.simpleRoleTransactions) {
-          analysisResult.simpleRoleTransactions
+          // Récupérer toutes les transactions de ce rôle simple
+          const simpleRoleTransactionNames = analysisResult.simpleRoleTransactions
             .filter(tx => tx.simpleRole === role.roleName)
-            .forEach(tx => {
-              simpleRoleExecutions += tx.executionCount || 0;
-            });
+            .map(tx => tx.transaction);
+          
+          // Pour chaque transaction du rôle simple, additionner son executionCount depuis businessRoleTransactions
+          simpleRoleTransactionNames.forEach(transactionName => {
+            const businessRoleTx = currentBusinessRoleTransactions.find(tx => tx.transaction === transactionName);
+            if (businessRoleTx) {
+              simpleRoleExecutions += businessRoleTx.executionCount || 0;
+            }
+          });
         }
         
         // Calcul du total d'exécutions du rôle métier
         const totalBusinessRoleExecutions = currentBusinessRoleTransactions
           .reduce((sum: number, tx: any) => sum + (tx.executionCount || 0), 0);
-        
-        // Score de taille (basé sur le nombre de transactions couvertes par le rôle simple)
-        const sizeScore = totalRoleTransactions > 0 
-          ? Math.min(100, (originalCoveredCount / totalRoleTransactions) * 100)
-          : 0;
         
         // Score d'usage global (basé sur les exécutions totales)
         const usageFrequency = totalBusinessRoleExecutions > 0 
@@ -151,7 +153,7 @@ export const useStaticAnalysisData = (
           : 0;
 
         staticScoresCache.set(cacheKey, {
-          sizeScore,
+          // Note: sizeScore supprimé car maintenant calculé dynamiquement
           usageFrequency,
           totalRoleTransactions,
           originalCoveredCount,

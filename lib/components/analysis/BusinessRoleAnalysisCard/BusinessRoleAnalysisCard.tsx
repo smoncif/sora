@@ -226,7 +226,6 @@ export interface BusinessRoleAnalysisCardProps {
   globalSelectedRoles: Set<string>;
   onGlobalSelectionChange: (businessRole: string, selectedRoles: Set<string>) => void;
   staticScoresCache: Map<string, {
-    sizeScore: number;
     usageFrequency: number;
     totalRoleTransactions: number;
     originalCoveredCount: number;
@@ -337,6 +336,9 @@ const detailsGlobalCache = new Map<string, any>();
 // Version avec cache des remainingUsageScore pour éviter les reduce répétés
 const usageScoreCache = new Map<string, number>();
 
+// 🚀 NOUVEAU : Cache pour optimiser les calculs de taille dynamique
+const sizeScoreCache = new Map<string, number>();
+
 // 🚀 NETTOYAGE AUTOMATIQUE : Éviter la fuite mémoire des caches
 const cleanupCaches = () => {
   const maxCacheSize = 1000; // Limite pour éviter la fuite mémoire
@@ -357,6 +359,15 @@ const cleanupCaches = () => {
     usageScoreCache.clear();
     entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
       usageScoreCache.set(key, value);
+    });
+  }
+  
+  if (sizeScoreCache.size > maxCacheSize) {
+    console.log(`[PERF] Nettoyage cache taille: ${sizeScoreCache.size} → ${maxCacheSize / 2}`);
+    const entries = Array.from(sizeScoreCache.entries());
+    sizeScoreCache.clear();
+    entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
+      sizeScoreCache.set(key, value);
     });
   }
 };
@@ -618,12 +629,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     return result;
   }, [staticData, analysis.simpleRoles, analysis.businessRole, dynamicData, selectionHash]);
 
-  // 🚀 OPTIMISÉ : Stabilisation des coefficients de pondération
-  const stableWeights = React.useMemo(() => ({
-    coverage: coverageWeight / 100,
-    size: sizeWeight / 100,
-    usage: usageWeight / 100
-  }), [coverageWeight, sizeWeight, usageWeight]);
+
 
   // 🚀 OPTIMISÉ : Stabilisation des critères de filtrage et tri
   const stableFilterSort = React.useMemo(() => ({
@@ -660,13 +666,24 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         // 🚀 CACHE STATIQUE : Récupération rapide des scores pré-calculés
         const staticCacheKey = `${analysis.businessRole}:${role.roleName}`;
         const cachedScores = staticScoresCache.get(staticCacheKey) || {
-          sizeScore: 0,
           usageFrequency: 0,
           totalRoleTransactions: 0,
           originalCoveredCount: 0,
           simpleRoleExecutions: 0,
           totalBusinessRoleExecutions: 0
         };
+
+        // 🚀 CALCUL DYNAMIQUE : Score Taille avec cache optimisé
+        const sizeCacheKey = `${globalCacheKey}:size`;
+        let dynamicSizeScore = sizeScoreCache.get(sizeCacheKey);
+        
+        if (dynamicSizeScore === undefined) {
+          // Score de taille dynamique = transactions restantes couvertes / total transactions du rôle
+          dynamicSizeScore = cachedScores.totalRoleTransactions > 0 
+            ? (details.covered.length / cachedScores.totalRoleTransactions) * 100
+            : 0;
+          sizeScoreCache.set(sizeCacheKey, dynamicSizeScore);
+        }
 
         // 🚀 OPTIMISATION MAJEURE : Cache des remainingUsageScore pour éviter reduce répétés
         const usageCacheKey = `${globalCacheKey}:usage`;
@@ -692,10 +709,10 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         // Score Global = (wCR × CR) + (wST × ST) + (wUR × UR) / (wCR + wST + wUR)
         const numerator = includeFrequency
           ? (dynamicCoveragePercentage * coverageWeight) +
-            (cachedScores.sizeScore * sizeWeight) +
+            (dynamicSizeScore * sizeWeight) +
             (dynamicUsagePercentage * usageWeight)
           : (dynamicCoveragePercentage * coverageWeight) +
-            (cachedScores.sizeScore * sizeWeight);
+            (dynamicSizeScore * sizeWeight);
         
         const denominator = includeFrequency
           ? coverageWeight + sizeWeight + usageWeight
@@ -707,7 +724,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           ...role,
           details,
           coveragePercentage: dynamicCoveragePercentage,
-          sizeScore: cachedScores.sizeScore,
+          sizeScore: dynamicSizeScore,
           usageFrequency: dynamicUsagePercentage,
           globalScore,
           remainingUsageScore,
@@ -759,7 +776,9 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     stableFilterSort,
     dynamicData,
     includeFrequency,
-    stableWeights,
+    coverageWeight,
+    sizeWeight,
+    usageWeight,
     staticScoresCache,
     selectionHash
   ]);
