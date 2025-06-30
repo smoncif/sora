@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { RegisterForm } from '../RegisterForm';
+import { Logo } from 'lib/components/common';
 
 /**
  * Page d'inscription complète
@@ -31,13 +32,7 @@ export const RegisterPage = () => {
         }}
       >
         <Box sx={{ mb: 4, textAlign: 'center' }}>
-          {/* Logo placeholder */}
-          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-            SORA
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            SAP Optimal Role Analyzer
-          </Typography>
+          <Logo variant="auth" size="large" />
         </Box>
 
         <Card sx={{ width: '100%', boxShadow: 3 }}>

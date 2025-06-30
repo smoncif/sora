@@ -32,6 +32,7 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 
 import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import { Logo } from 'lib/components/common';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -120,7 +121,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         position="sticky" 
         elevation={0}
         sx={{ 
-          zIndex: (theme) => theme.zIndex.drawer + 1,
+          zIndex: theme.zIndex.drawer + 1,
           backgroundColor: theme.palette.primary.main,
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
         }}
@@ -147,26 +148,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <MenuIcon />
           </IconButton>
           
-          {/* 🎨 Logo SORA minimaliste */}
+          {/* 🎨 Logo SORA moderne */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            <Typography 
-              variant="h5" 
-              component="div" 
-              sx={{ 
-                fontWeight: 700,
-                fontSize: { xs: '1.5rem', sm: '1.8rem' },
-                color: '#ffffff',
-                letterSpacing: '0.02em',
-                cursor: 'pointer',
-                transition: 'opacity 0.2s ease',
-                '&:hover': {
-                  opacity: 0.8,
-                },
-              }}
-              onClick={() => router.push('/')}
-            >
-            SORA
-          </Typography>
+            <Logo variant="header" size="medium" />
           </Box>
           
           {/* 🎯 Navigation principale - Design moderne épuré */}
@@ -551,21 +535,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
         }}>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              fontWeight: 700,
-              color: theme.palette.primary.main,
-              letterSpacing: '0.02em',
-            }}
-          >
-            SORA
-          </Typography>
+          <Logo variant="mobile" size="medium" onClick={handleMobileMenuClose} />
           <Typography 
             variant="caption" 
             sx={{ 
               color: theme.palette.text.secondary,
               fontSize: '0.75rem',
+              mt: 1,
+              display: 'block',
             }}
           >
             Business Role Analysis

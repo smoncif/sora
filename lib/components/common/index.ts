@@ -18,7 +18,7 @@ export * from './BarChart';
 export { default as PieChart } from './PieChart';
 export * from './PieChart';
 
-export { default as FileUpload } from './FileUpload';
+export { FileUpload } from './FileUpload';
 export * from './FileUpload';
 
 export { default as ProgressIndicator } from './ProgressIndicator';
@@ -29,5 +29,8 @@ export * from './CurrentUserAvatar';
 
 export { default as RoleHistoryTimeline } from './RoleHistoryTimeline';
 export * from './RoleHistoryTimeline'; 
+
+export { Logo } from './Logo';
+export * from './Logo';
 
 

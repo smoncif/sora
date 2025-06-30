@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import { useEffect, Suspense } from 'react';
 import { LoginForm } from '../LoginForm';
+import { Logo } from 'lib/components/common';
 
 /**
  * Page de connexion complète
@@ -63,12 +64,7 @@ export const LoginPage = ({ redirectAfterLogin }: LoginPageProps) => {
       >
         {/* Logo et titre */}
         <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-            SORA
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            SAP Optimal Role Analyzer
-          </Typography>
+          <Logo variant="auth" size="large" />
         </Box>
 
         {/* Carte de connexion */}
