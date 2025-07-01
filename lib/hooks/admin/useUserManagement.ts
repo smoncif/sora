@@ -55,8 +55,6 @@ export const useUserManagement = () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      console.log('🔍 Fetching users from main API...');
-      
       // Utiliser l'API principale corrigée
       const response = await fetch('/api/admin/users');
       const data = await response.json();
@@ -65,8 +63,6 @@ export const useUserManagement = () => {
         console.error('❌ API error:', data);
         throw new Error(data.error || 'Erreur lors du chargement des utilisateurs');
       }
-      
-      console.log('✅ Users fetched successfully:', data);
       
       setState(prev => ({
         ...prev,
