@@ -50,7 +50,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!currentUserProfile || currentUserProfile.role !== 'admin') {
-      console.log('User is not admin:', user.id, currentUserProfile?.role);
       return NextResponse.json(
         { error: 'Forbidden - Admin access required' },
         { status: 403 }
@@ -58,7 +57,6 @@ export async function GET(request: NextRequest) {
     }
   
     // Utiliser le client admin pour récupérer tous les utilisateurs (contourne RLS)
-    console.log('👑 Admin access confirmed, using admin client to fetch all users...');
     const adminClient = createAdminClient();
     
     if (!adminClient) {
@@ -93,7 +91,6 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching profiles:', usersError);
       
       // Fallback: essayer une requête SQL directe si besoin
-      console.log('Trying direct SQL query as fallback...');
       try {
         const { data: directProfiles, error: directError } = await adminClient
           .rpc('get_all_profiles_admin');
@@ -120,9 +117,9 @@ export async function GET(request: NextRequest) {
             source: 'direct-sql'
           });
         }
-      } catch (rpcError) {
-        console.log('RPC fallback also failed:', rpcError);
-      }
+              } catch (rpcError) {
+          console.error('RPC fallback failed:', rpcError);
+        }
       
       return NextResponse.json(
         { error: 'Failed to fetch users', details: usersError.message },
@@ -144,7 +141,6 @@ export async function GET(request: NextRequest) {
           console.error('Error fetching auth users data via RPC:', authError);
         } else {
           authUsersData = authUsers || [];
-          console.log('Successfully fetched auth users data:', authUsersData.length, 'users');
         }
       } catch (error) {
         console.error('Exception while fetching auth users data:', error);
@@ -512,10 +508,7 @@ export async function DELETE(request: NextRequest) {
     
     if (adminClient) {
       try {
-        console.log('Attempting user deletion with admin client...');
-        
         // ÉTAPE 1: Supprimer d'abord le profil pour éviter les contraintes FK
-        console.log('Step 1: Deleting profile first...');
         const { error: profileDeleteError } = await adminClient
           .from('profiles')
           .delete()
@@ -526,8 +519,6 @@ export async function DELETE(request: NextRequest) {
           throw new Error(`Profile deletion failed: ${profileDeleteError.message}`);
         }
         
-        console.log('Profile deleted successfully, now deleting auth user...');
-        
         // ÉTAPE 2: Maintenant supprimer l'utilisateur auth
         const { data, error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
         
@@ -536,7 +527,6 @@ export async function DELETE(request: NextRequest) {
           throw new Error(`Auth deletion failed: ${deleteError.message}`);
         }
 
-        console.log('User successfully deleted completely (profile + auth):', userId);
         return NextResponse.json({
           message: 'User successfully deleted completely',
           method: 'admin-api-two-step',
@@ -545,12 +535,11 @@ export async function DELETE(request: NextRequest) {
         });
         
       } catch (adminError) {
-        console.log('Admin deletion failed, trying RLS fallback:', adminError);
+        // Fallback en cas d'erreur avec le client admin
       }
     }
 
     // Fallback: utiliser RLS pour supprimer le profil
-    console.log('Using RLS fallback for profile deletion...');
     
     const { error: deleteProfileError } = await supabase
       .from('profiles')
@@ -565,7 +554,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.log('Profile successfully deleted via RLS:', userId);
     return NextResponse.json({
       message: 'User profile deleted successfully',
       method: 'rls-profile-deletion',
