@@ -182,13 +182,6 @@ export const useAnalysisExport = (
     analysisResult: SimplifiedAnalysisResult, 
     customConfig?: ExportConfiguration
   ) => {
-    console.log('[EXPORT] 🚀 handleExportExcel appelé');
-    console.log('[EXPORT] 📊 analysisResult reçu:', {
-      id: analysisResult.id,
-      userSelections: Object.keys(analysisResult.userSelections || {}).length,
-      analysisParams: analysisResult.analysisParams
-    });
-    
     const config = customConfig || {
       format: state.exportFormat,
       includeCharts: state.includeCharts,
@@ -219,9 +212,6 @@ export const useAnalysisExport = (
           userSelections.set(businessRole, new Set(simpleRoles));
         });
       }
-      
-      console.log('[EXPORT] ✅ userSelections converties:', userSelections.size, 'rôles métier');
-      console.log('[EXPORT] 📝 Exemple userSelections:', Array.from(userSelections.entries()).slice(0, 2));
 
       // Préparer les métadonnées d'export
       const exportMetadata = {
@@ -238,8 +228,6 @@ export const useAnalysisExport = (
           usageWeight: analysisResult.analysisParams?.usageWeight ?? 0,
         }
       };
-      
-      console.log('[EXPORT] 📋 exportMetadata préparées:', exportMetadata.analysisParams);
 
       await exportAnalysisToExcel(
         analysisResult, 
@@ -299,7 +287,6 @@ export const useAnalysisExport = (
     customConfig?: ExportConfiguration
   ) => {
     // TODO: Implémenter l'export PDF
-    console.log('Export PDF à implémenter', analysisResult, customConfig);
   }, []);
   
   const handleExportCsv = useCallback(async (
@@ -307,7 +294,6 @@ export const useAnalysisExport = (
     customConfig?: ExportConfiguration
   ) => {
     // TODO: Implémenter l'export CSV
-    console.log('Export CSV à implémenter', analysisResult, customConfig);
   }, []);
   
   const handleExportJson = useCallback(async (

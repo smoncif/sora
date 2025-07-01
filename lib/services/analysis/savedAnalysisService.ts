@@ -116,8 +116,6 @@ function compressAnalysisData(analysisResult: SimplifiedAnalysisResult): any {
     });
   });
   
-  console.log(`[COMPRESSION] Rôles simples utiles: ${usedSimpleRoles.size}/${analysisResult.metadata?.totalSimpleRoles || 0}`);
-  
   // 2️⃣ Filtrer les transactions pour ne garder que celles des rôles utiles
   const filteredSimpleRoleTransactions = analysisResult.simpleRoleTransactions.filter(tx => 
     usedSimpleRoles.has(tx.simpleRole)
@@ -128,8 +126,6 @@ function compressAnalysisData(analysisResult: SimplifiedAnalysisResult): any {
   analysisResult.coverageAnalyses.forEach(analysis => {
     allBusinessRoles.add(analysis.businessRole);
   });
-  
-  console.log(`[COMPRESSION] Rôles métier conservés: ${allBusinessRoles.size}/${analysisResult.coverageAnalyses.length} (tous préservés)`);
   
   // 4️⃣ CONSERVER TOUTES les transactions métier (ne pas filtrer par rôles utiles)
   const allBusinessRoleTransactions = analysisResult.businessRoleTransactions;
@@ -170,10 +166,6 @@ function compressAnalysisData(analysisResult: SimplifiedAnalysisResult): any {
   const compressedSize = JSON.stringify(essentialData).length;
   const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
   
-  console.log(`[COMPRESSION] Taille originale: ${(originalSize / 1024).toFixed(1)}KB`);
-  console.log(`[COMPRESSION] Taille compressée: ${(compressedSize / 1024).toFixed(1)}KB`);
-  console.log(`[COMPRESSION] Réduction: ${compressionRatio}%`);
-  
   return essentialData;
 }
 
@@ -188,14 +180,9 @@ function decompressAnalysisData(compressedData: any): SimplifiedAnalysisResult {
 
   // 🚀 NOUVELLE VERSION AVEC DONNÉES DE BASE (3.1)
   if (compressedData._version === '3.1' && compressedData._compressionType === 'smart') {
-    console.log('[DECOMPRESSION] Reconstruction depuis version smart 3.1 avec recalcul des analyses');
-    
     // 🎯 RECONSTRUCTION DE TOUS LES RÔLES MÉTIER à partir des businessRoleTransactions
     const allBusinessRoles = Array.from(new Set((compressedData.businessRoleTransactions || []).map((tx: any) => tx.businessRole as string)));
     const allSimpleRoles = Array.from(new Set((compressedData.simpleRoleTransactions || []).map((tx: any) => tx.simpleRole as string)));
-    
-    console.log(`[DECOMPRESSION] Rôles métier reconstruits: ${allBusinessRoles.length}`);
-    console.log(`[DECOMPRESSION] Rôles simples reconstruits: ${allSimpleRoles.length}`);
     
     // 🎯 RECONSTRUCTION DES ANALYSES DE COUVERTURE avec simpleRoles
     const coverageAnalyses = allBusinessRoles.map(businessRole => {
@@ -246,8 +233,6 @@ function decompressAnalysisData(compressedData: any): SimplifiedAnalysisResult {
       };
     }) as any[];
     
-    console.log(`[DECOMPRESSION] Analyses de couverture reconstruites avec rôles simples`);
-    
     // Reconstruction avec données de base + recalcul des analyses de couverture
     return {
       id: compressedData.id || '',
@@ -288,7 +273,6 @@ function decompressAnalysisData(compressedData: any): SimplifiedAnalysisResult {
 
   // 🚀 ANCIENNE VERSION ULTRA-COMPRESSÉE (3.0)
   if (compressedData._version === '3.0' && compressedData._compressionType === 'ultra') {
-    console.log('[DECOMPRESSION] Reconstruction depuis version ultra-compressée 3.0');
     
     // Reconstruction minimale pour afficher les métadonnées et restaurer les sélections
     return {
@@ -578,8 +562,6 @@ export async function saveAnalysisWithSelections(
         maxSize = 1024 * 1024; // 1MB pour anciennes versions
     }
     
-    console.log(`[SAUVEGARDE] Taille finale: ${(dataSize / 1024).toFixed(1)}KB (limite: ${(maxSize / 1024).toFixed(0)}KB, type: ${compressedData._compressionType})`);
-    
     if (dataSize > maxSize) {
       throw new Error(`Données trop volumineuses pour la sauvegarde: ${(dataSize / 1024).toFixed(1)}KB > ${(maxSize / 1024).toFixed(0)}KB`);
     }
@@ -705,8 +687,6 @@ export async function updateAnalysisWithSelections(
         maxSize = 1024 * 1024; // 1MB pour anciennes versions
     }
     
-    console.log(`[MISE À JOUR] Taille finale: ${(dataSize / 1024).toFixed(1)}KB (limite: ${(maxSize / 1024).toFixed(0)}KB, type: ${compressedData._compressionType})`);
-    
     if (dataSize > maxSize) {
       throw new Error(`Données trop volumineuses pour la mise à jour: ${(dataSize / 1024).toFixed(1)}KB > ${(maxSize / 1024).toFixed(0)}KB`);
     }
@@ -736,7 +716,6 @@ export async function updateAnalysisWithSelections(
     // Invalider le cache pour forcer le rechargement
     analysisCache.clear();
 
-    console.log(`✅ Analyse mise à jour avec succès: ${analysisName}`);
     return data as SavedAnalysis;
   } catch (error: any) {
     console.error('Erreur updateAnalysisWithSelections:', error);

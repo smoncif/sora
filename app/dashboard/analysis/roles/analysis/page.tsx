@@ -33,7 +33,6 @@ import { SaveAnalysisDialog } from 'lib/components/analysis/SaveAnalysisDialog';
  * Interface unique avec workflow refactorisé et hooks spécialisés
  */
 export default function RoleAnalysisPage() {
-  console.log('[PERF] RENDU RoleAnalysisPage');
   const { user } = useAuth();
   const theme = useTheme();
   
@@ -79,15 +78,9 @@ export default function RoleAnalysisPage() {
     try {
       const { diagnostics } = await import('lib/services/analysis/savedAnalysisService');
       
-      console.log('🔧 DIAGNOSTIC Système de sauvegarde:');
-      console.log('📊 Cache:', diagnostics.getCacheInfo());
-      console.log('💾 Mémoire:', diagnostics.getMemoryUsage());
-      
+      // Diagnostic silencieux - logs supprimés
       const connection = await diagnostics.testConnection();
-      console.log('🔗 Connexion:', connection);
-      
       const count = await diagnostics.getUserAnalysesCount(user.id);
-      console.log('📁 Analyses utilisateur:', count);
       
     } catch (error) {
       console.error('❌ Erreur diagnostic:', error);
@@ -116,16 +109,12 @@ export default function RoleAnalysisPage() {
 
   // Handler pour la sauvegarde optimisé
   const handleSaveAnalysis = async (name: string, description: string) => {
-    console.log('[PAGE] 🚀 Début handleSaveAnalysis', { name, description, isUpdateMode });
-    
     try {
       // Passer directement les métadonnées à la fonction de sauvegarde
       await workflow.saveCurrentAnalysis({
         name: name.trim(),
         description: description.trim()
       });
-      
-      console.log('[PAGE] ✅ Sauvegarde réussie');
       
       // Mettre à jour l'état de configuration pour la cohérence (optionnel)
       workflow.configuration.actions.setAnalysisName(name.trim());

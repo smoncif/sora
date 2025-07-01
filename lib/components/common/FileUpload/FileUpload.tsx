@@ -51,9 +51,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🔄 FileUpload: handleFileChange appelé');
     const file = event.target.files?.[0];
-    console.log('📁 FileUpload: Fichier sélectionné:', file?.name, file?.size, 'bytes');
     
     if (file) {
       if (file.size > maxSize * 1024 * 1024) {
@@ -61,11 +59,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         // Gérer l'erreur de taille via le parent
         return;
       }
-      console.log('✅ FileUpload: Appel de onFileSelect...');
       onFileSelect(file);
-      console.log('✅ FileUpload: onFileSelect terminé');
-    } else {
-      console.log('❌ FileUpload: Aucun fichier sélectionné');
     }
     // Reset input
     if (fileInputRef.current) {
@@ -86,40 +80,30 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   }, []);
 
   const handleDrop = useCallback((event: React.DragEvent) => {
-    console.log('📂 FileUpload: handleDrop appelé');
     event.preventDefault();
     setIsDragOver(false);
     
     if (disabled || loading) {
-      console.log('❌ FileUpload: Drop ignoré car disabled ou loading');
       return;
     }
 
     const files = event.dataTransfer.files;
-    console.log('📁 FileUpload: Fichiers droppés:', files.length);
     
     if (files.length > 0) {
       const file = files[0];
-      console.log('📁 FileUpload: Premier fichier:', file.name, file.size, 'bytes');
       
       if (file.size > maxSize * 1024 * 1024) {
         console.warn('⚠️ FileUpload: Fichier trop volumineux (drop):', file.size, 'vs max:', maxSize * 1024 * 1024);
         // Gérer l'erreur de taille via le parent
         return;
       }
-      console.log('✅ FileUpload: Appel de onFileSelect (drop)...');
       onFileSelect(file);
-      console.log('✅ FileUpload: onFileSelect terminé (drop)');
     }
   }, [disabled, loading, maxSize, onFileSelect]);
 
   const handleClick = useCallback(() => {
-    console.log('🖱️ FileUpload: handleClick appelé, disabled:', disabled, 'loading:', loading);
     if (!disabled && !loading) {
-      console.log('✅ FileUpload: Déclenchement du clic sur input file...');
       fileInputRef.current?.click();
-    } else {
-      console.log('❌ FileUpload: Clic ignoré car disabled ou loading');
     }
   }, [disabled, loading]);
 

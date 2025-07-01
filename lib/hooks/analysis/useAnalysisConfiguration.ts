@@ -87,7 +87,6 @@ export const useAnalysisConfiguration = (
       const { coverageWeight, sizeWeight, usageWeight } = config.analysisResult.analysisParams;
       
       if (coverageWeight !== undefined && sizeWeight !== undefined && usageWeight !== undefined) {
-        console.log('[CONFIG] Restauration des coefficients depuis analyse chargée', { coverageWeight, sizeWeight, usageWeight });
         setState(prev => ({
           ...prev,
           coverageWeight,

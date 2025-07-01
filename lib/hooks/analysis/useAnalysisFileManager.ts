@@ -78,12 +78,9 @@ export const useAnalysisFileManager = (
   
   // 🚀 OPTIMISÉ : Setters avec callbacks synchrones 
   const setAnalysisResult = useCallback((result: SimplifiedAnalysisResult | null) => {
-    console.log('🔄 setAnalysisResult appelé avec:', !!result, result?.id);
     setState(prev => ({ ...prev, analysisResult: result }));
     // Callback direct pour éviter les boucles asynchrones
-    console.log('🔔 Appel du callback onAnalysisResult...');
     memoizedCallbacks?.onAnalysisResult?.(result);
-    console.log('✅ setAnalysisResult terminé');
   }, [memoizedCallbacks]);
   
   const setImportType = useCallback((type: 'new' | 'saved' | 'resume') => {
@@ -195,7 +192,6 @@ export const useAnalysisFileManager = (
     setProcessingStep('Chargement de l\'analyse...');
     
     try {
-      console.log('🔄 Chargement de l\'analyse depuis Supabase:', analysisId);
       
       // Récupérer l'analyse depuis la base de données
       // Si userId n'est pas fourni, on essaie de le récupérer depuis l'auth
@@ -209,7 +205,6 @@ export const useAnalysisFileManager = (
       setProcessingStep('Récupération des données...');
       
       const savedAnalysis = await getSavedAnalysisById(analysisId, userId);
-      console.log('✅ Analyse chargée avec succès:', savedAnalysis.metadata?.fileName);
       
       setProgress(40);
       
@@ -220,7 +215,7 @@ export const useAnalysisFileManager = (
           savedAnalysis.businessRoleTransactions.length > 0 && 
           savedAnalysis.simpleRoleTransactions.length > 0) {
         
-        console.log('🔄 Recalcul des analyses de couverture nécessaire pour version compressée');
+
         setProcessingStep('Recalcul des analyses de couverture...');
         setProgress(60);
         
@@ -241,14 +236,14 @@ export const useAnalysisFileManager = (
             coverageAnalyses: recalculatedAnalysis
           };
           
-          console.log('✅ Recalcul terminé, analyses de couverture restaurées:', recalculatedAnalysis.length);
+
           
         } catch (recalcError) {
           console.warn('⚠️ Erreur lors du recalcul (non critique):', recalcError);
           // Continuer avec l'analyse originale même si le recalcul échoue
         }
       } else {
-        console.log('ℹ️ Analyse complète, pas de recalcul nécessaire');
+        // Analyse complète, pas de recalcul nécessaire
       }
       
       setProgress(90);
@@ -281,58 +276,42 @@ export const useAnalysisFileManager = (
   
   // Action : Reprendre depuis un fichier
   const handleResumeFromFile = useCallback(async (file: File) => {
-    console.log('🔄 handleResumeFromFile appelé avec fichier:', file.name, file.size, 'bytes');
-    
     setLoading(true);
     setError(null);
-    console.log('📊 État initial défini: loading=true, error=null');
     
     setProgress(0);
     setProcessingStep('Reprise de l\'analyse...');
     
     try {
-      console.log('📄 Validation du type de fichier...');
       if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
         throw new Error('Le fichier doit être un fichier Excel (.xlsx ou .xls)');
       }
       
       // 🔍 NOUVEAU : Test préliminaire de validation
-      console.log('🔍 Test de validation de la structure du fichier...');
       const isValidResumeFile = await validateResumeFile(file);
-      console.log('✓ Résultat validation:', isValidResumeFile);
       
-      if (!isValidResumeFile) {
-        console.warn('⚠️ Le fichier ne semble pas être un fichier de reprise valide, tentative de parsing quand même...');
-        
-        // 🔍 DEBUG : Lister les feuilles du fichier Excel pour diagnostic
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-          console.log('📋 DEBUG: Feuilles trouvées dans le fichier:', workbook.SheetNames);
+              if (!isValidResumeFile) {
+          console.warn('⚠️ Le fichier ne semble pas être un fichier de reprise valide, tentative de parsing quand même...');
           
-          // Vérifier les feuilles attendues
-          const expectedSheets = ['Metadata', 'BusinessRoleTransactions', 'SimpleRoleTransactions', 'UserSelections', 'ProgressInfo'];
-          const missingSheets = expectedSheets.filter(sheet => !workbook.SheetNames.includes(sheet));
-          const extraSheets = workbook.SheetNames.filter(sheet => !expectedSheets.includes(sheet));
-          
-          console.log('📋 DEBUG: Feuilles manquantes:', missingSheets);
-          console.log('📋 DEBUG: Feuilles supplémentaires:', extraSheets);
-        } catch (debugError) {
-          console.error('📋 DEBUG: Erreur lors de l\'inspection du fichier:', debugError);
+          // 🔍 DEBUG : Lister les feuilles du fichier Excel pour diagnostic
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            
+            // Vérifier les feuilles attendues
+            const expectedSheets = ['Metadata', 'BusinessRoleTransactions', 'SimpleRoleTransactions', 'UserSelections', 'ProgressInfo'];
+            const missingSheets = expectedSheets.filter(sheet => !workbook.SheetNames.includes(sheet));
+            const extraSheets = workbook.SheetNames.filter(sheet => !expectedSheets.includes(sheet));
+          } catch (debugError) {
+            console.error('📋 DEBUG: Erreur lors de l\'inspection du fichier:', debugError);
+          }
         }
-      }
       
       setProgress(10);
       setProcessingStep('Lecture du fichier Excel de reprise...');
       
-      console.log('📖 Début du parsing avec parseResumeFile...');
       // Parser le fichier de reprise avec toutes ses données
       const resumeData = await parseResumeFile(file);
-      console.log('✅ parseResumeFile terminé:', {
-        analysisName: resumeData.metadata.originalFileName,
-        selectionsCount: resumeData.userSelections.size,
-        progressPercent: resumeData.progressInfo.progressPercentage
-      });
       
       setProgress(30);
       setProcessingStep('Reconstitution de l\'analyse...');
@@ -340,43 +319,30 @@ export const useAnalysisFileManager = (
       // 🚀 IMPLÉMENTATION COMPLÈTE : Reconstituer l'analyse depuis les données de reprise
       const { analysisResult, userSelections, progressInfo, metadata } = resumeData;
       
-      console.log('🔍 Données extraites:', {
-        analysisId: analysisResult.id,
-        businessRoles: analysisResult.coverageAnalyses.length,
-        selectionsEntries: userSelections.size,
-        progressPercent: progressInfo.progressPercentage
-      });
-      
       // Appliquer les sélections utilisateur sauvegardées à l'analyse
       if (userSelections && userSelections.size > 0) {
         setProgress(50);
         setProcessingStep('Application des sélections sauvegardées...');
         
-        console.log('🔄 Conversion des sélections Map vers Object...');
         // Convertir les sélections Map vers l'objet attendu
         const selectionsObject: Record<string, string[]> = {};
         userSelections.forEach((simpleRoles, businessRole) => {
           selectionsObject[businessRole] = Array.from(simpleRoles);
-          console.log(`✓ ${businessRole}: ${simpleRoles.size} rôles simples`);
         });
         
         // Mettre à jour l'analyse avec les sélections
         analysisResult.userSelections = selectionsObject;
-        
-        console.log('✅ Sélections utilisateur appliquées:', Object.keys(selectionsObject).length, 'rôles métier');
       } else {
-        console.log('⚠️ Aucune sélection utilisateur trouvée dans le fichier');
+        // Aucune sélection utilisateur trouvée dans le fichier
       }
       
       setProgress(70);
       setProcessingStep('Finalisation de la reconstruction...');
       
-      console.log('🏷️ Mise à jour des métadonnées...');
       // Mettre à jour les métadonnées et description avec les informations de reprise
       if (analysisResult.metadata) {
         // Utiliser les propriétés existantes du metadata
         analysisResult.metadata.fileName = `[REPRISE] ${metadata.originalFileName}`;
-        console.log('✓ Nom de fichier mis à jour:', analysisResult.metadata.fileName);
       }
       
       // Enrichir la description avec les informations de reprise
@@ -393,29 +359,16 @@ export const useAnalysisFileManager = (
       setProgress(90);
       setProcessingStep('Mise à jour de l\'interface...');
       
-      console.log('🔄 Mise à jour de l\'état avec l\'analyse reconstituée...');
-      console.log('📝 analysisResult avant setAnalysisResult:', !!analysisResult, analysisResult?.id);
-      
       // Mettre à jour l'état avec l'analyse reconstituée
       setAnalysisResult(analysisResult);
       setImportType('resume');
       setLoadedAnalysisId(null); // Pas d'ID car chargé depuis fichier local
       
-      console.log('📝 États définis: analysisResult={...}, importType=resume, loadedAnalysisId=null');
-      
       setProgress(100);
       setProcessingStep('Analyse reprise avec succès !');
       
-      console.log('✅ Analyse reprise depuis Excel:', {
-        fileName: metadata.originalFileName,
-        businessRoles: analysisResult.coverageAnalyses.length,
-        userSelections: Object.keys(analysisResult.userSelections || {}).length,
-        progress: progressInfo.progressPercentage
-      });
-      
       // Petit délai pour afficher le succès
       setTimeout(() => {
-        console.log('🎯 Finalisation du chargement, arrêt des indicateurs...');
         setLoading(false);
         setProgress(0);
         setProcessingStep('');

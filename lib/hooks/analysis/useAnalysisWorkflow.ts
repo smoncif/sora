@@ -258,19 +258,9 @@ export const useAnalysisWorkflow = (
   const isReady = hasAnalysisResult && isConfigurationValid && isNotLoading;
   const canExport = hasAnalysisResult && isNotLoading;
   const canSave = hasAnalysisResult && isNotLoading;
-  
-  // LOG: Initialisation du hook useAnalysisWorkflow
-  console.log('[PERF] INIT useAnalysisWorkflow');
-
-  // LOG: fileManager.state.analysisResult
-  console.log('[PERF] fileManager.state.analysisResult', fileManager.state.analysisResult);
 
   // Reset des sous-hooks quand l'analyse change
   useEffect(() => {
-    console.log('[PERF][useEffect] RESET localState/cache', {
-      analysisResult: fileManager.state.analysisResult,
-      // On ne log plus localState.actions ni cache car ils sont stables
-    });
     if (fileManager.state.analysisResult) {
       localState.actions.resetLocalState();
       cache.precomputeCache();
@@ -283,7 +273,6 @@ export const useAnalysisWorkflow = (
     
     // Vérifier si l'analyse contient des sélections utilisateur à restaurer
     if (analysisResult && analysisResult.userSelections && Object.keys(analysisResult.userSelections).length > 0) {
-      console.log('[WORKFLOW] Restauration des sélections depuis analyse chargée', analysisResult.userSelections);
       // Restaurer les sélections utilisateur
       const selectedRolesMap = reconstructSelectedRoles(analysisResult);
       selections.synchronizeSelectedRoles(selectedRolesMap);
@@ -293,17 +282,6 @@ export const useAnalysisWorkflow = (
   }, [fileManager.state.analysisResult]);
   
   // LOG: tous les changements de state principaux
-  useEffect(() => {
-    console.log('[PERF][useEffect] localState.state', localState.state);
-  }, [localState.state]);
-
-  useEffect(() => {
-    console.log('[PERF][useEffect] cache', cache);
-  }, [cache]);
-
-  useEffect(() => {
-    console.log('[PERF][useEffect] fileManager.state', fileManager.state);
-  }, [fileManager.state]);
   
   // 🚀 OPTIMISÉ : Getter pour props partagées des composants (focus géré par Context)
   const getSharedBusinessRoleProps = useCallback((): SharedBusinessRoleProps => {
@@ -364,11 +342,6 @@ export const useAnalysisWorkflow = (
   // Action de haut niveau : Sauvegarder l'analyse actuelle
   const saveCurrentAnalysis = useCallback(async (customMetadata?: { name?: string; description?: string }) => {
     const actionType = isLoadedAnalysis ? 'mise à jour' : 'sauvegarde';
-    console.log(`[WORKFLOW] 🚀 Début ${actionType} analyse`, { 
-      customMetadata, 
-      loadedAnalysisId: fileManager.state.loadedAnalysisId,
-      isUpdate: isLoadedAnalysis
-    });
     
     const analysisResult = fileManager.state.analysisResult;
     if (!analysisResult) {
@@ -380,15 +353,6 @@ export const useAnalysisWorkflow = (
     // 🚀 STABILISÉ : Récupérer les données actuelles directement (pas de dépendances sur state)
     const currentSelections = selections.state.selectedRoles;
     const currentConfig = configuration.state;
-    
-    console.log('[WORKFLOW] 📊 Données actuelles:', {
-      selections: currentSelections.size,
-      coefficients: {
-        coverageWeight: currentConfig.coverageWeight,
-        sizeWeight: currentConfig.sizeWeight,
-        usageWeight: currentConfig.usageWeight,
-      }
-    });
     
     // Utiliser les métadonnées personnalisées si fournies, sinon utiliser la configuration
     const metadata = {
@@ -416,8 +380,6 @@ export const useAnalysisWorkflow = (
       }
     };
     
-    console.log(`[WORKFLOW] 📤 Envoi vers ${actionType}:`, { metadata, enrichedData: !!enrichedAnalysisResult.userSelections });
-    
     // 🚀 NOUVEAU : Utiliser la bonne fonction selon le contexte
     try {
       if (isLoadedAnalysis && fileManager.state.loadedAnalysisId) {
@@ -427,11 +389,9 @@ export const useAnalysisWorkflow = (
           enrichedAnalysisResult, 
           metadata
         );
-        console.log('[WORKFLOW] ✅ Mise à jour terminée avec succès');
       } else {
         // Nouvelle sauvegarde
         await exportManager.actions.handleSaveAnalysis(enrichedAnalysisResult, metadata);
-        console.log('[WORKFLOW] ✅ Sauvegarde terminée avec succès');
       }
     } catch (error) {
       console.error(`[WORKFLOW] ❌ Erreur lors de la ${actionType}:`, error);
@@ -449,23 +409,13 @@ export const useAnalysisWorkflow = (
   
   // Action de haut niveau : Exporter l'analyse actuelle
   const exportCurrentAnalysis = useCallback(async (format = mergedConfig.defaultExportFormat) => {
-    console.log('[WORKFLOW] 🚀 exportCurrentAnalysis appelé avec format:', format);
-    
     const analysisResult = fileManager.state.analysisResult;
     if (!analysisResult) {
-      console.log('[WORKFLOW] ❌ Aucune analyse à exporter');
       callbacks?.onError?.('Aucune analyse à exporter', 'export');
       return;
     }
     
-    console.log('[WORKFLOW] 📊 État actuel avant enrichissement:');
-    console.log('  - Sélections actuelles:', selections.state.selectedRoles.size, 'rôles métier');
-    console.log('  - Coefficients actuels:', {
-      coverage: configuration.state.coverageWeight,
-      size: configuration.state.sizeWeight,
-      usage: configuration.state.usageWeight
-    });
-    console.log('  - Sélections dans analysisResult original:', Object.keys(analysisResult.userSelections || {}).length);
+
     
     // 🚀 NOUVEAU : Enrichir l'analysisResult avec les données ACTUELLES avant l'export
     const enrichedAnalysisResult = {
@@ -485,13 +435,6 @@ export const useAnalysisWorkflow = (
         usageWeight: configuration.state.usageWeight,
       }
     };
-    
-    console.log('[WORKFLOW] ✅ Données enrichies pour export:');
-    console.log('  - userSelections enrichies:', Object.keys(enrichedAnalysisResult.userSelections).length, 'rôles métier');
-    console.log('  - analysisParams enrichis:', enrichedAnalysisResult.analysisParams);
-    console.log('  - Exemple sélection:', Object.entries(enrichedAnalysisResult.userSelections).slice(0, 2));
-    
-    console.log('[WORKFLOW] 📤 Export avec sélections actuelles:', Object.keys(enrichedAnalysisResult.userSelections).length, 'rôles métier');
     
     const exportConfig = {
       format,
@@ -623,7 +566,6 @@ export const useAnalysisWorkflow = (
   useEffect(() => {
     // On ne valide automatiquement QUE lors du premier chargement d'une analyse
     if (mergedConfig.autoValidateConfiguration && hasAnalysisResult) {
-      console.log('[PERF][useEffect] AUTO-VALIDATION configuration (une seule fois au chargement)');
       configuration.actions.validateConfiguration();
     }
     // eslint-disable-next-line
@@ -654,9 +596,6 @@ export const useAnalysisWorkflow = (
   ]);
   
   // LOG: tous les callbacks principaux
-  const logCallback = (name: string) => (...args: any[]) => {
-    console.log(`[PERF][CALLBACK] ${name}`, ...args);
-  };
   
   // Wrapper pour le chargement d'analyse sauvegardée avec userId automatique
   const loadSavedAnalysisWithUser = useCallback(async (analysisId: string) => {

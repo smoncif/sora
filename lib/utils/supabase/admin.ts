@@ -13,12 +13,6 @@ export function createAdminClient() {
     throw new Error('Variables d\'environnement Supabase manquantes pour le client admin')
   }
 
-  // Log de sécurité pour tracer l'utilisation
-  console.log('🔑 Admin client created at:', new Date().toISOString(), {
-    environment: process.env.NODE_ENV,
-    caller: new Error().stack?.split('\n')[2]?.trim()
-  })
-  
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -47,10 +41,6 @@ export async function checkEmailExists(email: string): Promise<boolean> {
     const emailExists = data.users.some(user => 
       user.email && user.email.toLowerCase() === email.toLowerCase()
     )
-    
-    if (emailExists) {
-      console.log('🔍 Email trouvé dans auth.users via client admin:', email)
-    }
     
     return emailExists
   } catch (error) {

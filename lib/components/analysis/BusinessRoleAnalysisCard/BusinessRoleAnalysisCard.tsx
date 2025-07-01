@@ -54,7 +54,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
   dynamicData: any;
   theme: any;
 }) {
-  console.log(`[PERF] RENDU SimpleRoleRow pour ${role.roleName}, index ${index}`);
+
   
   const handleCheckboxChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     onSelectionChange(role.roleName, e.target.checked);
@@ -244,9 +244,8 @@ export interface BusinessRoleAnalysisCardProps {
 
 // 🚀 Fonction de comparaison optimisée pour React.memo
 const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: BusinessRoleAnalysisCardProps) => {
-  // 🚀 ISOLATION : Log pour debug des re-rendus
+  // 🚀 ISOLATION : Comparaison optimisée des props
   const businessRole = prevProps.analysis.businessRole;
-  console.log(`[PERF] Comparaison props pour ${businessRole}`);
 
   // Comparaison rapide des props simples
   if (
@@ -258,7 +257,6 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
 
     prevProps.simpleRoleFilter !== nextProps.simpleRoleFilter
   ) {
-    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Props de base`);
     return false;
   }
 
@@ -267,7 +265,6 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     prevProps.businessRoleTransactions !== nextProps.businessRoleTransactions ||
     prevProps.simpleRoleTransactions !== nextProps.simpleRoleTransactions
   ) {
-    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Données transactions`);
     return false;
   }
 
@@ -277,7 +274,6 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     prevProps.analysis.simpleRoles.length !== nextProps.analysis.simpleRoles.length ||
     prevProps.analysis.uniqueTransactions.length !== nextProps.analysis.uniqueTransactions.length
   ) {
-    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Structure analysis`);
     return false;
   }
 
@@ -287,13 +283,11 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
   
   // Vérification rapide de la référence (si c'est le même Set, pas besoin de comparer)
   if (prevSelected === nextSelected) {
-    console.log(`[PERF] SAME référence pour ${businessRole} - Pas de re-rendu`);
     return true;
   }
   
   // Comparaison de la taille
   if (prevSelected.size !== nextSelected.size) {
-    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Taille sélections (${prevSelected.size} → ${nextSelected.size})`);
     return false;
   }
   
@@ -302,7 +296,6 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     const prevArray = Array.from(prevSelected);
     for (const role of prevArray) {
       if (!nextSelected.has(role)) {
-        console.log(`[PERF] CHANGE détecté pour ${businessRole} - Contenu sélections`);
         return false;
       }
     }
@@ -313,7 +306,6 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
     prevProps.staticScoresCache !== nextProps.staticScoresCache ||
     prevProps.transactionDetailsCache !== nextProps.transactionDetailsCache
   ) {
-    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Caches/Maps`);
     return false;
   }
 
@@ -321,12 +313,10 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
   if (
     prevProps.onGlobalSelectionChange !== nextProps.onGlobalSelectionChange
   ) {
-    console.log(`[PERF] CHANGE détecté pour ${businessRole} - Handlers (normal, peut être ignoré)`);
     // Note: On retourne true car les fonctions changent souvent mais ne nécessitent pas de re-rendu
     // Les handlers sont mémorisés au niveau parent
   }
 
-  console.log(`[PERF] MEMO hit pour ${businessRole} - Aucun re-rendu nécessaire`);
   return true;
 };
 
@@ -344,7 +334,6 @@ const cleanupCaches = () => {
   const maxCacheSize = 1000; // Limite pour éviter la fuite mémoire
   
   if (detailsGlobalCache.size > maxCacheSize) {
-    console.log(`[PERF] Nettoyage cache détails: ${detailsGlobalCache.size} → ${maxCacheSize / 2}`);
     // Garder seulement la moitié des entrées les plus récentes
     const entries = Array.from(detailsGlobalCache.entries());
     detailsGlobalCache.clear();
@@ -354,7 +343,6 @@ const cleanupCaches = () => {
   }
   
   if (usageScoreCache.size > maxCacheSize) {
-    console.log(`[PERF] Nettoyage cache usage: ${usageScoreCache.size} → ${maxCacheSize / 2}`);
     const entries = Array.from(usageScoreCache.entries());
     usageScoreCache.clear();
     entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
@@ -363,7 +351,6 @@ const cleanupCaches = () => {
   }
   
   if (sizeScoreCache.size > maxCacheSize) {
-    console.log(`[PERF] Nettoyage cache taille: ${sizeScoreCache.size} → ${maxCacheSize / 2}`);
     const entries = Array.from(sizeScoreCache.entries());
     sizeScoreCache.clear();
     entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
@@ -415,12 +402,10 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     setShouldShowZeroCoverage(show);
   }, []);
 
-  // 🚀 NOUVEAU : Log de performance pour traquer les re-rendus
-  console.log(`[PERF] RENDU BusinessRoleAnalysisCard pour ${analysis.businessRole}`);
+  // 🚀 NOUVEAU : Performance tracking pour les re-rendus
   
   // 🚀 OPTIMISÉ : Handler d'expansion avec useCallback pour éviter les re-rendus
   const handleToggleExpansion = React.useCallback((index: number) => {
-    console.log(`[PERF] EXPANSION pour ${analysis.businessRole}, rôle index ${index}`);
     setExpandedRow(prev => prev === index ? null : index);
   }, [analysis.businessRole]); // Dépendance minimale
   
@@ -508,7 +493,6 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
 
   // 🔄 DONNÉES DYNAMIQUES (recalculées uniquement quand les sélections changent)
   const dynamicData = React.useMemo(() => {
-    console.log(`[PERF] Calcul DYNAMIQUE pour ${analysis.businessRole} - Sélections: ${selectedRoles.size} rôles`);
     
     // Calculer les transactions couvertes par les rôles sélectionnés
     const selectedTransactions = new Set<string>();
@@ -536,9 +520,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       remainingExecutionMap.set(tx.transaction, tx.executionCount || 0);
     });
 
-    // 🐛 DEBUG : Log des transactions restantes et leurs exécutions
-    console.log(`[DEBUG-DYNAMIC] ${analysis.businessRole} - Transactions restantes:`, Array.from(remainingExecutionMap.entries()));
-    console.log(`[DEBUG-DYNAMIC] ${analysis.businessRole} - Total remaining executions: ${totalRemainingExecutions}`);
+    // 🐛 DEBUG : Calcul des transactions restantes et leurs exécutions
 
     const unusedTransactions = Array.from(allSelectedRoleTransactions).filter(tx => 
       !staticData.businessRoleTxSet.has(tx)
@@ -563,8 +545,6 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     const hash = Array.from(selectedRoles).sort().join('|');
     
     // 🐛 CORRECTION : Vider les caches quand les sélections changent
-    console.log(`[DEBUG-CACHE] Sélections changées pour ${analysis.businessRole}: ${hash}`);
-    console.log(`[DEBUG-CACHE] Vidage des caches usage et taille`);
     usageScoreCache.clear();
     sizeScoreCache.clear();
     
@@ -653,7 +633,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
 
   // 🚀 SCORES ENRICHIS v2 (cache global + optimisation reduce)
   const enrichedRoles = React.useMemo(() => {
-    console.log(`[PERF] 🚀 Calcul OPTIMISÉ v2 des SCORES pour ${analysis.businessRole} - ${analysis.simpleRoles.length} rôles`);
+
     
     // 🚀 NETTOYAGE : Maintenir la performance des caches
     cleanupCaches();
@@ -670,10 +650,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           details = getDetails(role.roleName);
         }
         
-        // 🐛 DEBUG : Log des détails pour Role5 spécifiquement
-        if (role.roleName === 'Role5') {
-          console.log(`[DEBUG-DETAILS] Role5 détails:`, details);
-        }
+        // 🐛 DEBUG : Détails pour Role5 spécifiquement
         
         // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache
         const dynamicCoveragePercentage = dynamicData.totalRemainingTransactions > 0 
@@ -722,16 +699,10 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
             const execCount = dynamicData.remainingExecutionMap.get(tx);
             if (execCount !== undefined) {
               remainingUsageScore += execCount;
-              console.log(`[DEBUG-USAGE] ${role.roleName}: ${tx} → ${execCount} exec (total: ${remainingUsageScore})`);
-            } else {
-              console.log(`[DEBUG-USAGE] ${role.roleName}: ${tx} → NON TROUVÉE dans remainingExecutionMap`);
             }
           }
           
-          console.log(`[DEBUG-USAGE] ${role.roleName}: Total calculé = ${remainingUsageScore}`, debugInfo);
           usageScoreCache.set(usageCacheKey, remainingUsageScore);
-        } else {
-          console.log(`[DEBUG-USAGE] ${role.roleName}: Valeur en cache = ${remainingUsageScore}`);
         }
 
         const dynamicUsagePercentage = dynamicData.totalRemainingExecutions > 0

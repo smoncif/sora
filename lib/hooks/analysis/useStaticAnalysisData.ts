@@ -48,8 +48,6 @@ export const useStaticAnalysisData = (
 ): StaticAnalysisData => {
   
   return useMemo(() => {
-    console.log('[PERF] 🏗️ CALCUL GLOBAL DES DONNÉES STATIQUES - UNE SEULE FOIS AU CHARGEMENT');
-    
     if (!analysisResult) {
       return {
         staticScoresCache: new Map(),
@@ -179,8 +177,6 @@ export const useStaticAnalysisData = (
     });
 
     const endTime = Date.now();
-    console.log(`[PERF] ✅ Données statiques calculées en ${endTime - startTime}ms`);
-    console.log(`[PERF] 📊 Cache créé: ${staticScoresCache.size} scores, ${businessRoleDataCache.size} business roles`);
 
     return {
       staticScoresCache,

@@ -75,19 +75,13 @@ export interface ResumeParsingResult {
  */
 export async function parseResumeFile(file: File): Promise<ResumeParsingResult> {
   try {
-    console.log('🔄 parseResumeFile: Début du parsing pour', file.name);
-    
     // Validation du fichier
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
       throw new Error('Le fichier doit être un fichier Excel (.xlsx ou .xls)');
     }
 
-    console.log('📖 parseResumeFile: Lecture du fichier Excel...');
-    // Lecture du fichier Excel
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    
-    console.log('📋 parseResumeFile: Feuilles trouvées:', workbook.SheetNames);
     
     // Vérifier la structure du fichier
     const expectedSheets = [
@@ -107,53 +101,38 @@ export async function parseResumeFile(file: File): Promise<ResumeParsingResult> 
       );
     }
 
-    console.log('✅ parseResumeFile: Structure validée, parsing des données...');
-
     // Parser les métadonnées
-    console.log('🏷️ parseResumeFile: Parsing des métadonnées...');
     const metadataSheet = workbook.Sheets['Metadata'];
     const metadataData = XLSX.utils.sheet_to_json(metadataSheet, { header: 1 }) as string[][];
     const metadata = parseMetadataSheet(metadataData);
-    console.log('✓ Métadonnées parsées:', { name: metadata.analysisName, version: metadata.version });
 
     // Parser les transactions de rôles métier
-    console.log('🏢 parseResumeFile: Parsing des transactions de rôles métier...');
     const businessRoleSheet = workbook.Sheets['BusinessRoleTransactions'];
     const businessRoleData = XLSX.utils.sheet_to_json(businessRoleSheet) as any[];
     const businessRoleTransactions = parseBusinessRoleTransactions(businessRoleData);
-    console.log('✓ Transactions rôles métier parsées:', businessRoleTransactions.length);
 
     // Parser les transactions de rôles simples
-    console.log('⚙️ parseResumeFile: Parsing des transactions de rôles simples...');
     const simpleRoleSheet = workbook.Sheets['SimpleRoleTransactions'];
     const simpleRoleData = XLSX.utils.sheet_to_json(simpleRoleSheet) as any[];
     const simpleRoleTransactions = parseSimpleRoleTransactions(simpleRoleData);
-    console.log('✓ Transactions rôles simples parsées:', simpleRoleTransactions.length);
 
     // Parser les sélections utilisateur
-    console.log('👤 parseResumeFile: Parsing des sélections utilisateur...');
     const selectionsSheet = workbook.Sheets['UserSelections'];
     const selectionsData = XLSX.utils.sheet_to_json(selectionsSheet) as any[];
     const userSelections = parseUserSelections(selectionsData);
-    console.log('✓ Sélections utilisateur parsées:', userSelections.size, 'rôles métier');
 
     // Parser les informations de progression
-    console.log('📊 parseResumeFile: Parsing des informations de progression...');
     const progressSheet = workbook.Sheets['ProgressInfo'];
     const progressData = XLSX.utils.sheet_to_json(progressSheet) as any[];
     const progressInfo = parseProgressInfo(progressData);
-    console.log('✓ Progression parsée:', `${progressInfo.progressPercentage}% (${progressInfo.completedBusinessRoles.length}/${progressInfo.totalBusinessRoles})`);
 
-    console.log('🔄 parseResumeFile: Recalcul des analyses de couverture...');
     // Recalculer l'analyse de couverture avec les données originales
     const coverageAnalyses = calculateCoverageAnalysis(
       businessRoleTransactions,
       simpleRoleTransactions,
       metadata.analysisParams.minCoverageThreshold
     );
-    console.log('✓ Analyses de couverture recalculées:', coverageAnalyses.length);
 
-    console.log('📝 parseResumeFile: Création du résultat d\'analyse...');
     // Créer le résultat d'analyse
     const analysisResult = createSimplifiedAnalysisResult(
       {
@@ -182,7 +161,6 @@ export async function parseResumeFile(file: File): Promise<ResumeParsingResult> 
     // Appliquer les paramètres d'analyse sauvegardés
     analysisResult.analysisParams = metadata.analysisParams;
 
-    console.log('✅ parseResumeFile: Analyse reconstituée avec succès!');
     return {
       analysisResult,
       userSelections,
