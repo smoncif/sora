@@ -39,7 +39,6 @@ export async function middleware(request: NextRequest) {
   
   if (!user) {
     // Rediriger vers la page de login si non connecté
-    console.log(`🔒 Accès bloqué pour utilisateur non connecté sur: ${pathname}`);
     return NextResponse.redirect(new URL('/login', request.url));
   }
   

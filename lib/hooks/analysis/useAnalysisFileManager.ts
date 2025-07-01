@@ -220,9 +220,6 @@ export const useAnalysisFileManager = (
         setProgress(60);
         
         try {
-          // 🔧 CORRECTION : Sauvegarder les sélections utilisateur AVANT le recalcul
-          const userSelections = savedAnalysis.userSelections || {};
-          
           // Recalculer les analyses de couverture depuis les données de base
           const recalculatedAnalysis = calculateCoverageAnalysis(
             savedAnalysis.businessRoleTransactions,
@@ -230,25 +227,13 @@ export const useAnalysisFileManager = (
             savedAnalysis.analysisParams?.minCoverageThreshold || 0
           );
           
-          setProgress(75);
-          setProcessingStep('Restauration des sélections...');
-          
-          // 🚀 CORRECTION CRITIQUE : Restaurer les sélections utilisateur dans les analyses recalculées
-          const analysisWithSelections = recalculatedAnalysis.map(analysis => ({
-            ...analysis,
-            simpleRoles: analysis.simpleRoles.map(role => ({
-              ...role,
-              isSelected: userSelections[analysis.businessRole]?.includes(role.roleName) || false
-            }))
-          }));
-          
           setProgress(80);
           setProcessingStep('Finalisation du recalcul...');
           
-          // Reconstituer l'analyse complète avec les nouvelles analyses de couverture ET les sélections
+          // Reconstituer l'analyse complète avec les nouvelles analyses de couverture
           finalAnalysis = {
             ...savedAnalysis,
-            coverageAnalyses: analysisWithSelections
+            coverageAnalyses: recalculatedAnalysis
           };
           
 
@@ -258,24 +243,7 @@ export const useAnalysisFileManager = (
           // Continuer avec l'analyse originale même si le recalcul échoue
         }
       } else {
-        // 🔧 CORRECTION : Même si pas de recalcul, s'assurer que les sélections sont appliquées
-        if (savedAnalysis.userSelections && Object.keys(savedAnalysis.userSelections).length > 0) {
-          setProcessingStep('Application des sélections sauvegardées...');
-          setProgress(70);
-          
-          const analysisWithSelections = savedAnalysis.coverageAnalyses.map(analysis => ({
-            ...analysis,
-            simpleRoles: analysis.simpleRoles.map(role => ({
-              ...role,
-              isSelected: savedAnalysis.userSelections[analysis.businessRole]?.includes(role.roleName) || false
-            }))
-          }));
-          
-          finalAnalysis = {
-            ...savedAnalysis,
-            coverageAnalyses: analysisWithSelections
-          };
-        }
+        // Analyse complète, pas de recalcul nécessaire
       }
       
       setProgress(90);

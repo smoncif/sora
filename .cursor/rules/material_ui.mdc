@@ -1,5 +1,134 @@
----
-description:
-globs:
-alwaysApply: false
----
+# Material-UI v7 - Règles et Bonnes Pratiques
+
+## Composant Grid 
+
+### Syntaxe Moderne (à utiliser)
+
+La syntaxe moderne de Material-UI v7 pour les composants Grid utilise les attributs consolidés `size` et `offset` au lieu des attributs par breakpoint.
+
+- **DO: Utiliser la nouvelle syntaxe avec l'objet `size`**
+  ```tsx
+  <Grid 
+    container 
+    spacing={2}
+  >
+    <Grid
+      size={{ xs: 12, sm: 6, md: 4 }}
+      offset={{ xs: 1, md: 2 }}
+    >
+      <Content />
+    </Grid>
+  </Grid>
+  ```
+
+- **DO: Supprimer l'attribut `item` qui est implicite**
+  ```tsx
+  // ✅ Correct
+  <Grid size={{ xs: 12 }}>
+    <Content />
+  </Grid>
+  
+  // ❌ Obsolète  
+  <Grid item xs={12}>
+    <Content />
+  </Grid>
+  ```
+
+- **DO: Gérer les cas spéciaux**
+  ```tsx
+  // Auto layout
+  <Grid size="grow">...</Grid>
+  
+  // Taille automatique basée sur le contenu
+  <Grid size="auto">...</Grid>
+  ```
+
+### Exemples de Code
+
+**Mise en page responsive**
+```tsx
+<Grid container spacing={{ xs: 2, md: 3 }}>
+  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+    <Card>Item 1</Card>
+  </Grid>
+  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+    <Card>Item 2</Card>
+  </Grid>
+  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+    <Card>Item 3</Card>
+  </Grid>
+</Grid>
+```
+
+**Décalages**
+```tsx
+<Grid container>
+  <Grid 
+    size={{ xs: 10, md: 8 }}
+    offset={{ xs: 1, md: 2 }}
+  >
+    <Box>Contenu centré</Box>
+  </Grid>
+</Grid>
+```
+
+### Conseils Techniques
+
+- L'espacement peut être défini de manière responsive: `spacing={{ xs: 2, md: 3 }}`
+- Utiliser `sx={{ width: '100%' }}` ou `sx={{ flexGrow: 1 }}` sur les conteneurs si nécessaire
+- Grid utilise désormais la propriété CSS `gap` pour l'espacement plutôt que le padding calculé
+- Les propriétés d'alignement comme `justifyContent` et `alignItems` sont toujours disponibles
+
+## Autres Composants
+
+### TextField
+
+Préférer les variantes avec contrôle de formulaire complet:
+
+```tsx
+<TextField
+  fullWidth
+  label="Rechercher..."
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  variant="outlined"
+  size="small"
+  InputProps={{
+    startAdornment: (
+      <InputAdornment position="start">
+        <SearchIcon />
+      </InputAdornment>
+    ),
+  }}
+/>
+```
+
+### Theming
+
+Utiliser les nouveaux tokens de thème:
+
+```tsx
+<ThemeProvider theme={createTheme({
+  components: {
+    MuiGrid: {
+      // Configuration de Grid
+    },
+  },
+})}>
+```
+
+## Migration et Maintenance
+
+### Codemod pour les Migrations Futures
+
+Pour migrer les composants Grid vers la nouvelle syntaxe:
+```bash
+npx @mui/codemod@latest v7.0.0/grid-props <path>
+```
+
+### Tests après Modifications
+
+Toujours vérifier la mise en page responsive après des modifications aux composants Grid:
+- Tester à toutes les largeurs d'écran définies dans les objets `size`
+- Vérifier que l'espacement est correct
+- S'assurer que le contenu s'adapte correctement
