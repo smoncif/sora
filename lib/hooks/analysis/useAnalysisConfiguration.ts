@@ -81,12 +81,29 @@ export const useAnalysisConfiguration = (
   // État principal
   const [state, setState] = useState<AnalysisConfigurationState>(mergedInitialConfig);
   
+  // 🔧 NOUVEAU : États pour gérer la restauration automatique
+  const [hasBeenRestoredOnce, setHasBeenRestoredOnce] = useState(false);
+  const [lastAnalysisId, setLastAnalysisId] = useState<string | null>(null);
+  const [userHasModifiedWeights, setUserHasModifiedWeights] = useState(false);
+  
   // 🚀 NOUVEAU : Restaurer automatiquement les coefficients depuis analysisResult
   useEffect(() => {
     if (config?.analysisResult?.analysisParams) {
       const { coverageWeight, sizeWeight, usageWeight } = config.analysisResult.analysisParams;
+      const currentAnalysisId = config.analysisResult.id;
       
-      if (coverageWeight !== undefined && sizeWeight !== undefined && usageWeight !== undefined) {
+      // 🔧 CONDITION : Ne restaurer que si :
+      // 1. C'est une nouvelle analyse (ID différent), OU
+      // 2. C'est la première restauration pour cette analyse, ET
+      // 3. L'utilisateur n'a pas encore modifié les coefficients manuellement
+      const shouldRestore = (currentAnalysisId !== lastAnalysisId) || 
+                           (!hasBeenRestoredOnce && !userHasModifiedWeights);
+      
+      if (shouldRestore && 
+          coverageWeight !== undefined && 
+          sizeWeight !== undefined && 
+          usageWeight !== undefined) {
+        
         setState(prev => ({
           ...prev,
           coverageWeight,
@@ -94,13 +111,18 @@ export const useAnalysisConfiguration = (
           usageWeight,
         }));
         
+        // Marquer comme restauré pour cette analyse
+        setHasBeenRestoredOnce(true);
+        setLastAnalysisId(currentAnalysisId);
+        setUserHasModifiedWeights(false); // Reset du flag utilisateur pour la nouvelle analyse
+        
         // Notifier les callbacks - utilisation directe pour éviter les dépendances cycliques
         setTimeout(() => {
           callbacks?.onWeights?.({ coverageWeight, sizeWeight, usageWeight });
         }, 0);
       }
     }
-  }, [config?.analysisResult]); // ✅ CORRIGÉ : Retirer callbacks des dépendances pour éviter les boucles
+  }, [config?.analysisResult, hasBeenRestoredOnce, lastAnalysisId, userHasModifiedWeights, callbacks]);
   
   // Helper pour mise à jour d'état
   const updateState = useCallback((updates: Partial<AnalysisConfigurationState>) => {
@@ -182,6 +204,9 @@ export const useAnalysisConfiguration = (
       return { ...prev, coverageWeight: newWeight };
     });
     
+    // 🔧 NOUVEAU : Marquer que l'utilisateur a modifié manuellement les poids
+    setUserHasModifiedWeights(true);
+    
     // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
   }, [callbacks, validateConfiguration]);
@@ -200,6 +225,9 @@ export const useAnalysisConfiguration = (
       return { ...prev, sizeWeight: newWeight };
     });
     
+    // 🔧 NOUVEAU : Marquer que l'utilisateur a modifié manuellement les poids
+    setUserHasModifiedWeights(true);
+    
     // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
   }, [callbacks, validateConfiguration]);
@@ -217,6 +245,9 @@ export const useAnalysisConfiguration = (
       
       return { ...prev, usageWeight: newWeight };
     });
+    
+    // 🔧 NOUVEAU : Marquer que l'utilisateur a modifié manuellement les poids
+    setUserHasModifiedWeights(true);
     
     // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
@@ -239,6 +270,9 @@ export const useAnalysisConfiguration = (
     
     callbacks?.onWeights?.(weights);
     
+    // 🔧 NOUVEAU : Marquer que l'utilisateur a modifié manuellement les poids
+    setUserHasModifiedWeights(true);
+    
     // Re-validation asynchrone pour éviter les boucles
     setTimeout(validateConfiguration, 0);
   }, [callbacks, validateConfiguration]);
@@ -246,6 +280,12 @@ export const useAnalysisConfiguration = (
   // Action pour réinitialiser la configuration
   const resetConfiguration = useCallback(() => {
     setState(defaultConfiguration);
+    
+    // 🔧 NOUVEAU : Réinitialiser aussi les flags de restauration
+    setHasBeenRestoredOnce(false);
+    setUserHasModifiedWeights(false);
+    setLastAnalysisId(null);
+    
     callbacks?.onAnalysisName?.('');
     callbacks?.onAnalysisDescription?.('');
     callbacks?.onWeights?.({
