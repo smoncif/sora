@@ -10,8 +10,8 @@ interface LogoProps {
 }
 
 /**
- * 🎨 Composant Logo SORA moderne et élégant
- * Conçu pour être utilisé dans différents contextes (header, mobile, auth)
+ * 🎨 Composant Logo SORA simple en mode texte
+ * Version simplifiée sans icône complexe
  */
 export const Logo: React.FC<LogoProps> = ({ 
   variant = 'header', 
@@ -31,9 +31,9 @@ export const Logo: React.FC<LogoProps> = ({
 
   // Configuration des tailles selon le variant
   const sizeConfig = {
-    small: { fontSize: '1.2rem', iconSize: 20 },
-    medium: { fontSize: variant === 'auth' ? '2.5rem' : '1.8rem', iconSize: variant === 'auth' ? 32 : 24 },
-    large: { fontSize: '3rem', iconSize: 40 }
+    small: { fontSize: '1.2rem' },
+    medium: { fontSize: variant === 'auth' ? '2.5rem' : '1.8rem' },
+    large: { fontSize: '3rem' }
   };
 
   const config = sizeConfig[size];
@@ -44,26 +44,22 @@ export const Logo: React.FC<LogoProps> = ({
       case 'header':
         return {
           primary: '#ffffff',
-          secondary: alpha('#ffffff', 0.9),
-          gradient: 'linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.95) 100%)'
+          secondary: alpha('#ffffff', 0.9)
         };
       case 'mobile':
         return {
           primary: theme.palette.primary.main,
-          secondary: alpha(theme.palette.primary.main, 0.8),
-          gradient: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`
+          secondary: alpha(theme.palette.primary.main, 0.8)
         };
       case 'auth':
         return {
           primary: theme.palette.primary.main,
-          secondary: alpha(theme.palette.primary.main, 0.8),
-          gradient: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`
+          secondary: alpha(theme.palette.primary.main, 0.8)
         };
       default:
         return {
           primary: theme.palette.primary.main,
-          secondary: alpha(theme.palette.primary.main, 0.8),
-          gradient: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`
+          secondary: alpha(theme.palette.primary.main, 0.8)
         };
     }
   };
@@ -76,95 +72,40 @@ export const Logo: React.FC<LogoProps> = ({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: variant === 'auth' ? 2 : 1.5,
         cursor: 'pointer',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        '&:hover': {
-          transform: variant === 'auth' ? 'scale(1.02)' : 'translateY(-1px)',
-          '& .logo-icon': {
-            transform: 'rotate(180deg) scale(1.1)',
-          },
-          '& .logo-text': {
-            background: colors.gradient,
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }
+        transition: 'all 0.3s ease',
+        '&:hover .logo-text': {
+          opacity: 0.85,
         }
       }}
     >
-      {/* 🔸 Icône moderne - Représente l'analyse et l'optimisation */}
-      <Box
-        className="logo-icon"
-        sx={{
-          width: config.iconSize,
-          height: config.iconSize,
-          borderRadius: '6px',
-          background: variant === 'header' 
-            ? `linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)`
-            : colors.gradient,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: variant === 'auth' 
-            ? `0 4px 16px ${alpha(theme.palette.primary.main, 0.3)}`
-            : `0 2px 8px ${alpha('#000000', 0.1)}`,
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: '20%',
-            left: '20%',
-            width: '60%',
-            height: '60%',
-            borderRadius: '2px',
-            background: variant === 'header' 
-              ? alpha('#000000', 0.6)
-              : '#ffffff',
-            opacity: 0.9,
-          },
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            top: '35%',
-            left: '35%',
-            width: '30%',
-            height: '30%',
-            borderRadius: '50%',
-            background: variant === 'header' 
-              ? alpha('#000000', 0.8)
-              : alpha('#ffffff', 0.8),
-          }
-        }}
-      />
-
-      {/* 📝 Texte SORA stylisé */}
       <Typography
         className="logo-text"
         variant="h4"
         component="div"
         sx={{
-          fontWeight: 800,
+          fontWeight: 700,
           fontSize: config.fontSize,
-          color: colors.primary,
-          letterSpacing: variant === 'auth' ? '0.1em' : '0.05em',
+          letterSpacing: '0.05em',
           fontFamily: '"Inter", "Roboto", sans-serif',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          textShadow: variant === 'auth' 
-            ? `0 2px 8px ${alpha(theme.palette.primary.main, 0.2)}`
-            : variant === 'header' 
-              ? `0 1px 3px ${alpha('#000000', 0.2)}`
-              : 'none',
-          '& .highlight': {
-            background: colors.gradient,
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }
+          transition: 'all 0.3s ease',
+          ...(variant === 'header'
+            ? {
+                color: '#fff',
+                background: 'none',
+                WebkitTextFillColor: '#fff',
+              }
+            : {
+                background: 'linear-gradient(90deg, #00C3FF 0%, #7D5FFF 40%, #FF61A6 70%, #FFB347 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                color: 'transparent',
+                WebkitTextFillColor: 'transparent',
+              }
+          )
         }}
       >
-        SO<span className="highlight">R</span>A
+        SORA
       </Typography>
 
       {/* 💼 Sous-titre pour la version auth */}
