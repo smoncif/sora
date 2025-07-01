@@ -212,7 +212,7 @@ export default function UsersManagementPage() {
         action = 'activate';
       }
       
-      console.log(`🔄 Changing user ${userId} from ${currentStatus} with action: ${action}`);
+
       await performUserAction(userId, action);
       // Plus besoin de refreshUsers() - la mise à jour est maintenant locale et instantanée ! 🚀
     } catch (error) {
