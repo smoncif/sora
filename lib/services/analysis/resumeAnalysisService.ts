@@ -231,19 +231,45 @@ function parseSimpleRoleTransactions(data: any[]): SimpleRoleTransaction[] {
 
 /**
  * Parse les sélections utilisateur
+ * 
+ * 🔧 CORRECTION IMPORTANTE : Cette fonction a été corrigée pour gérer le format d'export réel
+ * où les rôles simples sont concaténés dans une seule cellule séparés par " | ".
+ * 
+ * Format d'export :
+ * - Colonne: "Rôles simples sélectionnés (séparés par |)"
+ * - Valeur: "Role1 | Role2 | Role3"
+ * 
+ * Ancienne version (défectueuse) : Attendait une ligne par rôle simple
+ * Nouvelle version (corrigée) : Parse les rôles multiples séparés par " | "
  */
 function parseUserSelections(data: any[]): Map<string, Set<string>> {
   const selections = new Map<string, Set<string>>();
   
-  data.forEach(row => {
+  data.forEach((row, index) => {
     const businessRole = row['Rôle métier'] || row['businessRole'];
-    const simpleRole = row['Rôle simple sélectionné'] || row['selectedSimpleRole'];
+    // 🔧 CORRECTION : Récupérer la cellule contenant tous les rôles simples séparés par |
+    const simpleRolesString = row['Rôles simples sélectionnés (séparés par |)'] || 
+                              row['selectedSimpleRoles'] || 
+                              row['Rôle simple sélectionné'] || 
+                              row['selectedSimpleRole'] || '';
     
-    if (businessRole && simpleRole) {
-      if (!selections.has(businessRole)) {
-        selections.set(businessRole, new Set());
+    if (businessRole && simpleRolesString) {
+      // 🚀 NOUVEAU : Séparer les rôles simples par le délimiteur " | "
+      const simpleRoles = simpleRolesString
+        .split(' | ')
+        .map((role: string) => role.trim())
+        .filter((role: string) => role.length > 0);
+      
+      if (simpleRoles.length > 0) {
+        if (!selections.has(businessRole)) {
+          selections.set(businessRole, new Set());
+        }
+        
+        // Ajouter tous les rôles simples pour ce rôle métier
+        simpleRoles.forEach((simpleRole: string) => {
+          selections.get(businessRole)!.add(simpleRole);
+        });
       }
-      selections.get(businessRole)!.add(simpleRole);
     }
   });
   
@@ -307,5 +333,7 @@ export function validateResumeFile(file: File): Promise<boolean> {
     reader.onerror = () => resolve(false);
     reader.readAsArrayBuffer(file);
   });
-} 
+}
+
+ 
 

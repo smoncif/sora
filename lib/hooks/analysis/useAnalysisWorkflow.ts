@@ -276,10 +276,25 @@ export const useAnalysisWorkflow = (
       // Restaurer les sélections utilisateur
       const selectedRolesMap = reconstructSelectedRoles(analysisResult);
       selections.synchronizeSelectedRoles(selectedRolesMap);
+      
+      // 🔧 CORRECTION : Synchroniser aussi les flags isSelected dans l'analyse de couverture
+      setTimeout(() => {
+        const updatedAnalysisResult = { ...analysisResult };
+        updatedAnalysisResult.coverageAnalyses = updatedAnalysisResult.coverageAnalyses.map(analysis => ({
+          ...analysis,
+          simpleRoles: analysis.simpleRoles.map(role => ({
+            ...role,
+            isSelected: selectedRolesMap.get(analysis.businessRole)?.has(role.roleName) || false
+          }))
+        }));
+        
+        // Mettre à jour l'analyse avec les flags isSelected correctement définis
+        fileManager.actions.setAnalysisResult(updatedAnalysisResult);
+      }, 100); // Petit délai pour s'assurer que la synchronisation des sélections est terminée
     }
     
     // Note: Les coefficients sont maintenant restaurés automatiquement par useAnalysisConfiguration
-  }, [fileManager.state.analysisResult]);
+  }, [fileManager.state.analysisResult, selections, fileManager.actions]);
   
   // LOG: tous les changements de state principaux
   

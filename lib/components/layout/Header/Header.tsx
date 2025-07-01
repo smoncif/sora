@@ -29,7 +29,12 @@ const Header: React.FC<HeaderProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
-    <AppBar position="fixed" sx={{ zIndex: theme.zIndex.drawer + 1 }}>
+    <AppBar position="fixed" sx={{ 
+      zIndex: theme.zIndex.drawer + 1,
+      background: '#fff',
+      color: '#222',
+      boxShadow: '0 2px 8px rgba(60,60,120,0.06)'
+    }}>
       <Toolbar>
         {isMobile && onMenuToggle && (
           <IconButton
