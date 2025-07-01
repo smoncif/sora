@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { 
   useAnalysisFileManager, 
   type AnalysisFileManager,
@@ -268,21 +268,52 @@ export const useAnalysisWorkflow = (
   }, [fileManager.state.analysisResult]);
   
   // 🚀 NOUVEAU : Restaurer les sélections depuis une analyse chargée
+  // 🔧 PROBLÈME RÉSOLU : Éviter la boucle infinie et préserver les modifications utilisateur
+  // 
+  // PROBLÈME INITIAL :
+  // 1. useEffect se déclenchait à chaque changement d'analysisResult
+  // 2. La synchronisation modifiait analysisResult → redéclenchement du useEffect → BOUCLE INFINIE
+  // 3. Les modifications utilisateur étaient écrasées par la restauration constante
+  // 
+  // SOLUTION :
+  // 1. Utiliser un ref pour tracker les analyses déjà traitées (évite les doublons)
+  // 2. Dépendances spécifiques (id, timestamp) au lieu de l'objet complet
+  // 3. Modification directe de l'objet sans passer par setAnalysisResult
+  const restorationExecutedRef = useRef<string | null>(null);
+  
   useEffect(() => {
     const analysisResult = fileManager.state.analysisResult;
     
     // Vérifier si l'analyse contient des sélections utilisateur à restaurer
     if (analysisResult && analysisResult.userSelections && Object.keys(analysisResult.userSelections).length > 0) {
-      // Restaurer les sélections utilisateur dans le hook selections
-      const selectedRolesMap = reconstructSelectedRoles(analysisResult);
-      selections.synchronizeSelectedRoles(selectedRolesMap);
+      // 🔧 CORRECTION : Éviter la boucle infinie avec un identifiant unique
+      const analysisId = analysisResult.id || analysisResult.timestamp?.toISOString() || 'unknown';
       
-      // ✅ SUPPRIMÉ : La synchronisation des flags isSelected est maintenant gérée lors du chargement
-      // Plus besoin de modifier l'analyse ici car les flags sont déjà corrects
+      // Ne restaurer qu'une seule fois par analyse
+      if (restorationExecutedRef.current !== analysisId) {
+        restorationExecutedRef.current = analysisId;
+        
+        // Restaurer les sélections utilisateur
+        const selectedRolesMap = reconstructSelectedRoles(analysisResult);
+        selections.synchronizeSelectedRoles(selectedRolesMap);
+        
+        // 🔧 CORRECTION : Synchroniser les flags isSelected SANS modifier analysisResult dans le state
+        // On va directement modifier l'objet sans déclencher de re-render
+        if (analysisResult.coverageAnalyses) {
+          analysisResult.coverageAnalyses.forEach(analysis => {
+            analysis.simpleRoles.forEach(role => {
+              role.isSelected = selectedRolesMap.get(analysis.businessRole)?.has(role.roleName) || false;
+            });
+          });
+        }
+      }
+    } else {
+      // Pas de sélections à restaurer, reset du flag
+      restorationExecutedRef.current = null;
     }
     
     // Note: Les coefficients sont maintenant restaurés automatiquement par useAnalysisConfiguration
-  }, [fileManager.state.analysisResult, selections]);
+  }, [fileManager.state.analysisResult?.id, fileManager.state.analysisResult?.timestamp]);
   
   // LOG: tous les changements de state principaux
   

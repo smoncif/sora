@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 
 // Types pour la gestion des sélections
@@ -61,19 +61,41 @@ export const useAnalysisSelections = (
   }, [state.selectedRoles]);
   
   // 🔄 RÉINITIALISATION : Reset des sélections quand l'analyse change (sauf si elle contient des sélections à restaurer)
+  // 🔧 PROBLÈME RÉSOLU : Éviter le reset intempestif des sélections utilisateur
+  //
+  // PROBLÈME INITIAL :
+  // 1. useEffect se déclenchait à CHAQUE modification d'analysisResult
+  // 2. Même les modifications de coefficients provoquaient un reset des sélections
+  // 3. Les sélections utilisateur étaient perdues lors de tout changement
+  //
+  // SOLUTION :
+  // 1. Tracker l'ID unique de l'analyse pour détecter les vraies nouvelles analyses
+  // 2. Ne resetter que lors du chargement d'une NOUVELLE analyse
+  // 3. Préserver les sélections lors des modifications de la même analyse
+  const lastAnalysisIdRef = useRef<string | null>(null);
+  
   useEffect(() => {
     if (analysisResult) {
-      // Ne reset que si l'analyse ne contient pas de sélections à restaurer
-      const hasSelectionsToRestore = analysisResult.userSelections && 
-        Object.keys(analysisResult.userSelections).length > 0;
+      // 🔧 CORRECTION : Identifier l'analyse de manière unique pour éviter les resets intempestifs
+      const currentAnalysisId = analysisResult.id || analysisResult.timestamp?.toISOString() || 'unknown';
       
-      if (!hasSelectionsToRestore) {
-        setState({
-          selectedRoles: new Map(),
-        });
+      // Ne reset que si c'est vraiment une NOUVELLE analyse (pas une modification de l'existante)
+      if (lastAnalysisIdRef.current !== currentAnalysisId) {
+        lastAnalysisIdRef.current = currentAnalysisId;
+        
+        // Ne reset que si l'analyse ne contient pas de sélections à restaurer
+        const hasSelectionsToRestore = analysisResult.userSelections && 
+          Object.keys(analysisResult.userSelections).length > 0;
+        
+        if (!hasSelectionsToRestore) {
+          setState({
+            selectedRoles: new Map(),
+          });
+        }
       }
+      // Sinon, c'est la même analyse qui a été modifiée → GARDER les sélections actuelles
     }
-  }, [analysisResult]);
+  }, [analysisResult?.id, analysisResult?.timestamp]);
   
   // 🎯 ACTION : Gestion des changements de sélection - OPTIMISÉ
   const handleSelectionChange = useCallback((businessRole: string, selectedRoles: Set<string>) => {
