@@ -72,11 +72,8 @@ export function AnalysisResultsSection({
   // 🚀 OPTIMISÉ : Hook Focus Context pour gérer l'état du focus
   const { focusedBusinessRole } = useFocus();
 
-  // 🚀 OPTIMISÉ : Fonction stable pour récupérer les rôles sélectionnés par rôle métier
-  // Utilise directement la fonction fournie par sharedBusinessRoleProps pour éviter les re-renders
-  const getSelectedRolesForBusinessRole = React.useCallback((businessRole: string): Set<string> => {
-    return sharedBusinessRoleProps.getSelectedRoles(businessRole);
-  }, [sharedBusinessRoleProps.getSelectedRoles]);
+  // ⚡ OPTIMISÉ : Fonction stable extraite une seule fois pour éviter les re-créations
+  const getSelectedRoles = sharedBusinessRoleProps.getSelectedRoles;
 
   if (!analysisResult) return null;
 
@@ -134,7 +131,7 @@ export function AnalysisResultsSection({
                     size="small"
                     placeholder="Filtrer les rôles métier..."
                     value={businessRoleFilter}
-                    onChange={(e) => onBusinessRoleFilterChange(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => onBusinessRoleFilterChange(e.target.value)}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -167,7 +164,7 @@ export function AnalysisResultsSection({
                     size="small"
                     placeholder="Filtrer les rôles simples..."
                     value={simpleRoleFilter}
-                    onChange={(e) => onSimpleRoleFilterChange(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSimpleRoleFilterChange(e.target.value)}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -242,7 +239,7 @@ export function AnalysisResultsSection({
                   <Box>
                     <BusinessRoleAnalysisCardComponent
                       analysis={analysis}
-                      globalSelectedRoles={getSelectedRolesForBusinessRole(analysis.businessRole)}
+                      globalSelectedRoles={getSelectedRoles(analysis.businessRole)}
                       {...sharedBusinessRoleProps}
                     />
                   </Box>
@@ -278,7 +275,7 @@ export function AnalysisResultsSection({
               <Pagination
                 count={totalBusinessRolePages}
                 page={currentBusinessRolePage}
-                onChange={(_, page) => onPageChange(page)}
+                onChange={(_: unknown, page: number) => onPageChange(page)}
                 color="primary"
                 size="large"
                 sx={{

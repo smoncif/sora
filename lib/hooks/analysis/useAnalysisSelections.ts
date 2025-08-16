@@ -97,7 +97,10 @@ export const useAnalysisSelections = (
     }
   }, [analysisResult?.id, analysisResult?.timestamp]);
   
-  // 🎯 ACTION : Gestion des changements de sélection - OPTIMISÉ
+  // ⚡ OPTIMISÉ : Handler stable avec useRef pour éviter les re-renders 
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+  
   const handleSelectionChange = useCallback((businessRole: string, selectedRoles: Set<string>) => {
     setState(prev => {
       // Créer une nouvelle Map pour éviter les mutations
@@ -111,20 +114,23 @@ export const useAnalysisSelections = (
         newSelectedRoles.delete(businessRole);
       }
       
-      // Notifier du changement directement pour éviter les boucles asynchrones
-      memoizedCallbacks?.onSelectedRolesChange?.(newSelectedRoles);
+      // ⚡ Notification stable via useRef pour éviter les re-créations
+      callbacksRef.current?.onSelectedRolesChange?.(newSelectedRoles);
       
       return {
         ...prev,
         selectedRoles: newSelectedRoles
       };
     });
-  }, [memoizedCallbacks]);
+  }, []); // ⚡ STABLE : Aucune dépendance
   
-  // 🔍 ACCESSEUR : Récupérer les rôles sélectionnés pour un rôle métier (VERSION OPTIMISÉE)
+  // ⚡ OPTIMISÉ : Accesseur stable avec useRef pour éviter les re-renders de toutes les cartes
+  const selectionsRef = useRef(state.selectedRoles);
+  selectionsRef.current = state.selectedRoles;
+  
   const getSelectedRolesForBusinessRole = useCallback((businessRole: string): Set<string> => {
-    return memoizedSelectionsByRole.get(businessRole) || new Set<string>();
-  }, [memoizedSelectionsByRole]);
+    return selectionsRef.current.get(businessRole) || new Set<string>();
+  }, []); // ⚡ STABLE : Aucune dépendance
   
   // 🔄 SYNCHRONISATION : Synchroniser avec des sélections externes
   const synchronizeSelectedRoles = useCallback((selections: Map<string, Set<string>>) => {

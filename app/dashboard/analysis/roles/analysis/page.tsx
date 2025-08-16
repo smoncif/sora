@@ -27,6 +27,55 @@ import { useAnalysisWorkflow } from 'lib/hooks/analysis/useAnalysisWorkflow';
 import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
 import { FocusProvider } from 'lib/contexts/FocusContext';
 import { SaveAnalysisDialog } from 'lib/components/analysis/SaveAnalysisDialog';
+import { useFocus } from 'lib/contexts/FocusContext';
+
+/**
+ * Composant interne pour le bouton Quitter Focus fixe
+ * Utilise useFocus() à l'intérieur du FocusProvider
+ */
+function FixedExitFocusButton() {
+  const theme = useTheme();
+  const { focusedBusinessRole, setFocusedBusinessRole } = useFocus();
+
+  // ⚡ OPTIMISÉ : Gestion immédiate du clic - scroll géré automatiquement par FocusContext
+  const handleExitFocus = React.useCallback(() => {
+    setFocusedBusinessRole(null);
+    // 🔄 Scroll automatiquement restauré par le FocusContext vers la position sauvegardée
+  }, [setFocusedBusinessRole]);
+
+  if (!focusedBusinessRole) return null;
+
+  return (
+    <Box
+      sx={{
+        position: 'fixed',
+        top: 16,
+        right: 16,
+        zIndex: 1200,
+        backgroundColor: theme.palette.background.paper,
+        borderRadius: 2,
+        boxShadow: theme.shadows[8],
+        border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+      }}
+    >
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleExitFocus}
+        startIcon={<span>↩️</span>}
+        sx={{
+          minWidth: 180,
+          fontWeight: 600,
+          textTransform: 'none',
+          px: 3,
+          py: 1.5,
+        }}
+      >
+        Quitter Focus
+      </Button>
+    </Box>
+  );
+}
 
 /**
  * Page d'analyse des rôles métier optimisée
@@ -35,11 +84,16 @@ import { SaveAnalysisDialog } from 'lib/components/analysis/SaveAnalysisDialog';
 export default function RoleAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
-  
+
   // 🚀 WORKFLOW UNIFIÉ : Hook principal avec tous les sous-hooks intégrés
   const workflow = useAnalysisWorkflow(undefined, {
     userId: user?.id, // Passer l'userId pour les fonctions d'authentification
   });
+
+  // 🎯 État du focus depuis le workflow local
+  const focusedBusinessRole = workflow.localState.state.focusedBusinessRole;
+
+  // ⚡ Scroll géré directement dans useBusinessRoleFocus pour de meilleures performances
   
   // 🔒 MÉMORISATION : Props partagées pour éviter les re-renders en boucle
   const sharedBusinessRoleProps = React.useMemo(() => {
@@ -132,95 +186,134 @@ export default function RoleAnalysisPage() {
 
   return (
     <FocusProvider onFocusChange={handleFocusChange}>
+      {/* Bouton Quitter Focus fixe synchronisé avec le FocusContext */}
+      <FixedExitFocusButton />
+
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* En-tête moderne et épuré */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'flex-start',
-        mb: 6,
-        pb: 3,
-        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-      }}>
-        <Box>
-          <Typography 
-            variant="h3" 
-            component="h1" 
-            sx={{ 
-              fontWeight: 700,
-              color: theme.palette.text.primary,
-              mb: 1,
-              letterSpacing: '-0.02em',
-            }}
-          >
-              Analyse des Rôles Métier
+        {/* En-tête moderne et épuré - Masqué en mode focus */}
+        {!focusedBusinessRole && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'flex-start',
+            mb: 6,
+            pb: 3,
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          }}>
+            <Box>
+              <Typography 
+                variant="h3" 
+                component="h1" 
+                sx={{ 
+                  fontWeight: 700,
+                  color: theme.palette.text.primary,
+                  mb: 1,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                  Analyse des Rôles Métier
+                </Typography>
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  color: theme.palette.text.secondary,
+                  fontSize: '1.1rem',
+                  fontWeight: 400,
+                }}
+              >
+                Architecture optimisée avec hooks spécialisés
             </Typography>
-          <Typography 
-            variant="subtitle1" 
-            sx={{ 
-              color: theme.palette.text.secondary,
-              fontSize: '1.1rem',
-              fontWeight: 400,
-            }}
-          >
-            Architecture optimisée avec hooks spécialisés
-        </Typography>
-        </Box>
-        <ThemeToggle />
-      </Box>
+            </Box>
+            <ThemeToggle />
+          </Box>
+        )}
 
-      {/* Layout côte à côte : Upload + Configuration */}
-      <Box sx={{ display: 'flex', gap: 4, mb: 4 }}>
-        {/* Zone d'import moderne */}
-        <Box sx={{ flex: 2 }}>
-          <FileUploadSection
-            importType={workflow.fileManager.state.importType}
+        {/* Layout côte à côte : Upload + Configuration - Masqué en mode focus */}
+        {!focusedBusinessRole && (
+          <Box sx={{ display: 'flex', gap: 4, mb: 4 }}>
+            {/* Zone d'import moderne */}
+            <Box sx={{ flex: 2 }}>
+              <FileUploadSection
+                importType={workflow.fileManager.state.importType}
+                loading={workflow.fileManager.state.loading}
+                error={workflow.fileManager.state.error}
+                user={user}
+                onImportTypeChange={workflow.fileManager.actions.setImportType}
+                onFileUpload={workflow.startNewAnalysis}
+                onLoadSavedAnalysis={workflow.loadSavedAnalysis}
+                onResumeFromFile={workflow.fileManager.actions.handleResumeFromFile}
+              />
+            </Box>
+
+            {/* Section Configuration */}
+            <Box sx={{ flex: 1 }}>
+              <ConfigurationSection
+                coverageWeight={workflow.configuration.state.coverageWeight}
+                sizeWeight={workflow.configuration.state.sizeWeight}
+                usageWeight={workflow.configuration.state.usageWeight}
+                isComputing={workflow.fileManager.state.loading}
+                onCoverageWeightChange={workflow.configuration.actions.setCoverageWeight}
+                onSizeWeightChange={workflow.configuration.actions.setSizeWeight}
+                onUsageWeightChange={workflow.configuration.actions.setUsageWeight}
+              />
+            </Box>
+          </Box>
+        )}
+
+        {/* Section Actions - Masquée en mode focus */}
+        {!focusedBusinessRole && (
+          <ActionsSection
+            analysisResult={workflow.fileManager.state.analysisResult}
             loading={workflow.fileManager.state.loading}
-            error={workflow.fileManager.state.error}
-            user={user}
-            onImportTypeChange={workflow.fileManager.actions.setImportType}
-            onFileUpload={workflow.startNewAnalysis}
-            onLoadSavedAnalysis={workflow.loadSavedAnalysis}
-            onResumeFromFile={workflow.fileManager.actions.handleResumeFromFile}
+            processingStep={workflow.fileManager.state.processingStep}
+            progress={workflow.fileManager.state.progress}
+            onSaveClick={() => workflow.exportManager.actions.setSaveDialogOpen(true)}
+            onExportExcel={() => workflow.exportCurrentAnalysis('excel')}
+            onExportResults={handleExportResults}
+            onReset={workflow.resetWorkflow}
           />
-        </Box>
-
-        {/* Section Configuration */}
-        <Box sx={{ flex: 1 }}>
-          <ConfigurationSection
-            coverageWeight={workflow.configuration.state.coverageWeight}
-            sizeWeight={workflow.configuration.state.sizeWeight}
-            usageWeight={workflow.configuration.state.usageWeight}
-            isComputing={workflow.fileManager.state.loading}
-            onCoverageWeightChange={workflow.configuration.actions.setCoverageWeight}
-            onSizeWeightChange={workflow.configuration.actions.setSizeWeight}
-            onUsageWeightChange={workflow.configuration.actions.setUsageWeight}
-          />
-        </Box>
-      </Box>
-
-      {/* Section Actions */}
-      <ActionsSection
-        analysisResult={workflow.fileManager.state.analysisResult}
-        loading={workflow.fileManager.state.loading}
-        processingStep={workflow.fileManager.state.processingStep}
-        progress={workflow.fileManager.state.progress}
-        onSaveClick={() => workflow.exportManager.actions.setSaveDialogOpen(true)}
-        onExportExcel={() => workflow.exportCurrentAnalysis('excel')}
-        onExportResults={handleExportResults}
-        onReset={workflow.resetWorkflow}
-      />
+        )}
 
       {/* Résultats d'analyse */}
       {workflow.fileManager.state.analysisResult && (
         <Fade in timeout={800}>
         <Box>
-            {/* Section Vue d'ensemble */}
-            <OverviewStatsSection
-              analysisResult={workflow.fileManager.state.analysisResult}
-              totalBusinessRoles={workflow.calculations.totalBusinessRoles}
-              uncoveredTransactionsData={workflow.calculations.uncoveredTransactionsData}
-            />
+            {/* Section Vue d'ensemble - Masquée en mode focus */}
+            {!focusedBusinessRole && (
+              <OverviewStatsSection
+                analysisResult={workflow.fileManager.state.analysisResult}
+                totalBusinessRoles={workflow.calculations.totalBusinessRoles}
+                uncoveredTransactionsData={workflow.calculations.uncoveredTransactionsData}
+              />
+            )}
+
+            {/* Titre en mode focus */}
+            {focusedBusinessRole && (
+              <Box sx={{ mb: 4, textAlign: 'center' }}>
+                <Typography 
+                  variant="h4" 
+                  component="h1" 
+                  sx={{ 
+                    fontWeight: 700,
+                    color: theme.palette.primary.main,
+                    mb: 1,
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  Focus : {focusedBusinessRole}
+                </Typography>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    color: theme.palette.text.secondary,
+                    fontSize: '1rem',
+                    fontWeight: 400,
+                  }}
+                >
+                  Analyse détaillée du rôle métier sélectionné
+                </Typography>
+              </Box>
+            )}
 
             {/* Analyses par rôle métier - VERSION OPTIMISÉE */}
             <AnalysisResultsSection

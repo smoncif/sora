@@ -94,7 +94,7 @@ export const useWorkflowLocalState = (
     }));
   }, []);
   
-  // Actions de focus
+  // Actions de focus - OPTIMISÉES pour réactivité immédiate
   const handleFocusBusinessRole = useCallback((businessRole: string) => {
     setState(prev => ({ 
       ...prev,
@@ -102,10 +102,8 @@ export const useWorkflowLocalState = (
       pageBeforeFocus: prev.currentBusinessRolePage, // 🆕 Sauvegarder la page actuelle
       currentBusinessRolePage: 0
     }));
-    // Notifier de manière asynchrone pour éviter les boucles
-    setTimeout(() => {
-      stableOnFocusChange(businessRole);
-    }, 0);
+    // ⚡ OPTIMISÉ : Notification immédiate pour meilleure réactivité
+    stableOnFocusChange(businessRole);
   }, [stableOnFocusChange]);
   
   const handleExitFocus = useCallback(() => {
@@ -114,10 +112,8 @@ export const useWorkflowLocalState = (
       focusedBusinessRole: null,
       currentBusinessRolePage: prev.pageBeforeFocus // 🆕 Restaurer la page sauvegardée
     }));
-    // Notifier de manière asynchrone pour éviter les boucles
-    setTimeout(() => {
-      stableOnFocusChange(null);
-    }, 0);
+    // ⚡ OPTIMISÉ : Notification immédiate pour meilleure réactivité
+    stableOnFocusChange(null);
   }, [stableOnFocusChange]);
   
   // Actions d'affichage

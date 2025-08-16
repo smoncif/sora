@@ -317,8 +317,8 @@ export const useAnalysisWorkflow = (
   
   // LOG: tous les changements de state principaux
   
-  // 🚀 OPTIMISÉ : Getter pour props partagées des composants (focus géré par Context)
-  const getSharedBusinessRoleProps = useCallback((): SharedBusinessRoleProps => {
+  // ⚡ OPTIMISÉ : Getter mémorisé avec useMemo pour éviter les re-renders de toutes les cartes
+  const sharedBusinessRoleProps = useMemo((): SharedBusinessRoleProps => {
     return {
       coverageWeight: configuration.state.coverageWeight,
       sizeWeight: configuration.state.sizeWeight,
@@ -326,14 +326,14 @@ export const useAnalysisWorkflow = (
       includeFrequency: configuration.state.includeFrequency,
       simpleRoleFilter: localState.state.simpleRoleFilter,
       showZeroCoverageRoles: localState.state.showZeroCoverageRoles,
-      onRoleSelectionChange: selections.handleSelectionChange,
+      onRoleSelectionChange: selections.handleSelectionChange, // ⚡ Maintenant stable
       onToggleZeroCoverageRoles: localState.actions.handleToggleZeroCoverageRoles,
-      getSelectedRoles: selections.getSelectedRolesForBusinessRole,
-      staticScoresCache: staticData.staticScoresCache, // 🚀 UTILISER LES DONNÉES STATIQUES
-      transactionDetailsCache: staticData.transactionDetailsCache, // 🚀 UTILISER LES DONNÉES STATIQUES
+      getSelectedRoles: selections.getSelectedRolesForBusinessRole, // ⚡ Maintenant stable
+      staticScoresCache: staticData.staticScoresCache,
+      transactionDetailsCache: staticData.transactionDetailsCache,
       businessRoleTransactions: fileManager.state.analysisResult?.businessRoleTransactions || [],
       simpleRoleTransactions: fileManager.state.analysisResult?.simpleRoleTransactions || [],
-      onGlobalSelectionChange: selections.handleSelectionChange,
+      onGlobalSelectionChange: selections.handleSelectionChange, // ⚡ Maintenant stable
     };
   }, [
     configuration.state.coverageWeight,
@@ -342,12 +342,17 @@ export const useAnalysisWorkflow = (
     configuration.state.includeFrequency,
     localState.state.simpleRoleFilter,
     localState.state.showZeroCoverageRoles,
-    selections.handleSelectionChange,
-    selections.getSelectedRolesForBusinessRole,
-    staticData.staticScoresCache, // 🚀 DÉPENDANCE STATIQUE
-    staticData.transactionDetailsCache, // 🚀 DÉPENDANCE STATIQUE
+    selections.handleSelectionChange, // ⚡ Stable maintenant
+    selections.getSelectedRolesForBusinessRole, // ⚡ Stable maintenant
+    staticData.staticScoresCache,
+    staticData.transactionDetailsCache,
     fileManager.state.analysisResult
   ]);
+
+  // ⚡ Getter stable qui retourne toujours le même objet mémorisé
+  const getSharedBusinessRoleProps = useCallback((): SharedBusinessRoleProps => {
+    return sharedBusinessRoleProps;
+  }, [sharedBusinessRoleProps]);
   
   // Action de haut niveau : Démarrer une nouvelle analyse
   const startNewAnalysis = useCallback(async (file: File) => {
