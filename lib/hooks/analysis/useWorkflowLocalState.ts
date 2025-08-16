@@ -9,6 +9,7 @@ export interface WorkflowLocalState {
   businessRolesPerPage: number;
   focusedBusinessRole: string | null;
   showZeroCoverageRoles: Map<string, boolean>;
+  pageBeforeFocus: number; // 🆕 Sauvegarder la page avant le focus
 }
 
 export interface WorkflowLocalActions {
@@ -41,6 +42,7 @@ const initialState: WorkflowLocalState = {
   businessRolesPerPage: 3,
   focusedBusinessRole: null,
   showZeroCoverageRoles: new Map(),
+  pageBeforeFocus: 0,
 };
 
 export const useWorkflowLocalState = (
@@ -97,6 +99,7 @@ export const useWorkflowLocalState = (
     setState(prev => ({ 
       ...prev,
       focusedBusinessRole: businessRole,
+      pageBeforeFocus: prev.currentBusinessRolePage, // 🆕 Sauvegarder la page actuelle
       currentBusinessRolePage: 0
     }));
     // Notifier de manière asynchrone pour éviter les boucles
@@ -109,7 +112,7 @@ export const useWorkflowLocalState = (
     setState(prev => ({ 
       ...prev,
       focusedBusinessRole: null,
-      currentBusinessRolePage: 0
+      currentBusinessRolePage: prev.pageBeforeFocus // 🆕 Restaurer la page sauvegardée
     }));
     // Notifier de manière asynchrone pour éviter les boucles
     setTimeout(() => {
