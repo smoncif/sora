@@ -28,6 +28,7 @@ import { TransactionBlock } from '../TransactionBlock';
 import { ZeroCoverageToggle } from '../ZeroCoverageToggle';
 import { CoverageAnalysis, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 import { useBusinessRoleFocus } from '../../../contexts/FocusContext';
+import { useScoreCalculation } from '../../../hooks/analysis/useScoreCalculation';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
 // 🚀 OPTIMISÉ : SimpleRoleRow avec memoization avancée
@@ -320,44 +321,8 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
   return true;
 };
 
-// Cache global pour les détails des rôles - PERSISTANT entre renders
-const detailsGlobalCache = new Map<string, any>();
-
-// Version avec cache des remainingUsageScore pour éviter les reduce répétés
-const usageScoreCache = new Map<string, number>();
-
-// 🚀 NOUVEAU : Cache pour optimiser les calculs de taille dynamique
-const sizeScoreCache = new Map<string, number>();
-
-// 🚀 NETTOYAGE AUTOMATIQUE : Éviter la fuite mémoire des caches
-const cleanupCaches = () => {
-  const maxCacheSize = 1000; // Limite pour éviter la fuite mémoire
-  
-  if (detailsGlobalCache.size > maxCacheSize) {
-    // Garder seulement la moitié des entrées les plus récentes
-    const entries = Array.from(detailsGlobalCache.entries());
-    detailsGlobalCache.clear();
-    entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
-      detailsGlobalCache.set(key, value);
-    });
-  }
-  
-  if (usageScoreCache.size > maxCacheSize) {
-    const entries = Array.from(usageScoreCache.entries());
-    usageScoreCache.clear();
-    entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
-      usageScoreCache.set(key, value);
-    });
-  }
-  
-  if (sizeScoreCache.size > maxCacheSize) {
-    const entries = Array.from(sizeScoreCache.entries());
-    sizeScoreCache.clear();
-    entries.slice(-maxCacheSize / 2).forEach(([key, value]) => {
-      sizeScoreCache.set(key, value);
-    });
-  }
-};
+// 🚀 REFACTORISÉ : Les caches sont maintenant gérés dans scoreCalculationService
+// pour une consistance totale entre affichage manuel et sélection automatique
 
 export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysisCard({ 
   analysis, 
@@ -545,8 +510,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     const hash = Array.from(selectedRoles).sort().join('|');
     
     // 🐛 CORRECTION : Vider les caches quand les sélections changent
-    usageScoreCache.clear();
-    sizeScoreCache.clear();
+    // Caches maintenant gérés dans scoreCalculationService
     
     return hash;
   }, [selectedRoles, analysis.businessRole]);
@@ -556,9 +520,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     // 🚀 CACHE GLOBAL : Utilisation du cache persistent entre renders
     const globalCacheKey = `${analysis.businessRole}:${roleName}:${selectionHash}`;
     
-    if (detailsGlobalCache.has(globalCacheKey)) {
-      return detailsGlobalCache.get(globalCacheKey);
-    }
+    // Cache maintenant géré dans scoreCalculationService
 
     const allSimpleRoleTx = staticData.transactionsByRole.get(roleName) || [];
     const roleData = analysis.simpleRoles.find(r => r.roleName === roleName);
@@ -572,7 +534,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         orphelines: [], 
         total: 0 
       };
-      detailsGlobalCache.set(globalCacheKey, emptyResult);
+      // Cache maintenant géré dans scoreCalculationService
       return emptyResult;
     }
 
@@ -616,8 +578,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       total: covered.length + nonUtilisees.length + nonCouvertes.length + orphelines.length 
     };
 
-    // 🚀 CACHE GLOBAL : Sauvegarder pour éviter recalculs
-    detailsGlobalCache.set(globalCacheKey, result);
+    // Cache maintenant géré dans scoreCalculationService
     return result;
   }, [staticData, analysis.simpleRoles, analysis.businessRole, dynamicData, selectionHash]);
 
@@ -631,137 +592,27 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     shouldShowZeroCoverage
   }), [simpleRoleFilter, sortField, sortDirection, shouldShowZeroCoverage]);
 
-  // 🚀 SCORES ENRICHIS v2 (cache global + optimisation reduce)
-  const enrichedRoles = React.useMemo(() => {
-
-    
-    // 🚀 NETTOYAGE : Maintenir la performance des caches
-    cleanupCaches();
-    
-    // Processing en chunks pour éviter les blocages UI
-    const CHUNK_SIZE = 50;
-    const processChunk = (startIdx: number, endIdx: number) => {
-      return analysis.simpleRoles.slice(startIdx, endIdx).map(role => {
-        // 🚀 CACHE GLOBAL : Vérifier le cache des détails
-        const globalCacheKey = `${analysis.businessRole}:${role.roleName}:${selectionHash}`;
-        let details = detailsGlobalCache.get(globalCacheKey);
-        
-        if (!details) {
-          details = getDetails(role.roleName);
-        }
-        
-        // 🐛 DEBUG : Détails pour Role5 spécifiquement
-        
-        // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache
-        const dynamicCoveragePercentage = dynamicData.totalRemainingTransactions > 0 
-          ? (details.covered.length / dynamicData.totalRemainingTransactions) * 100 
-          : 0;
-
-        // 🚀 CACHE STATIQUE : Récupération rapide des scores pré-calculés
-        const staticCacheKey = `${analysis.businessRole}:${role.roleName}`;
-        const cachedScores = staticScoresCache.get(staticCacheKey) || {
-          usageFrequency: 0,
-          totalRoleTransactions: 0,
-          originalCoveredCount: 0,
-          simpleRoleExecutions: 0,
-          totalBusinessRoleExecutions: 0
-        };
-
-        // 🚀 CALCUL DYNAMIQUE : Score Taille avec cache optimisé
-        const sizeCacheKey = `${globalCacheKey}:size`;
-        let dynamicSizeScore = sizeScoreCache.get(sizeCacheKey);
-        
-        if (dynamicSizeScore === undefined) {
-          // Score de taille dynamique = transactions restantes couvertes / total transactions du rôle
-          dynamicSizeScore = cachedScores.totalRoleTransactions > 0 
-            ? (details.covered.length / cachedScores.totalRoleTransactions) * 100
-            : 0;
-          sizeScoreCache.set(sizeCacheKey, dynamicSizeScore);
-        }
-
-        // 🚀 OPTIMISATION MAJEURE : Cache des remainingUsageScore pour éviter reduce répétés
-        const usageCacheKey = `${globalCacheKey}:usage`;
-        let remainingUsageScore = usageScoreCache.get(usageCacheKey);
-        
-        if (remainingUsageScore === undefined) {
-          // 🚀 OPTIMISÉ : Calcul direct avec Map.get au lieu de reduce
-          remainingUsageScore = 0;
-          
-          // 🐛 DEBUG : Log pour diagnostiquer le problème
-          const debugInfo = {
-            roleName: role.roleName,
-            coveredTransactions: details.covered,
-            remainingExecutionMap: Array.from(dynamicData.remainingExecutionMap.entries()),
-            usageCacheKey
-          };
-          
-          for (const tx of details.covered) {
-            const execCount = dynamicData.remainingExecutionMap.get(tx);
-            if (execCount !== undefined) {
-              remainingUsageScore += execCount;
-            }
-          }
-          
-          usageScoreCache.set(usageCacheKey, remainingUsageScore);
-        }
-
-        const dynamicUsagePercentage = dynamicData.totalRemainingExecutions > 0
-          ? (remainingUsageScore / dynamicData.totalRemainingExecutions) * 100
-          : 0;
-
-        // 🚀 SCORE PONDÉRÉ OPTIMISÉ : Calcul rapide avec coefficients stables selon formule
-        // Score Global = (wCR × CR) + (wST × ST) + (wUR × UR) / (wCR + wST + wUR)
-        const numerator = includeFrequency
-          ? (dynamicCoveragePercentage * coverageWeight) +
-            (dynamicSizeScore * sizeWeight) +
-            (dynamicUsagePercentage * usageWeight)
-          : (dynamicCoveragePercentage * coverageWeight) +
-            (dynamicSizeScore * sizeWeight);
-        
-        const denominator = includeFrequency
-          ? coverageWeight + sizeWeight + usageWeight
-          : coverageWeight + sizeWeight;
-        
-        const globalScore = denominator > 0 ? numerator / denominator : 0;
-
-        return {
-          ...role,
-          details,
-          coveragePercentage: dynamicCoveragePercentage,
-          sizeScore: dynamicSizeScore,
-          usageFrequency: dynamicUsagePercentage,
-          globalScore,
-          remainingUsageScore,
-          remainingCoveredCount: details.covered.length,
-          alreadySelectedCount: details.coveredButAlreadySelected.length,
-          totalRoleTransactions: cachedScores.totalRoleTransactions,
-          ...(includeFrequency && { 
-            cachedTotalExecutions: cachedScores.totalBusinessRoleExecutions,
-            cachedSimpleRoleExecutions: cachedScores.simpleRoleExecutions
-          })
-        };
-      });
-    };
-
-    // Traitement par chunks
-    let allProcessedRoles: any[] = [];
-    for (let i = 0; i < analysis.simpleRoles.length; i += CHUNK_SIZE) {
-      const endIdx = Math.min(i + CHUNK_SIZE, analysis.simpleRoles.length);
-      allProcessedRoles = allProcessedRoles.concat(processChunk(i, endIdx));
+  // 🚀 NOUVEAU : Utilisation du service scoreCalculationService pour consistance avec auto-sélection
+  const { enrichedRoles } = useScoreCalculation(
+    analysis,
+    selectedRoles,
+    {
+      coverageWeight,
+      sizeWeight,
+      usageWeight,
+      includeFrequency,
+      businessRoleTransactions,
+      simpleRoleTransactions,
+      staticScoresCache,
+      transactionDetailsCache,
+      simpleRoleFilter: stableFilterSort.filter,
+      shouldShowZeroCoverage: stableFilterSort.shouldShowZeroCoverage,
     }
+  );
 
-    // 🚀 FILTRAGE OPTIMISÉ : Une seule passe avec conditions pré-calculées
-    const filteredRoles = stableFilterSort.filter 
-      ? allProcessedRoles.filter(role => 
-          role.roleName.toLowerCase().includes(stableFilterSort.filter) &&
-          (stableFilterSort.shouldShowZeroCoverage || role.coveragePercentage > 0)
-        )
-      : allProcessedRoles.filter(role => 
-          stableFilterSort.shouldShowZeroCoverage || role.coveragePercentage > 0
-        );
-
-    // 🚀 TRI OPTIMISÉ : Comparateur stable
-    return filteredRoles.sort((a, b) => {
+  // 🚀 TRI OPTIMISÉ : Application du tri sur les rôles enrichis
+  const sortedEnrichedRoles = React.useMemo(() => {
+    return enrichedRoles.sort((a, b) => {
       if (stableFilterSort.sortField === 'roleName') {
         const comparison = a.roleName.localeCompare(b.roleName);
         return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
@@ -773,19 +624,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
       
       return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [
-    analysis.simpleRoles, 
-    analysis.businessRole,
-    getDetails, 
-    stableFilterSort,
-    dynamicData,
-    includeFrequency,
-    coverageWeight,
-    sizeWeight,
-    usageWeight,
-    staticScoresCache,
-    selectionHash
-  ]);
+  }, [enrichedRoles, stableFilterSort]);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -837,8 +676,8 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
 
   // 🚀 OPTIMISÉ : Pagination memoizée pour éviter recalculs
   const paginatedRoles = React.useMemo(() => {
-    return enrichedRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [enrichedRoles, page, rowsPerPage]);
+    return sortedEnrichedRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [sortedEnrichedRoles, page, rowsPerPage]);
 
   // Composant de tableau pour les tooltips avec tri - VERSION CORRIGÉE
   const TransactionTooltipTable = React.useCallback(({ 
@@ -1489,7 +1328,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
           />
           
           <Typography variant="caption" color="text.secondary">
-            {enrichedRoles.length} rôle(s) affiché(s) sur {analysis.simpleRoles.length}
+            {sortedEnrichedRoles.length} rôle(s) affiché(s) sur {analysis.simpleRoles.length}
           </Typography>
         </Box>
 
@@ -1578,7 +1417,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
         {/* Pagination */}
         <TablePagination
           component="div"
-          count={enrichedRoles.length}
+          count={sortedEnrichedRoles.length}
           page={page}
           onPageChange={handleChangePage}
           rowsPerPage={rowsPerPage}

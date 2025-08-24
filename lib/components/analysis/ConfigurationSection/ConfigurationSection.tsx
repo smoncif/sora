@@ -166,7 +166,7 @@ export function ConfigurationSection({
             >
               <SettingsIcon fontSize="small" />
             </Box>
-            Configuration
+            Pondération du score
             {/* Indicateur de calcul en cours */}
             {isComputing && (
               <Chip
@@ -201,14 +201,7 @@ export function ConfigurationSection({
       </Box>
 
       <Box sx={{ maxWidth: 400 }}>
-        <Typography variant="subtitle2" sx={{ 
-          mb: 3,
-          color: theme.palette.text.primary,
-          fontWeight: 500,
-          fontSize: '0.9rem',
-        }}>
-          Pondération du score global
-        </Typography>
+ 
         
         {/* Première ligne : Couverture vs Taille */}
         <Box sx={{ mb: 2 }}>

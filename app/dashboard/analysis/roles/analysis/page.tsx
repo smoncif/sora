@@ -14,11 +14,13 @@ import {
   useTheme,
   alpha,
   Fade,
+  Grid,
 } from '@mui/material';
 import { useAuth } from 'lib/hooks/useAuth';
 import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { FileUploadSection } from 'lib/components/analysis/FileUploadSection';
 import { ConfigurationSection } from 'lib/components/analysis/ConfigurationSection';
+import { AutoSelectionSection } from 'lib/components/analysis/AutoSelectionSection';
 import { ActionsSection } from 'lib/components/analysis/ActionsSection';
 import { OverviewStatsSection } from 'lib/components/analysis/OverviewStatsSection';
 import { AnalysisResultsSection } from 'lib/components/analysis/AnalysisResultsSection';
@@ -228,11 +230,11 @@ export default function RoleAnalysisPage() {
           </Box>
         )}
 
-        {/* Layout côte à côte : Upload + Configuration - Masqué en mode focus */}
+        {/* Layout 3 cartes avec proportions ajustées - Masqué en mode focus */}
         {!focusedBusinessRole && (
-          <Box sx={{ display: 'flex', gap: 4, mb: 4 }}>
-            {/* Zone d'import moderne */}
-            <Box sx={{ flex: 2 }}>
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            {/* Carte 1 : Upload des fichiers - Plus large pour les boutons */}
+            <Grid size={{ xs: 12, md: 5 }}>
               <FileUploadSection
                 importType={workflow.fileManager.state.importType}
                 loading={workflow.fileManager.state.loading}
@@ -243,10 +245,10 @@ export default function RoleAnalysisPage() {
                 onLoadSavedAnalysis={workflow.loadSavedAnalysis}
                 onResumeFromFile={workflow.fileManager.actions.handleResumeFromFile}
               />
-            </Box>
+            </Grid>
 
-            {/* Section Configuration */}
-            <Box sx={{ flex: 1 }}>
+            {/* Carte 2 : Configuration des pondérations - Plus étroite */}
+            <Grid size={{ xs: 12, md: 3.5 }}>
               <ConfigurationSection
                 coverageWeight={workflow.configuration.state.coverageWeight}
                 sizeWeight={workflow.configuration.state.sizeWeight}
@@ -256,8 +258,17 @@ export default function RoleAnalysisPage() {
                 onSizeWeightChange={workflow.configuration.actions.setSizeWeight}
                 onUsageWeightChange={workflow.configuration.actions.setUsageWeight}
               />
-            </Box>
-          </Box>
+            </Grid>
+
+            {/* Carte 3 : Sélection automatique - Plus étroite */}
+            <Grid size={{ xs: 12, md: 3.5 }}>
+              <AutoSelectionSection
+                autoSelection={workflow.autoSelection}
+                disabled={!workflow.fileManager.state.analysisResult}
+                show={true}
+              />
+            </Grid>
+          </Grid>
         )}
 
         {/* Section Actions - Masquée en mode focus */}

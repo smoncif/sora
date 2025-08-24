@@ -37,6 +37,10 @@ import {
   useStaticAnalysisData,
   type StaticAnalysisData 
 } from './useStaticAnalysisData';
+import { 
+  useAutoSelection,
+  type UseAutoSelectionReturn
+} from './useAutoSelection';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 import { reconstructSelectedRoles } from 'lib/services/analysis/savedAnalysisService';
 
@@ -53,6 +57,7 @@ export interface AnalysisWorkflow {
   selections: AnalysisSelectionsReturn;
   localState: WorkflowLocalReturn;
   staticData: StaticAnalysisData; // 🚀 NOUVELLES DONNÉES STATIQUES
+  autoSelection: UseAutoSelectionReturn; // 🚀 SÉLECTION AUTOMATIQUE
   
   // États dérivés pour faciliter l'utilisation
   isReady: boolean;
@@ -241,6 +246,26 @@ export const useAnalysisWorkflow = (
   
   // 🚀 HOOK POUR DONNÉES STATIQUES (calculées une seule fois au chargement du fichier)
   const staticData = useStaticAnalysisData(fileManager.state.analysisResult);
+
+  // 🚀 HOOK POUR SÉLECTION AUTOMATIQUE
+  const autoSelection = useAutoSelection({
+    coverageAnalyses: fileManager.state.analysisResult?.coverageAnalyses || [],
+    onSelectionChange: selections.handleSelectionChange,
+    getSelectedRoles: selections.getSelectedRolesForBusinessRole,
+    selectionDelay: 300, // 300ms entre chaque sélection
+    scoreCalculationConfig: {
+      coverageWeight: configuration.state.coverageWeight,
+      sizeWeight: configuration.state.sizeWeight,
+      usageWeight: configuration.state.usageWeight,
+      includeFrequency: configuration.state.includeFrequency,
+      businessRoleTransactions: fileManager.state.analysisResult?.businessRoleTransactions || [],
+      simpleRoleTransactions: fileManager.state.analysisResult?.simpleRoleTransactions || [],
+      staticScoresCache: staticData.staticScoresCache,
+      transactionDetailsCache: staticData.transactionDetailsCache,
+      simpleRoleFilter: localState.state.simpleRoleFilter,
+      shouldShowZeroCoverage: localState.state.showZeroCoverageRoles.get('default') || false,
+    },
+  });
 
   const calculations = useAnalysisCalculations({
     analysisResult: fileManager.state.analysisResult,
@@ -653,6 +678,7 @@ export const useAnalysisWorkflow = (
     selections,
     localState,
     staticData,
+    autoSelection,
     isReady,
     hasAnalysisResult,
     canExport,

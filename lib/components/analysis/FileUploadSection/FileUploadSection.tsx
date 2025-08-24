@@ -98,7 +98,7 @@ export function FileUploadSection({
                 flex: '1 1 auto',
               }}
             >
-              Nouveau fichier Excel
+              Nouveau
             </Button>
             <Button
               variant={importType === 'saved' ? 'contained' : 'outlined'}
@@ -115,7 +115,7 @@ export function FileUploadSection({
                 flex: '1 1 auto',
               }}
             >
-              Analyse sauvegardée
+              Chargé
             </Button>
             <Button
               variant={importType === 'resume' ? 'contained' : 'outlined'}
@@ -132,7 +132,7 @@ export function FileUploadSection({
                 flex: '1 1 auto',
               }}
             >
-              Reprendre travail
+              Reprendre
             </Button>
           </Box>
         </Box>
@@ -142,14 +142,7 @@ export function FileUploadSection({
           <Grid size={{ xs: 12 }}>
             {importType === 'new' && (
               <Box>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 500,
-                  color: theme.palette.text.primary,
-                  mb: 2,
-                  fontSize: '1rem',
-                }}>
-                  Import des données brutes
-                </Typography>
+                
                 
                 <FileUpload
                   accept=".xlsx,.xls"
@@ -159,7 +152,6 @@ export function FileUploadSection({
                   error={error}
                   disabled={loading}
                   title="Glissez-déposez votre fichier Excel ici"
-                  subtitle="Formats supportés: .xlsx, .xls (max 100MB)"
                   buttonText="Parcourir les fichiers"
                 />
                 
