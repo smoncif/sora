@@ -54,31 +54,24 @@ export const useScoreCalculation = (
   // Calcul mémorisé des données dynamiques
   const dynamicData = useMemo(() => {
     return calculateDynamicData(analysis.businessRole, selectedRoles, config);
-  }, [
-    analysis.businessRole,
-    selectedRoles.size,
-    // Utiliser des références stables
-    config.businessRoleTransactions.length,
-    config.simpleRoleTransactions.length
-  ]);
+  }, [analysis.businessRole, selectedRoles, config.businessRoleTransactions, config.simpleRoleTransactions]);
 
   // Calcul mémorisé des rôles enrichis
   const enrichedRoles = useMemo(() => {
     return calculateEnrichedRoles(analysis, selectedRoles, config);
   }, [
-    analysis.businessRole,
-    analysis.simpleRoles.length,
-    selectedRoles.size,
+    analysis,
+    selectedRoles,
     config.coverageWeight,
     config.sizeWeight,
     config.usageWeight,
     config.includeFrequency,
-    // Utiliser des références stables pour les caches
+    config.businessRoleTransactions,
+    config.simpleRoleTransactions,
     config.staticScoresCache,
     config.transactionDetailsCache,
-    // Filtrer les dépendances qui changent trop souvent
-    config.simpleRoleFilter || '',
-    config.shouldShowZeroCoverage || false
+    config.simpleRoleFilter,
+    config.shouldShowZeroCoverage
   ]);
 
   // Fonction pour recalculer avec de nouvelles sélections

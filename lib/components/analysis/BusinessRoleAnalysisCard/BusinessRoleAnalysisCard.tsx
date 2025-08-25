@@ -51,7 +51,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
   getScoreColor: (score: number) => string;
   isExpanded: boolean;
   onSelectionChange: (roleName: string, isSelected: boolean) => void;
-  onToggleExpansion: (index: number) => void;
+  onToggleExpansion: (roleName: string) => void;
   dynamicData: any;
   theme: any;
 }) {
@@ -62,8 +62,8 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
   }, [role.roleName, onSelectionChange]);
   
   const handleToggleExpanded = React.useCallback(() => {
-    onToggleExpansion(index);
-  }, [index, onToggleExpansion]);
+    onToggleExpansion(role.roleName);
+  }, [role.roleName, onToggleExpansion]);
 
   // 🚀 OPTIMISATION : Props stables pour TransactionBlock
   const coveredTx = React.useMemo(() => role.details.covered, [role.details]);
@@ -341,7 +341,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   const theme = useTheme();
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
-  const [expandedRow, setExpandedRow] = React.useState<number | null>(null);
+  const [expandedRole, setExpandedRole] = React.useState<string | null>(null);
   
   // 🚀 OPTIMISATION : Utilisation du Context Focus isolé
   const { isFocused: isInFocusMode, handleFocus, handleExitFocus } = useBusinessRoleFocus(analysis.businessRole);
@@ -370,8 +370,8 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   // 🚀 NOUVEAU : Performance tracking pour les re-rendus
   
   // 🚀 OPTIMISÉ : Handler d'expansion avec useCallback pour éviter les re-rendus
-  const handleToggleExpansion = React.useCallback((index: number) => {
-    setExpandedRow(prev => prev === index ? null : index);
+  const handleToggleExpansion = React.useCallback((roleName: string) => {
+    setExpandedRole(prev => prev === roleName ? null : roleName);
   }, [analysis.businessRole]); // Dépendance minimale
   
   // Fonction de tri
@@ -610,16 +610,16 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
     }
   );
 
-  // 🚀 TRI OPTIMISÉ : Application du tri sur les rôles enrichis
+  // 🚀 TRI OPTIMISÉ : Application du tri sur les rôles enrichis (sans mutation)
   const sortedEnrichedRoles = React.useMemo(() => {
-    return enrichedRoles.sort((a, b) => {
+    return [...enrichedRoles].sort((a, b) => {
       if (stableFilterSort.sortField === 'roleName') {
         const comparison = a.roleName.localeCompare(b.roleName);
         return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
       }
       
-      const aValue = a[stableFilterSort.sortField] || 0;
-      const bValue = b[stableFilterSort.sortField] || 0;
+      const aValue = (a[stableFilterSort.sortField as keyof typeof a] as number) || 0;
+      const bValue = (b[stableFilterSort.sortField as keyof typeof b] as number) || 0;
       const comparison = aValue - bValue;
       
       return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
@@ -1403,7 +1403,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   isSelected={isRoleSelected}
                   includeFrequency={includeFrequency}
                   getScoreColor={stableUtilityFunctions.getScoreColor}
-                  isExpanded={expandedRow === index}
+                  isExpanded={expandedRole === role.roleName}
                   onSelectionChange={handleSelectionChange}
                   onToggleExpansion={handleToggleExpansion}
                   dynamicData={dynamicData}

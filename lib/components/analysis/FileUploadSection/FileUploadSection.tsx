@@ -98,7 +98,7 @@ export function FileUploadSection({
                 flex: '1 1 auto',
               }}
             >
-              Nouveau
+              Nouveau fichier
             </Button>
             <Button
               variant={importType === 'saved' ? 'contained' : 'outlined'}
@@ -115,7 +115,7 @@ export function FileUploadSection({
                 flex: '1 1 auto',
               }}
             >
-              Chargé
+              Importer
             </Button>
             <Button
               variant={importType === 'resume' ? 'contained' : 'outlined'}
