@@ -16,6 +16,7 @@ import {
 import {
   Person as PersonIcon,
   AdminPanelSettings as AdminIcon,
+  Assignment as LicenseIcon,
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -44,6 +45,15 @@ export default function SettingsPage() {
       icon: <AdminIcon />,
       href: '/settings/users-management',
       color: theme.palette.error.main,
+      roles: [UserRole.ADMIN],
+    },
+    {
+      id: 'licenses-management',
+      title: 'Gestion des licences',
+      description: 'Configurez les associations entre rôles simples et types de licences',
+      icon: <LicenseIcon />,
+      href: '/settings/licenses-management',
+      color: theme.palette.warning.main,
       roles: [UserRole.ADMIN],
     },
   ];

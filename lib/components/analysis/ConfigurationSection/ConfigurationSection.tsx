@@ -9,6 +9,8 @@ import {
   useTheme,
   alpha,
   Slider,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -102,11 +104,13 @@ export interface ConfigurationSectionProps {
   sizeWeight: number;
   usageWeight: number;
   isComputing?: boolean;
+  showLicenses?: boolean;
 
   // Handlers
   onCoverageWeightChange: (value: number) => void;
   onSizeWeightChange: (value: number) => void;
   onUsageWeightChange: (value: number) => void;
+  onShowLicensesChange?: (value: boolean) => void;
 }
 
 export function ConfigurationSection({
@@ -114,9 +118,11 @@ export function ConfigurationSection({
   sizeWeight,
   usageWeight,
   isComputing = false,
+  showLicenses = false,
   onCoverageWeightChange,
   onSizeWeightChange,
   onUsageWeightChange,
+  onShowLicensesChange,
 }: ConfigurationSectionProps) {
   const theme = useTheme();
 
@@ -230,14 +236,111 @@ export function ConfigurationSection({
           />
         </Box>
         
-        <Typography variant="caption" sx={{ 
-          color: alpha(theme.palette.text.secondary, 0.8),
-          fontSize: '0.75rem',
-          lineHeight: 1.3,
-          display: 'block',
-        }}>
-          Ajustez l'importance relative des trois composants : couverture des transactions restantes, pertinence du rôle simple, et fréquence d'usage.
-        </Typography>
+
+        <Box>
+          <Typography variant="h6" sx={{ 
+            fontWeight: 600,
+            color: theme.palette.text.primary,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 24,
+                height: 24,
+                color: theme.palette.primary.main,
+                '@keyframes rotateSettings': {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' },
+                },
+                animation: 'rotateSettings 8s linear infinite',
+                '&:hover': {
+                  animation: 'rotateSettings 2s linear infinite',
+                },
+              }}
+            >
+              <SettingsIcon fontSize="small" />
+            </Box>
+            Licences
+            {/* Indicateur de calcul en cours */}
+            {isComputing && (
+              <Chip
+                label="Calcul..."
+                size="small"
+                color="primary"
+                variant="filled"
+                sx={{
+                  ml: 1.5,
+                  fontSize: '0.65rem',
+                  height: 20,
+                  animation: 'pulse 1.5s infinite',
+                  '@keyframes pulse': {
+                    '0%': { opacity: 0.6 },
+                    '50%': { opacity: 1 },
+                    '100%': { opacity: 0.6 },
+                  },
+                }}
+              />
+            )}
+          </Typography>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: theme.palette.text.secondary,
+              fontSize: '0.9rem',
+            }}
+          >
+            Activer l'analyse des licences
+          </Typography>
+        </Box>
+
+        {/* Section Licences */}
+        <Box sx={{ mb: 3, mt: 3 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showLicenses}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onShowLicensesChange?.(e.target.checked)}
+                color="primary"
+                size="small"
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ 
+                fontSize: '0.8rem', 
+                fontWeight: 500,
+                color: 'text.primary',
+              }}>
+                Afficher l'analyse des licences
+              </Typography>
+            }
+            sx={{ 
+              mx: 0,
+              '& .MuiFormControlLabel-label': {
+                ml: 1,
+              },
+            }}
+          />
+          {showLicenses && (
+            <Typography variant="caption" sx={{ 
+              color: alpha(theme.palette.text.secondary, 0.8),
+              fontSize: '0.7rem',
+              lineHeight: 1.3,
+              display: 'block',
+              mt: 0.5,
+              ml: 4.5, // Aligner avec le texte du switch
+            }}>
+              Les licences les plus chères seront calculées automatiquement pour chaque rôle métier
+            </Typography>
+          )}
+        </Box>
+        
+
       </Box>
     </Paper>
   );

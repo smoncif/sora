@@ -84,6 +84,7 @@ export interface SharedBusinessRoleProps {
   sizeWeight: number;
   usageWeight: number;
   includeFrequency: boolean;
+  showLicenses: boolean;
   simpleRoleFilter: string;
   showZeroCoverageRoles: Map<string, boolean>;
   onRoleSelectionChange: (businessRole: string, selectedRoles: Set<string>) => void;
@@ -247,8 +248,8 @@ export const useAnalysisWorkflow = (
   // 🚀 HOOK POUR DONNÉES STATIQUES (calculées une seule fois au chargement du fichier)
   const staticData = useStaticAnalysisData(fileManager.state.analysisResult);
 
-  // 🚀 HOOK POUR SÉLECTION AUTOMATIQUE
-  const autoSelection = useAutoSelection({
+  // 🚀 MÉMORISATION : Configuration stable pour useAutoSelection pour éviter les boucles infinies
+  const autoSelectionConfig = useMemo(() => ({
     coverageAnalyses: fileManager.state.analysisResult?.coverageAnalyses || [],
     onSelectionChange: selections.handleSelectionChange,
     getSelectedRoles: selections.getSelectedRolesForBusinessRole,
@@ -265,7 +266,24 @@ export const useAnalysisWorkflow = (
       simpleRoleFilter: localState.state.simpleRoleFilter,
       shouldShowZeroCoverage: localState.state.showZeroCoverageRoles.get('default') || false,
     },
-  });
+  }), [
+    fileManager.state.analysisResult?.coverageAnalyses,
+    fileManager.state.analysisResult?.businessRoleTransactions,
+    fileManager.state.analysisResult?.simpleRoleTransactions,
+    selections.handleSelectionChange,
+    selections.getSelectedRolesForBusinessRole,
+    configuration.state.coverageWeight,
+    configuration.state.sizeWeight,
+    configuration.state.usageWeight,
+    configuration.state.includeFrequency,
+    staticData.staticScoresCache,
+    staticData.transactionDetailsCache,
+    localState.state.simpleRoleFilter,
+    localState.state.showZeroCoverageRoles,
+  ]);
+
+  // 🚀 HOOK POUR SÉLECTION AUTOMATIQUE
+  const autoSelection = useAutoSelection(autoSelectionConfig);
 
   const calculations = useAnalysisCalculations({
     analysisResult: fileManager.state.analysisResult,
@@ -349,6 +367,7 @@ export const useAnalysisWorkflow = (
       sizeWeight: configuration.state.sizeWeight,
       usageWeight: configuration.state.usageWeight,
       includeFrequency: configuration.state.includeFrequency,
+      showLicenses: configuration.state.showLicenses,
       simpleRoleFilter: localState.state.simpleRoleFilter,
       showZeroCoverageRoles: localState.state.showZeroCoverageRoles,
       onRoleSelectionChange: selections.handleSelectionChange, // ⚡ Maintenant stable
@@ -365,6 +384,7 @@ export const useAnalysisWorkflow = (
     configuration.state.sizeWeight,
     configuration.state.usageWeight,
     configuration.state.includeFrequency,
+    configuration.state.showLicenses,
     localState.state.simpleRoleFilter,
     localState.state.showZeroCoverageRoles,
     selections.handleSelectionChange, // ⚡ Stable maintenant

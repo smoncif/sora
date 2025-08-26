@@ -138,12 +138,18 @@ export const useAnalysisFileManager = (
       setProcessingStep('Génération des résultats...');
       
       // Création du résultat simplifié
-      const result = createSimplifiedAnalysisResult(
+      const baseResult = createSimplifiedAnalysisResult(
         data,
         analysis,
         file.name,
         'Analyse importée'
       );
+      setProgress(80);
+      setProcessingStep('Enrichissement avec les licences...');
+      
+      // Enrichir avec les licences
+      const { enrichAnalysisWithLicenses } = await import('lib/services/license/licenseService');
+      const result = await enrichAnalysisWithLicenses(baseResult);
       setProgress(90);
       setProcessingStep('Finalisation...');
       

@@ -88,13 +88,28 @@ export const useAutoSelection = (config: AutoSelectionConfig): UseAutoSelectionR
   const isRunningRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Réinitialiser l'état quand l'analyse change
+  // Référence pour tracker la dernière analyse traitée
+  const lastCoverageAnalysesRef = useRef<CoverageAnalysis[]>([]);
+  
+  // Réinitialiser l'état quand l'analyse change VRAIMENT
   useEffect(() => {
-    console.log('🔄 Nouvelle analyse détectée, réinitialisation de l\'auto-sélection');
+    // Vérifier si c'est vraiment une nouvelle analyse ou juste une recréation d'objet
+    const isDifferentAnalysis = config.coverageAnalyses.length !== lastCoverageAnalysesRef.current.length ||
+      config.coverageAnalyses.some((analysis, index) => {
+        const prevAnalysis = lastCoverageAnalysesRef.current[index];
+        return !prevAnalysis || analysis.businessRole !== prevAnalysis.businessRole;
+      });
+    
+    // Ne procéder que si c'est vraiment une analyse différente
+    if (!isDifferentAnalysis) {
+      return;
+    }
+    
+    // Sauvegarder la nouvelle référence
+    lastCoverageAnalysesRef.current = config.coverageAnalyses;
     
     // Arrêter toute sélection en cours
     if (isRunningRef.current) {
-      console.log('⏹️ Arrêt de la sélection automatique en cours');
       isRunningRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -112,8 +127,6 @@ export const useAutoSelection = (config: AutoSelectionConfig): UseAutoSelectionR
       rolesSkipped: 0,
     });
     setError(null);
-    
-    console.log(`📊 Nouvelle analyse: ${config.coverageAnalyses.length} business rôles détectés`);
   }, [config.coverageAnalyses]);
 
   /**

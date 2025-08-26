@@ -259,6 +259,36 @@ export interface SimpleRoleTransaction {
 }
 
 /**
+ * Type de licence SAP
+ */
+export interface LicenseType {
+  id: string;
+  name: string;             // Nom du type (Standard, Professional, etc.)
+  displayOrder: number;     // Ordre de priorité (1=moins cher, 4=plus cher)
+  description?: string;     // Description optionnelle
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Association rôle simple <-> licence
+ */
+export interface SimpleRoleLicense {
+  id: string;
+  simpleRole: string;       // Nom du rôle simple (unique)
+  licenseTypeId: string;    // Référence vers LicenseType
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Association enrichie avec les détails du type de licence
+ */
+export interface SimpleRoleLicenseWithType extends SimpleRoleLicense {
+  licenseType: LicenseType;
+}
+
+/**
  * Analyse de couverture pour un rôle métier
  */
 export interface CoverageAnalysis {
@@ -266,6 +296,8 @@ export interface CoverageAnalysis {
   totalTransactions: number;
   uniqueTransactions: string[];
   simpleRoles: SimpleRoleCoverage[];
+  maxLicence?: string; // Licence la plus chère parmi les rôles simples sélectionnés
+  maxLicenceOrder?: number; // Ordre de la licence max pour comparaison
 }
 
 /**
@@ -278,6 +310,8 @@ export interface SimpleRoleCoverage {
   uncoveredTransactions: string[];
   isSelected: boolean;
   executionFrequency?: number; // Fréquence totale d'exécution des transactions couvertes
+  licence?: string; // Type de licence associé au rôle simple
+  licenceOrder?: number; // Ordre de priorité de la licence (pour calcul max)
 }
 
 /**
@@ -314,6 +348,7 @@ export interface SimplifiedAnalysisResult {
   analysisParams: {
     minCoverageThreshold: number; // Seuil minimum de couverture (défaut: 0%)
     includeFrequency: boolean;    // Inclure la fréquence dans l'affichage
+    showLicenses?: boolean;       // Toggle pour afficher/masquer les licences
     coverageWeight?: number;      // Poids du pourcentage de couverture (défaut: 50)
     sizeWeight?: number;          // Poids du score de taille (défaut: 50)
     usageWeight?: number;         // Poids de l'usage/fréquence (défaut: 0)

@@ -29,6 +29,7 @@ import { ZeroCoverageToggle } from '../ZeroCoverageToggle';
 import { CoverageAnalysis, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 import { useBusinessRoleFocus } from '../../../contexts/FocusContext';
 import { useScoreCalculation } from '../../../hooks/analysis/useScoreCalculation';
+import { calculateMaxLicense } from 'lib/services/license/licenseService';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
 // 🚀 OPTIMISÉ : SimpleRoleRow avec memoization avancée
@@ -37,6 +38,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
   index,
   isSelected,
   includeFrequency,
+  showLicenses,
   getScoreColor,
   isExpanded,
   onSelectionChange,
@@ -48,6 +50,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
   index: number;
   isSelected: boolean;
   includeFrequency: boolean;
+  showLicenses: boolean;
   getScoreColor: (score: number) => string;
   isExpanded: boolean;
   onSelectionChange: (roleName: string, isSelected: boolean) => void;
@@ -93,6 +96,27 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
             </Typography>
           )}
         </TableCell>
+        {showLicenses && (
+          <TableCell align="center">
+            {role.licence ? (
+              <Chip
+                label={role.licence}
+                size="small"
+                variant="outlined"
+                sx={{
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  borderColor: theme.palette.primary.main,
+                  color: theme.palette.primary.main,
+                }}
+              />
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                Aucune
+              </Typography>
+            )}
+          </TableCell>
+        )}
         <TableCell align="center">
           <Chip
             label={`${role.coveragePercentage.toFixed(1)}%`}
@@ -150,7 +174,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
       
       {/* Ligne de détails expansible */}
       <TableRow>
-        <TableCell colSpan={includeFrequency ? 7 : 6} sx={{ p: 0 }}>
+        <TableCell colSpan={6 + (includeFrequency ? 1 : 0) + (showLicenses ? 1 : 0)} sx={{ p: 0 }}>
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
             <Box sx={{ p: 3, bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.5) }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3 }}>
@@ -198,6 +222,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
       prevProps.role.roleName === nextProps.role.roleName &&
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.includeFrequency === nextProps.includeFrequency &&
+      prevProps.showLicenses === nextProps.showLicenses &&
       prevProps.role.coveragePercentage === nextProps.role.coveragePercentage &&
       prevProps.role.globalScore === nextProps.role.globalScore &&
       prevProps.dynamicData.remainingExecutionMap === nextProps.dynamicData.remainingExecutionMap
@@ -208,6 +233,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
     prevProps.role.roleName === nextProps.role.roleName &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.includeFrequency === nextProps.includeFrequency &&
+    prevProps.showLicenses === nextProps.showLicenses &&
     prevProps.isExpanded === nextProps.isExpanded &&
     prevProps.role.coveragePercentage === nextProps.role.coveragePercentage &&
     prevProps.role.globalScore === nextProps.role.globalScore &&
@@ -218,6 +244,7 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
 export interface BusinessRoleAnalysisCardProps {
   analysis: CoverageAnalysis;
   includeFrequency: boolean;
+  showLicenses?: boolean;
   coverageWeight: number;
   sizeWeight: number;
   usageWeight: number;
@@ -252,10 +279,10 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
   if (
     prevProps.analysis.businessRole !== nextProps.analysis.businessRole ||
     prevProps.includeFrequency !== nextProps.includeFrequency ||
+    prevProps.showLicenses !== nextProps.showLicenses ||
     prevProps.coverageWeight !== nextProps.coverageWeight ||
     prevProps.sizeWeight !== nextProps.sizeWeight ||
     prevProps.usageWeight !== nextProps.usageWeight ||
-
     prevProps.simpleRoleFilter !== nextProps.simpleRoleFilter
   ) {
     return false;
@@ -327,6 +354,7 @@ const arePropsEqual = (prevProps: BusinessRoleAnalysisCardProps, nextProps: Busi
 export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysisCard({ 
   analysis, 
   includeFrequency,
+  showLicenses = false,
   coverageWeight,
   sizeWeight,
   usageWeight,
@@ -366,6 +394,24 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   const handleToggleZeroCoverage = React.useCallback((_businessRole: string, show: boolean) => {
     setShouldShowZeroCoverage(show);
   }, []);
+
+  // 🏷️ Calcul optimisé de la licence maximale pour ce rôle métier
+  const maxLicense = React.useMemo(() => {
+    if (!showLicenses) return null;
+    
+    // Early return si aucun rôle sélectionné pour optimiser les performances
+    if (selectedRoles.size === 0) return null;
+    
+    // Filtrer uniquement les rôles simples sélectionnés
+    const selectedSimpleRoles = analysis.simpleRoles.filter(role => 
+      selectedRoles.has(role.roleName)
+    );
+    
+    // Early return si pas de correspondance trouvée
+    if (selectedSimpleRoles.length === 0) return null;
+    
+    return calculateMaxLicense(selectedSimpleRoles);
+  }, [showLicenses, analysis.simpleRoles, selectedRoles]);
 
   // 🚀 NOUVEAU : Performance tracking pour les re-rendus
   
@@ -937,6 +983,22 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   sx={{ mr: 1 }}
                 />
               )}
+              {showLicenses && maxLicense?.maxLicence && (
+                <Chip
+                  label={`Licence: ${maxLicense.maxLicence}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    ml: 1,
+                    borderColor: theme.palette.success.main,
+                    color: theme.palette.success.main,
+                    fontWeight: 600,
+                    '& .MuiChip-label': {
+                      fontSize: '0.75rem',
+                    },
+                  }}
+                />
+              )}
             </Box>
             
             {/* Informations compactes du rôle métier */}
@@ -1346,6 +1408,11 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   {stableUtilityFunctions.getSortIcon('roleName')}
                 </Box>
               </TableCell>
+              {showLicenses && (
+                <TableCell align="center" sx={{ fontWeight: 600 }}>
+                  Licence
+                </TableCell>
+              )}
               <TableCell 
                 align="center" 
                 sx={{ fontWeight: 600, cursor: 'pointer' }}
@@ -1402,6 +1469,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
                   index={index}
                   isSelected={isRoleSelected}
                   includeFrequency={includeFrequency}
+                  showLicenses={showLicenses}
                   getScoreColor={stableUtilityFunctions.getScoreColor}
                   isExpanded={expandedRole === role.roleName}
                   onSelectionChange={handleSelectionChange}

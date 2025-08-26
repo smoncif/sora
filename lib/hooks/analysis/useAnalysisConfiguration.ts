@@ -12,6 +12,7 @@ export interface AnalysisConfigurationState {
   sizeWeight: number;
   usageWeight: number;
   includeFrequency: boolean;
+  showLicenses: boolean;
   
   // États de validation
   isValid: boolean;
@@ -28,6 +29,7 @@ export interface ConfigurationActions {
   setSizeWeight: (weight: number) => void;
   setUsageWeight: (weight: number) => void;
   setIncludeFrequency: (include: boolean) => void;
+  setShowLicenses: (show: boolean) => void;
   setWeights: (weights: { coverageWeight: number; sizeWeight: number; usageWeight: number }) => void;
   
   // Actions de validation
@@ -71,6 +73,7 @@ export const useAnalysisConfiguration = (
     sizeWeight: 50,
     usageWeight: 0,
     includeFrequency: true,
+    showLicenses: false,
     isValid: false,
     validationErrors: ['Le nom de l\'analyse est requis'],
   };
@@ -226,6 +229,10 @@ export const useAnalysisConfiguration = (
     updateState({ includeFrequency: include });
   }, [updateState]);
   
+  const setShowLicenses = useCallback((show: boolean) => {
+    updateState({ showLicenses: show });
+  }, [updateState]);
+  
   // Action pour définir tous les poids en une fois
   const setWeights = useCallback((weights: { coverageWeight: number; sizeWeight: number; usageWeight: number }) => {
     const { coverageWeight, sizeWeight, usageWeight } = weights;
@@ -245,7 +252,12 @@ export const useAnalysisConfiguration = (
   
   // Action pour réinitialiser la configuration
   const resetConfiguration = useCallback(() => {
-    setState(defaultConfiguration);
+    setState(prev => ({
+      ...defaultConfiguration,
+      // Préserver les préférences utilisateur lors du reset
+      showLicenses: prev.showLicenses, // Conserver l'état du toggle licence
+      includeFrequency: prev.includeFrequency, // Conserver la préférence de fréquence
+    }));
     callbacks?.onAnalysisName?.('');
     callbacks?.onAnalysisDescription?.('');
     callbacks?.onWeights?.({
@@ -297,6 +309,7 @@ export const useAnalysisConfiguration = (
     setSizeWeight,
     setUsageWeight,
     setIncludeFrequency,
+    setShowLicenses,
     setWeights,
     validateConfiguration,
     resetConfiguration,

@@ -20,6 +20,7 @@ import {
   AdminPanelSettings as AdminIcon,
   Settings as SettingsIcon,
   AccountCircle as AccountIcon,
+  Assignment as LicenseIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from 'lib/hooks/auth/useAuth';
@@ -54,6 +55,14 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
       description: 'Administrer les comptes utilisateurs',
       icon: <AdminIcon />,
       href: '/settings/users-management',
+      roles: [UserRole.ADMIN], // Accessible uniquement aux admins
+    },
+    {
+      id: 'licenses-management',
+      label: 'Gestion des licences',
+      description: 'Configurer les associations entre rôles simples et types de licences',
+      icon: <LicenseIcon />,
+      href: '/settings/licenses-management',
       roles: [UserRole.ADMIN], // Accessible uniquement aux admins
     },
   ];

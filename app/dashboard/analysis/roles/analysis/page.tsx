@@ -253,10 +253,12 @@ export default function RoleAnalysisPage() {
                 coverageWeight={workflow.configuration.state.coverageWeight}
                 sizeWeight={workflow.configuration.state.sizeWeight}
                 usageWeight={workflow.configuration.state.usageWeight}
+                showLicenses={workflow.configuration.state.showLicenses}
                 isComputing={workflow.fileManager.state.loading}
                 onCoverageWeightChange={workflow.configuration.actions.setCoverageWeight}
                 onSizeWeightChange={workflow.configuration.actions.setSizeWeight}
                 onUsageWeightChange={workflow.configuration.actions.setUsageWeight}
+                onShowLicensesChange={workflow.configuration.actions.setShowLicenses}
               />
             </Grid>
 
