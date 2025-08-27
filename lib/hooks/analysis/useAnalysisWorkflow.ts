@@ -68,7 +68,7 @@ export interface AnalysisWorkflow {
   // Actions de haut niveau
   startNewAnalysis: (file: File) => Promise<void>;
   saveCurrentAnalysis: (customMetadata?: { name?: string; description?: string }) => Promise<void>;
-  exportCurrentAnalysis: (format?: 'excel' | 'pdf' | 'csv' | 'json') => Promise<void>;
+  exportCurrentAnalysis: (format?: 'excel') => Promise<void>;
   resetWorkflow: () => void;
   loadSavedAnalysis: (analysisId: string) => Promise<void>;
   
@@ -122,7 +122,7 @@ export interface WorkflowStatus {
 export interface WorkflowCallbacks {
   onPhaseChange?: (phase: WorkflowStatus['phase']) => void;
   onAnalysisComplete?: (result: SimplifiedAnalysisResult) => void;
-  onExportComplete?: (format: string, filename: string) => void;
+  onExportComplete?: (format: 'excel', filename: string) => void;
   onSaveComplete?: (analysisId: string) => void;
   onError?: (error: string, context: string) => void;
   onSelectedRolesChange?: (roles: Map<string, Set<string>>) => void;
@@ -132,7 +132,7 @@ export interface WorkflowCallbacks {
 // Configuration optionnelle pour initialiser le workflow
 export interface WorkflowConfig {
   autoValidateConfiguration?: boolean;
-  defaultExportFormat?: 'excel' | 'pdf' | 'csv' | 'json';
+  defaultExportFormat?: 'excel';
   enableAutoSave?: boolean;
   autoSaveInterval?: number; // en millisecondes
   userId?: string; // Pour les fonctions nécessitant l'authentification
@@ -193,7 +193,7 @@ export const useAnalysisWorkflow = (
       callbacks?.onPhaseChange?.('exporting');
     },
     onExportComplete: (format, filename) => {
-      callbacks?.onExportComplete?.(format, filename);
+      callbacks?.onExportComplete?.('excel', filename);
       callbacks?.onPhaseChange?.('ready');
     },
     onExportError: (error) => {
@@ -540,7 +540,7 @@ export const useAnalysisWorkflow = (
   ]); // ✅ CORRIGÉ : Inclure les dépendances nécessaires pour la détection de mise à jour
   
   // Action de haut niveau : Exporter l'analyse actuelle
-  const exportCurrentAnalysis = useCallback(async (format = mergedConfig.defaultExportFormat) => {
+  const exportCurrentAnalysis = useCallback(async (format: 'excel' = 'excel') => {
     const analysisResult = fileManager.state.analysisResult;
     if (!analysisResult) {
       callbacks?.onError?.('Aucune analyse à exporter', 'export');
@@ -569,29 +569,15 @@ export const useAnalysisWorkflow = (
     };
     
     const exportConfig = {
-      format,
+      format: 'excel' as const,
       includeCharts: exportManager.state.includeCharts,
       includeRawData: exportManager.state.includeRawData,
       includeMetadata: exportManager.state.includeMetadata,
-      filename: `${configuration.state.analysisName || 'analyse'}_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'xlsx' : format}`,
+      filename: `${configuration.state.analysisName || 'analyse'}_${new Date().toISOString().slice(0, 10)}.xlsx`,
     };
     
-    switch (format) {
-      case 'excel':
-        await exportManager.actions.handleExportExcel(enrichedAnalysisResult, exportConfig);
-        break;
-      case 'pdf':
-        await exportManager.actions.handleExportPdf(enrichedAnalysisResult, exportConfig);
-        break;
-      case 'csv':
-        await exportManager.actions.handleExportCsv(enrichedAnalysisResult, exportConfig);
-        break;
-      case 'json':
-        await exportManager.actions.handleExportJson(enrichedAnalysisResult, exportConfig);
-        break;
-      default:
-        callbacks?.onError?.(`Format d'export non supporté: ${format}`, 'export');
-    }
+    // 🎯 EXPORT EXCEL SEULEMENT
+    await exportManager.actions.handleExportExcel(enrichedAnalysisResult, exportConfig);
   }, [
     fileManager.state.analysisResult, 
     selections.state.selectedRoles,
@@ -601,7 +587,6 @@ export const useAnalysisWorkflow = (
     configuration.state.analysisName,
     exportManager.state,
     exportManager.actions, 
-    mergedConfig.defaultExportFormat,
     callbacks
   ]);
   
