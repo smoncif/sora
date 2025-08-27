@@ -149,9 +149,13 @@ const defaultConfig: Required<Omit<WorkflowConfig, 'userId'>> & Pick<WorkflowCon
 
 export const useAnalysisWorkflow = (
   callbacks?: WorkflowCallbacks,
-  config: WorkflowConfig = {}
+  config?: Partial<WorkflowConfig>
 ): AnalysisWorkflow => {
-  const mergedConfig = { ...defaultConfig, ...config };
+  
+  // Configuration fusionnée avec les valeurs par défaut
+  const mergedConfig = useMemo((): WorkflowConfig => {
+    return { ...defaultConfig, ...config };
+  }, [config]);
   
   // Callbacks pour synchroniser les sous-hooks
   const fileManagerCallbacks: FileManagerCallbacks = {
@@ -230,13 +234,16 @@ export const useAnalysisWorkflow = (
   // Initialisation des sous-hooks de traitement (cache d'abord pour qu'il soit disponible)
   const cache = useAnalysisCache(cacheCallbacks);
   
+  // 🔍 DIAGNOSTIC DES SOUS-HOOKS : Tracer les initialisations
   // Initialisation des sous-hooks de données (avec cache intégré)
   const fileManager = useAnalysisFileManager(fileManagerCallbacks, cache); // 🚀 OPTIMISATION
+  
   const configuration = useAnalysisConfiguration(
     configurationCallbacks, 
     undefined, 
     { analysisResult: fileManager.state.analysisResult } // 🚀 PASSAGE de l'analysisResult pour la restauration
   );
+  
   const exportManager = useAnalysisExport(exportCallbacks);
   
   const selections = useAnalysisSelections({
@@ -248,11 +255,26 @@ export const useAnalysisWorkflow = (
   // 🚀 HOOK POUR DONNÉES STATIQUES (calculées une seule fois au chargement du fichier)
   const staticData = useStaticAnalysisData(fileManager.state.analysisResult);
 
+  // 🔒 STABILISATION : Références stables pour les handlers de sélection
+  const stableHandlersRef = useRef({
+    handleSelectionChange: selections.handleSelectionChange,
+    getSelectedRolesForBusinessRole: selections.getSelectedRolesForBusinessRole
+  });
+  
+  // 🔍 DIAGNOSTIC DES DÉPENDANCES : Tracer les changements des handlers
+  useEffect(() => {
+    // 🔒 MISE À JOUR : Synchroniser les handlers stables
+    stableHandlersRef.current = {
+      handleSelectionChange: selections.handleSelectionChange,
+      getSelectedRolesForBusinessRole: selections.getSelectedRolesForBusinessRole
+    };
+  }, [selections.handleSelectionChange, selections.getSelectedRolesForBusinessRole]);
+  
   // 🚀 MÉMORISATION : Configuration stable pour useAutoSelection pour éviter les boucles infinies
   const autoSelectionConfig = useMemo(() => ({
     coverageAnalyses: fileManager.state.analysisResult?.coverageAnalyses || [],
-    onSelectionChange: selections.handleSelectionChange,
-    getSelectedRoles: selections.getSelectedRolesForBusinessRole,
+    onSelectionChange: stableHandlersRef.current.handleSelectionChange, // 🔒 STABLE
+    getSelectedRoles: stableHandlersRef.current.getSelectedRolesForBusinessRole, // 🔒 STABLE
     selectionDelay: 300, // 300ms entre chaque sélection
     scoreCalculationConfig: {
       coverageWeight: configuration.state.coverageWeight,
@@ -267,11 +289,8 @@ export const useAnalysisWorkflow = (
       shouldShowZeroCoverage: localState.state.showZeroCoverageRoles.get('default') || false,
     },
   }), [
-    fileManager.state.analysisResult?.coverageAnalyses,
-    fileManager.state.analysisResult?.businessRoleTransactions,
-    fileManager.state.analysisResult?.simpleRoleTransactions,
-    selections.handleSelectionChange,
-    selections.getSelectedRolesForBusinessRole,
+    // 🔒 DÉPENDANCES STABLES : Seulement les valeurs primitives
+    fileManager.state.analysisResult?.id, // 🔒 ID au lieu de l'objet complet
     configuration.state.coverageWeight,
     configuration.state.sizeWeight,
     configuration.state.usageWeight,
@@ -279,7 +298,7 @@ export const useAnalysisWorkflow = (
     staticData.staticScoresCache,
     staticData.transactionDetailsCache,
     localState.state.simpleRoleFilter,
-    localState.state.showZeroCoverageRoles,
+    localState.state.showZeroCoverageRoles
   ]);
 
   // 🚀 HOOK POUR SÉLECTION AUTOMATIQUE
@@ -360,38 +379,67 @@ export const useAnalysisWorkflow = (
   
   // LOG: tous les changements de state principaux
   
+  // 🔒 STABILISÉ : Mémoriser les objets complexes séparément pour éviter les re-créations
+  const memoizedStaticScoresCache = useMemo(() => staticData.staticScoresCache, [staticData.staticScoresCache]);
+  const memoizedTransactionDetailsCache = useMemo(() => staticData.transactionDetailsCache, [staticData.transactionDetailsCache]);
+  
+  // 🔒 STABILISÉ : Mémoriser les transactions pour éviter les re-créations
+  const memoizedBusinessRoleTransactions = useMemo(() => 
+    fileManager.state.analysisResult?.businessRoleTransactions || [], 
+    [fileManager.state.analysisResult?.id]
+  );
+  
+  const memoizedSimpleRoleTransactions = useMemo(() => 
+    fileManager.state.analysisResult?.simpleRoleTransactions || [], 
+    [fileManager.state.analysisResult?.id]
+  );
+  
+  // 🔒 VALEURS PRIMITIVES STABLES : Extraire les valeurs avant le useMemo
+  const coverageWeight = configuration.state.coverageWeight;
+  const sizeWeight = configuration.state.sizeWeight;
+  const usageWeight = configuration.state.usageWeight;
+  const includeFrequency = configuration.state.includeFrequency;
+  const showLicenses = configuration.state.showLicenses;
+  const simpleRoleFilter = localState.state.simpleRoleFilter;
+  const showZeroCoverageRoles = localState.state.showZeroCoverageRoles;
+  
   // ⚡ OPTIMISÉ : Getter mémorisé avec useMemo pour éviter les re-renders de toutes les cartes
   const sharedBusinessRoleProps = useMemo((): SharedBusinessRoleProps => {
+    
     return {
-      coverageWeight: configuration.state.coverageWeight,
-      sizeWeight: configuration.state.sizeWeight,
-      usageWeight: configuration.state.usageWeight,
-      includeFrequency: configuration.state.includeFrequency,
-      showLicenses: configuration.state.showLicenses,
-      simpleRoleFilter: localState.state.simpleRoleFilter,
-      showZeroCoverageRoles: localState.state.showZeroCoverageRoles,
-      onRoleSelectionChange: selections.handleSelectionChange, // ⚡ Maintenant stable
+      coverageWeight: coverageWeight,
+      sizeWeight: sizeWeight,
+      usageWeight: usageWeight,
+      includeFrequency: includeFrequency,
+      showLicenses: showLicenses, // Assuming showLicenses is part of configuration
+      simpleRoleFilter: simpleRoleFilter,
+      showZeroCoverageRoles: showZeroCoverageRoles,
+      // 🔒 HANDLERS STABLES : Utiliser les références stables
+      onRoleSelectionChange: stableHandlersRef.current.handleSelectionChange,
       onToggleZeroCoverageRoles: localState.actions.handleToggleZeroCoverageRoles,
-      getSelectedRoles: selections.getSelectedRolesForBusinessRole, // ⚡ Maintenant stable
-      staticScoresCache: staticData.staticScoresCache,
-      transactionDetailsCache: staticData.transactionDetailsCache,
-      businessRoleTransactions: fileManager.state.analysisResult?.businessRoleTransactions || [],
-      simpleRoleTransactions: fileManager.state.analysisResult?.simpleRoleTransactions || [],
-      onGlobalSelectionChange: selections.handleSelectionChange, // ⚡ Maintenant stable
+      getSelectedRoles: stableHandlersRef.current.getSelectedRolesForBusinessRole,
+      // 🔒 OBJETS MÉMORISÉS : Utiliser les objets mémorisés
+      staticScoresCache: memoizedStaticScoresCache,
+      transactionDetailsCache: memoizedTransactionDetailsCache,
+      businessRoleTransactions: memoizedBusinessRoleTransactions,
+      simpleRoleTransactions: memoizedSimpleRoleTransactions,
+      onGlobalSelectionChange: stableHandlersRef.current.handleSelectionChange,
     };
   }, [
-    configuration.state.coverageWeight,
-    configuration.state.sizeWeight,
-    configuration.state.usageWeight,
-    configuration.state.includeFrequency,
-    configuration.state.showLicenses,
-    localState.state.simpleRoleFilter,
-    localState.state.showZeroCoverageRoles,
-    selections.handleSelectionChange, // ⚡ Stable maintenant
-    selections.getSelectedRolesForBusinessRole, // ⚡ Stable maintenant
-    staticData.staticScoresCache,
-    staticData.transactionDetailsCache,
-    fileManager.state.analysisResult
+    // 🔒 DÉPENDANCES STABLES : Seulement les valeurs primitives qui changent réellement
+    coverageWeight,
+    sizeWeight,
+    usageWeight,
+    includeFrequency,
+    showLicenses, // Added showLicenses to dependencies
+    simpleRoleFilter,
+    showZeroCoverageRoles,
+    // 🔒 OBJETS COMPLEXES : Mémoriser séparément pour éviter les re-créations
+    memoizedStaticScoresCache,
+    memoizedTransactionDetailsCache,
+    // 🔒 TRANSACTIONS MÉMORISÉES : Utiliser les transactions mémorisées
+    memoizedBusinessRoleTransactions,
+    memoizedSimpleRoleTransactions
   ]);
 
   // ⚡ Getter stable qui retourne toujours le même objet mémorisé
@@ -655,7 +703,7 @@ export const useAnalysisWorkflow = (
     // eslint-disable-next-line
     // On ne met PAS configuration.actions ni configuration.state dans les dépendances pour éviter la boucle infinie
     // On ne met PAS hasAnalysisResult dans les dépendances pour éviter la boucle infinie
-  }, [mergedConfig.autoValidateConfiguration, fileManager.state.analysisResult]);
+  }, [mergedConfig.autoValidateConfiguration, fileManager.state.analysisResult?.id]);
   
   // Auto-sauvegarde si activée
   useEffect(() => {
@@ -675,8 +723,8 @@ export const useAnalysisWorkflow = (
     mergedConfig.autoSaveInterval,
     hasAnalysisResult,
     isConfigurationValid,
-    fileManager.state.analysisResult,
-    exportManager.actions
+    fileManager.state.analysisResult?.id,
+    // exportManager.actions est stable, pas besoin de le mettre dans les dépendances
   ]);
   
   // LOG: tous les callbacks principaux

@@ -67,6 +67,7 @@ export function AnalysisResultsSection({
   onPageChange,
   BusinessRoleAnalysisCardComponent,
 }: AnalysisResultsSectionProps) {
+  
   const theme = useTheme();
   
   // 🚀 OPTIMISÉ : Hook Focus Context pour gérer l'état du focus
@@ -238,9 +239,16 @@ export function AnalysisResultsSection({
                 >
                   <Box>
                     <BusinessRoleAnalysisCardComponent
+                      key={`${analysis.businessRole}-${index}`}
                       analysis={analysis}
                       globalSelectedRoles={getSelectedRoles(analysis.businessRole)}
                       {...sharedBusinessRoleProps}
+                      // 🔍 LOG SUPPLEMENTAIRE : Tracer les props passées
+                      onGlobalSelectionChange={(businessRole: string, selectedRoles: Set<string>) => {
+                        
+                        // Appeler la fonction passée en props
+                        sharedBusinessRoleProps.onGlobalSelectionChange(businessRole, selectedRoles);
+                      }}
                     />
                   </Box>
                 </Slide>

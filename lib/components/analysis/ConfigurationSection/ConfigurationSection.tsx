@@ -18,6 +18,7 @@ import {
 
 // Composant WeightSlider optimisé avec React.memo
 const WeightSlider = React.memo(function WeightSlider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  
   // État local pour le suivi en temps réel du slider
   const [localValue, setLocalValue] = React.useState(value);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -124,6 +125,7 @@ export function ConfigurationSection({
   onUsageWeightChange,
   onShowLicensesChange,
 }: ConfigurationSectionProps) {
+  
   const theme = useTheme();
 
   return (
@@ -267,26 +269,6 @@ export function ConfigurationSection({
               <SettingsIcon fontSize="small" />
             </Box>
             Licences
-            {/* Indicateur de calcul en cours */}
-            {isComputing && (
-              <Chip
-                label="Calcul..."
-                size="small"
-                color="primary"
-                variant="filled"
-                sx={{
-                  ml: 1.5,
-                  fontSize: '0.65rem',
-                  height: 20,
-                  animation: 'pulse 1.5s infinite',
-                  '@keyframes pulse': {
-                    '0%': { opacity: 0.6 },
-                    '50%': { opacity: 1 },
-                    '100%': { opacity: 0.6 },
-                  },
-                }}
-              />
-            )}
           </Typography>
           <Typography 
             variant="body2" 

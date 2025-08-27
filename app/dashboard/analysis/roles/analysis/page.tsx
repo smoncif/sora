@@ -87,20 +87,49 @@ export default function RoleAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
 
-  // 🚀 WORKFLOW UNIFIÉ : Hook principal avec tous les sous-hooks intégrés
-  const workflow = useAnalysisWorkflow(undefined, {
-    userId: user?.id, // Passer l'userId pour les fonctions d'authentification
+  // 🔒 STABILISATION ABSOLUE : Utiliser useRef pour éviter les re-initialisations
+  const workflowConfigRef = React.useRef({
+    userId: user?.id || 'anonymous'
   });
+  
+  // 🔒 CONFIGURATION STABILISÉE : Utiliser useMemo directement avec user?.id
+  const stableWorkflowConfig = React.useMemo(() => ({
+    userId: user?.id || 'anonymous'
+  }), [user?.id]);
+  
+  // 🚀 WORKFLOW UNIFIÉ : Hook principal avec tous les sous-hooks intégrés
+  const workflow = useAnalysisWorkflow(undefined, stableWorkflowConfig);
 
   // 🎯 État du focus depuis le workflow local
   const focusedBusinessRole = workflow.localState.state.focusedBusinessRole;
 
+  // 🔒 VALEURS PRIMITIVES STABLES : Extraire les valeurs avant les useMemo
+  const coverageWeight = workflow.configuration.state.coverageWeight;
+  const sizeWeight = workflow.configuration.state.sizeWeight;
+  const usageWeight = workflow.configuration.state.usageWeight;
+  const includeFrequency = workflow.configuration.state.includeFrequency;
+  const showLicenses = workflow.configuration.state.showLicenses;
+  const simpleRoleFilter = workflow.localState.state.simpleRoleFilter;
+  const showZeroCoverageRoles = workflow.localState.state.showZeroCoverageRoles;
+  const analysisResultId = workflow.fileManager.state.analysisResult?.id;
+  
   // ⚡ Scroll géré directement dans useBusinessRoleFocus pour de meilleures performances
   
   // 🔒 MÉMORISATION : Props partagées pour éviter les re-renders en boucle
   const sharedBusinessRoleProps = React.useMemo(() => {
     return workflow.getSharedBusinessRoleProps();
-  }, [workflow]);
+  }, [
+    // 🔒 DÉPENDANCES STABLES : Seulement les valeurs primitives qui changent réellement
+    coverageWeight,
+    sizeWeight,
+    usageWeight,
+    includeFrequency,
+    showLicenses,
+    simpleRoleFilter,
+    showZeroCoverageRoles,
+    // 🔒 ANALYSE : Seulement l'ID pour éviter les re-créations inutiles
+    analysisResultId
+  ]);
 
   // Fonction d'export des résultats via le nouveau workflow
   const handleExportResults = React.useCallback(async () => {
@@ -116,7 +145,11 @@ export default function RoleAnalysisPage() {
     } catch {
       // Erreur silencieuse - l'utilisateur sera notifié par l'UI
     }
-  }, [workflow.fileManager.state.analysisResult, workflow.selections.state.selectedRoles]);
+  }, [
+    // 🔒 DÉPENDANCES STABLES : Seulement les valeurs qui changent réellement
+    workflow.fileManager.state.analysisResult?.id,
+    workflow.selections.state.selectedRoles
+  ]);
 
   // 🚀 OPTIMISÉ : Handler pour le Context Focus
   const handleFocusChange = React.useCallback((businessRole: string | null) => {
@@ -125,23 +158,11 @@ export default function RoleAnalysisPage() {
     } else {
       workflow.localState.actions.handleExitFocus();
     }
-  }, [workflow.localState.actions]);
-
-  // 🔧 DIAGNOSTIC temporaire (à supprimer en production)
-  const testOptimizations = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const { diagnostics } = await import('lib/services/analysis/savedAnalysisService');
-      
-      // Diagnostic silencieux - logs supprimés
-      const connection = await diagnostics.testConnection();
-      const count = await diagnostics.getUserAnalysesCount(user.id);
-      
-    } catch (error) {
-      console.error('❌ Erreur diagnostic:', error);
-    }
-  };
+  }, [
+    // 🔒 DÉPENDANCES STABLES : Seulement les actions qui changent réellement
+    workflow.localState.actions.handleFocusBusinessRole,
+    workflow.localState.actions.handleExitFocus
+  ]);
 
   // 🚀 NOUVEAU : Déterminer les valeurs initiales selon le contexte
   const isUpdateMode = workflow.fileManager.state.importType === 'saved' && !!workflow.fileManager.state.loadedAnalysisId;
@@ -152,7 +173,13 @@ export default function RoleAnalysisPage() {
     }
     // Mode nouvelle sauvegarde : utiliser la configuration locale
     return workflow.configuration.state.analysisName || '';
-  }, [isUpdateMode, workflow.fileManager.state.analysisResult, workflow.configuration.state.analysisName]);
+  }, [
+    // 🔒 DÉPENDANCES STABLES : Seulement les valeurs qui changent réellement
+    isUpdateMode,
+    workflow.fileManager.state.analysisResult?.id,
+    workflow.fileManager.state.analysisResult?.name,
+    workflow.configuration.state.analysisName
+  ]);
 
   const initialAnalysisDescription = React.useMemo(() => {
     if (isUpdateMode && workflow.fileManager.state.analysisResult) {
@@ -161,7 +188,13 @@ export default function RoleAnalysisPage() {
     }
     // Mode nouvelle sauvegarde : utiliser la configuration locale
     return workflow.configuration.state.analysisDescription || '';
-  }, [isUpdateMode, workflow.fileManager.state.analysisResult, workflow.configuration.state.analysisDescription]);
+  }, [
+    // 🔒 DÉPENDANCES STABLES : Seulement les valeurs qui changent réellement
+    isUpdateMode,
+    workflow.fileManager.state.analysisResult?.id,
+    workflow.fileManager.state.analysisResult?.description,
+    workflow.configuration.state.analysisDescription
+  ]);
 
   // Handler pour la sauvegarde optimisé
   const handleSaveAnalysis = async (name: string, description: string) => {

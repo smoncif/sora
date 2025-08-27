@@ -174,6 +174,13 @@ export const useAnalysisConfiguration = (
   const setCoverageWeight = useCallback((weight: number) => {
     const newWeight = Math.max(0, Math.min(100, weight));
     
+    // 🔍 LOGS DE PERFORMANCE : Tracer les changements de configuration
+    console.log(`🔍 [useAnalysisConfiguration] Changement coverageWeight:`, {
+      oldValue: state.coverageWeight,
+      newValue: newWeight,
+      timestamp: new Date().toISOString()
+    });
+    
     setState(prev => {
       const weights = { 
         coverageWeight: newWeight, 

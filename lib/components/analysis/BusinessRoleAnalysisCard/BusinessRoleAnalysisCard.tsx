@@ -58,7 +58,6 @@ const SimpleRoleRow = React.memo(function SimpleRoleRow({
   dynamicData: any;
   theme: any;
 }) {
-
   
   const handleCheckboxChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     onSelectionChange(role.roleName, e.target.checked);
@@ -366,6 +365,7 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
   staticScoresCache,
   transactionDetailsCache,
 }: BusinessRoleAnalysisCardProps) {
+  
   const theme = useTheme();
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
@@ -683,15 +683,13 @@ export const BusinessRoleAnalysisCard = React.memo(function BusinessRoleAnalysis
 
   // 🚀 OPTIMISÉ : Handler stable pour les sélections
   const handleSelectionChange = React.useCallback((roleName: string, isSelected: boolean) => {
-    const newSelected = new Set(selectedRoles);
-    if (isSelected) {
-      newSelected.add(roleName);
-    } else {
-      newSelected.delete(roleName);
-    }
     
-    onGlobalSelectionChange(analysis.businessRole, newSelected);
-  }, [selectedRoles, onGlobalSelectionChange, analysis.businessRole]);
+    // Appeler la fonction passée en props
+    onGlobalSelectionChange(analysis.businessRole, isSelected ? 
+      new Set([...Array.from(selectedRoles), roleName]) : 
+      new Set(Array.from(selectedRoles).filter(r => r !== roleName))
+    );
+  }, [analysis.businessRole, selectedRoles, onGlobalSelectionChange]);
 
   // 🚀 OPTIMISÉ : Pagination stable
   const stablePaginationHandlers = React.useMemo(() => ({
