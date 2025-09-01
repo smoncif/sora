@@ -87,7 +87,13 @@ export const useAnalysisConfiguration = (
   // 🚀 NOUVEAU : Restaurer automatiquement les coefficients depuis analysisResult
   useEffect(() => {
     if (config?.analysisResult?.analysisParams) {
-      const { coverageWeight, sizeWeight, usageWeight } = config.analysisResult.analysisParams;
+      const { 
+        coverageWeight, 
+        sizeWeight, 
+        usageWeight, 
+        showLicenses,
+        includeFrequency
+      } = config.analysisResult.analysisParams;
       
       if (coverageWeight !== undefined && sizeWeight !== undefined && usageWeight !== undefined) {
         setState(prev => ({
@@ -95,6 +101,8 @@ export const useAnalysisConfiguration = (
           coverageWeight,
           sizeWeight,
           usageWeight,
+          showLicenses: showLicenses ?? prev.showLicenses, // Restaurer showLicenses
+          includeFrequency: includeFrequency ?? prev.includeFrequency, // Restaurer includeFrequency
         }));
         
         // Notifier les callbacks - utilisation directe pour éviter les dépendances cycliques

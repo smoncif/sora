@@ -565,6 +565,7 @@ export const useAnalysisWorkflow = (
         coverageWeight: configuration.state.coverageWeight,
         sizeWeight: configuration.state.sizeWeight,
         usageWeight: configuration.state.usageWeight,
+        showLicenses: configuration.state.showLicenses, // Inclure le paramètre showLicenses
       }
     };
     
@@ -584,6 +585,7 @@ export const useAnalysisWorkflow = (
     configuration.state.coverageWeight,
     configuration.state.sizeWeight,
     configuration.state.usageWeight,
+    configuration.state.showLicenses, // Ajouter showLicenses aux dépendances
     configuration.state.analysisName,
     exportManager.state,
     exportManager.actions, 

@@ -36,7 +36,8 @@ export interface ResultsExportOptions {
 export async function exportResultsToExcel(
   analysisResult: SimplifiedAnalysisResult,
   selectedRoles: Map<string, Set<string>>,
-  options: ResultsExportOptions = {}
+  options: ResultsExportOptions = {},
+  showLicenses?: boolean // Plus de valeur par défaut, obligatoire de passer l'état réel
 ): Promise<void> {
   const { fileName, onProgress } = options;
 
@@ -80,9 +81,12 @@ export async function exportResultsToExcel(
     if (onProgress) onProgress(30, 'Traitement des rôles métier...');
     const exportData = prepareExportData(enrichedAnalysisResult, selectedRoles);
 
+    // Récupérer l'état réel du switch (si pas fourni, utiliser celui de analysisParams)
+    const actualShowLicenses = showLicenses ?? analysisResult.analysisParams?.showLicenses ?? false;
+
     // 1. Créer la feuille SYNTHÈSE (selon photo 2)
     if (onProgress) onProgress(50, 'Création de la feuille SYNTHÈSE...');
-    const synthesisSheet = createSynthesisSheet(exportData, enrichedAnalysisResult);
+    const synthesisSheet = createSynthesisSheet(exportData, enrichedAnalysisResult, actualShowLicenses);
     XLSX.utils.book_append_sheet(workbook, synthesisSheet, 'SYNTHÈSE');
 
     // 2. Créer la feuille DÉTAIL (selon photo 3)
@@ -179,19 +183,30 @@ function prepareExportData(
 /**
  * Crée la feuille SYNTHÈSE (selon photo 2)
  */
-function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisResult: SimplifiedAnalysisResult): XLSX.WorkSheet {
-  const data = [
-    [
-      'Rôle Métier',
-      'Licence',
-      'Rôles Simples Choisis (Nombre)',
-      'Transactions Couvertes (Nombre)',
-      'Transactions Non Couvertes (Nombre)',
-      'Transactions Non Couvertes (liste séparée par ,)',
-      'Transactions Non Utilisées (Nombre)',
-      'Taux de Couverture (%)'
-    ]
-  ];
+function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisResult: SimplifiedAnalysisResult, showLicenses: boolean): XLSX.WorkSheet {
+  // Définir les en-têtes selon si les licences sont activées
+  const headers = showLicenses 
+    ? [
+        'Rôle Métier',
+        'Licence',
+        'Rôles Simples Choisis (Nombre)',
+        'Transactions Couvertes (Nombre)',
+        'Transactions Non Couvertes (Nombre)',
+        'Transactions Non Couvertes (liste séparée par ,)',
+        'Transactions Non Utilisées (Nombre)',
+        'Taux de Couverture (%)'
+      ]
+    : [
+        'Rôle Métier',
+        'Rôles Simples Choisis (Nombre)',
+        'Transactions Couvertes (Nombre)',
+        'Transactions Non Couvertes (Nombre)',
+        'Transactions Non Couvertes (liste séparée par ,)',
+        'Transactions Non Utilisées (Nombre)',
+        'Taux de Couverture (%)'
+      ];
+      
+  const data = [headers];
 
   exportData.forEach(item => {
     const totalTransactions = item.coveredTransactions.length + item.uncoveredTransactions.length;
@@ -202,31 +217,54 @@ function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisR
     const businessRoleData = enrichedAnalysisResult.coverageAnalyses.find(analysis => analysis.businessRole === item.businessRole);
     const license = businessRoleData?.maxLicence || 'Aucune';
 
-    data.push([
-      item.businessRole,
-      license,
-      item.selectedSimpleRoles.length.toString(),
-      item.coveredTransactions.length.toString(),
-      item.uncoveredTransactions.length.toString(),
-      item.uncoveredTransactions.join(', '), // Liste séparée par virgules
-      item.unusedTransactions.length.toString(),
-      coverageRate
-    ]);
+    // Créer la ligne selon si les licences sont activées
+    const row = showLicenses 
+      ? [
+          item.businessRole,
+          license,
+          item.selectedSimpleRoles.length.toString(),
+          item.coveredTransactions.length.toString(),
+          item.uncoveredTransactions.length.toString(),
+          item.uncoveredTransactions.join(', '), // Liste séparée par virgules
+          item.unusedTransactions.length.toString(),
+          coverageRate
+        ]
+      : [
+          item.businessRole,
+          item.selectedSimpleRoles.length.toString(),
+          item.coveredTransactions.length.toString(),
+          item.uncoveredTransactions.length.toString(),
+          item.uncoveredTransactions.join(', '), // Liste séparée par virgules
+          item.unusedTransactions.length.toString(),
+          coverageRate
+        ];
+        
+    data.push(row);
   });
 
   const worksheet = XLSX.utils.aoa_to_sheet(data);
   
-  // Définir la largeur des colonnes
-  worksheet['!cols'] = [
-    { wch: 30 }, // Rôle Métier
-    { wch: 15 }, // Licence
-    { wch: 25 }, // Rôles Simples Choisis
-    { wch: 25 }, // Transactions Couvertes
-    { wch: 25 }, // Transactions Non Couvertes
-    { wch: 40 }, // Transactions Non Couvertes (liste)
-    { wch: 25 }, // Transactions Non Utilisées
-    { wch: 20 }  // Taux de Couverture
-  ];
+  // Définir la largeur des colonnes selon si les licences sont activées
+  worksheet['!cols'] = showLicenses 
+    ? [
+        { wch: 30 }, // Rôle Métier
+        { wch: 15 }, // Licence
+        { wch: 25 }, // Rôles Simples Choisis
+        { wch: 25 }, // Transactions Couvertes
+        { wch: 25 }, // Transactions Non Couvertes
+        { wch: 40 }, // Transactions Non Couvertes (liste)
+        { wch: 25 }, // Transactions Non Utilisées
+        { wch: 20 }  // Taux de Couverture
+      ]
+    : [
+        { wch: 30 }, // Rôle Métier
+        { wch: 25 }, // Rôles Simples Choisis
+        { wch: 25 }, // Transactions Couvertes
+        { wch: 25 }, // Transactions Non Couvertes
+        { wch: 40 }, // Transactions Non Couvertes (liste)
+        { wch: 25 }, // Transactions Non Utilisées
+        { wch: 20 }  // Taux de Couverture
+      ];
 
   return worksheet;
 }

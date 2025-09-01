@@ -140,7 +140,9 @@ export default function RoleAnalysisPage() {
     try {
       await exportResultsToExcel(
         workflow.fileManager.state.analysisResult,
-        workflow.selections.state.selectedRoles
+        workflow.selections.state.selectedRoles,
+        {}, // options par défaut
+        workflow.configuration.state.showLicenses // PASSER L'ÉTAT RÉEL DU SWITCH !
       );
     } catch {
       // Erreur silencieuse - l'utilisateur sera notifié par l'UI
@@ -148,7 +150,8 @@ export default function RoleAnalysisPage() {
   }, [
     // 🔒 DÉPENDANCES STABLES : Seulement les valeurs qui changent réellement
     workflow.fileManager.state.analysisResult?.id,
-    workflow.selections.state.selectedRoles
+    workflow.selections.state.selectedRoles,
+    workflow.configuration.state.showLicenses // Ajouter showLicenses pour re-export si switch change
   ]);
 
   // 🚀 OPTIMISÉ : Handler pour le Context Focus
