@@ -253,10 +253,17 @@ export const useAnalysisFileManager = (
       }
       
       setProgress(90);
+      setProcessingStep('Enrichissement avec les licences...');
+      
+      // 🚀 NOUVEAU : Enrichir avec les licences (comme pour Excel)
+      const { enrichAnalysisWithLicenses } = await import('lib/services/license/licenseService');
+      const enrichedAnalysis = await enrichAnalysisWithLicenses(finalAnalysis);
+      
+      setProgress(95);
       setProcessingStep('Mise à jour de l\'interface...');
       
-      // Mettre à jour l'état avec l'analyse finale
-      setAnalysisResult(finalAnalysis);
+      // Mettre à jour l'état avec l'analyse enrichie
+      setAnalysisResult(enrichedAnalysis);
       setImportType('saved');
       setLoadedAnalysisId(analysisId); // 🚀 Stocker l'ID pour les futures mises à jour
       
@@ -363,10 +370,17 @@ export const useAnalysisFileManager = (
         `Analyse reprise depuis Excel${resumeInfo}`;
       
       setProgress(90);
+      setProcessingStep('Enrichissement avec les licences...');
+      
+      // 🚀 NOUVEAU : Enrichir avec les licences (comme pour Excel et Supabase)
+      const { enrichAnalysisWithLicenses } = await import('lib/services/license/licenseService');
+      const enrichedAnalysis = await enrichAnalysisWithLicenses(analysisResult);
+      
+      setProgress(95);
       setProcessingStep('Mise à jour de l\'interface...');
       
-      // Mettre à jour l'état avec l'analyse reconstituée
-      setAnalysisResult(analysisResult);
+      // Mettre à jour l'état avec l'analyse enrichie
+      setAnalysisResult(enrichedAnalysis);
       setImportType('resume');
       setLoadedAnalysisId(null); // Pas d'ID car chargé depuis fichier local
       

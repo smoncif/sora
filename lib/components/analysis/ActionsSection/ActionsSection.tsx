@@ -140,7 +140,7 @@ export function ActionsSection({
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
-                Exporter Excel
+                Exporter Avancement
               </Button>
               
               {/* Bouton Exporter Résultats - Bleu moderne */}
@@ -176,7 +176,7 @@ export function ActionsSection({
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
-                Exporter Résultats
+                Exporter Spéc
               </Button>
               
               {/* Bouton Réinitialiser - Gris moderne */}

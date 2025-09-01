@@ -43,28 +43,55 @@ export async function exportResultsToExcel(
   try {
     if (onProgress) onProgress(10, 'Préparation des données...');
 
+    // ENRICHIR LES LICENCES AVANT L'EXPORT
+    if (onProgress) onProgress(20, 'Calcul des licences...');
+    const { enrichAnalysisWithLicenses, recalculateMaxLicenseForAnalysis } = await import('../license/licenseService');
+    
+    // Enrichir d'abord avec toutes les licences
+    let enrichedAnalysisResult = await enrichAnalysisWithLicenses(analysisResult);
+    
+    // Puis recalculer les maxLicence en fonction des sélections réelles
+    enrichedAnalysisResult = {
+      ...enrichedAnalysisResult,
+      coverageAnalyses: enrichedAnalysisResult.coverageAnalyses.map(analysis => {
+        const selectedRolesForBusiness = selectedRoles.get(analysis.businessRole);
+        if (!selectedRolesForBusiness || selectedRolesForBusiness.size === 0) {
+          return analysis;
+        }
+        
+        // Marquer les rôles sélectionnés
+        const updatedAnalysis = {
+          ...analysis,
+          simpleRoles: analysis.simpleRoles.map(role => ({
+            ...role,
+            isSelected: selectedRolesForBusiness.has(role.roleName)
+          }))
+        };
+        
+        // Recalculer la licence max avec les vraies sélections
+        return recalculateMaxLicenseForAnalysis(updatedAnalysis);
+      })
+    };
+
     // Créer un nouveau workbook
     const workbook = XLSX.utils.book_new();
 
     // Préparer les données pour l'export
     if (onProgress) onProgress(30, 'Traitement des rôles métier...');
-    const exportData = prepareExportData(analysisResult, selectedRoles);
+    const exportData = prepareExportData(enrichedAnalysisResult, selectedRoles);
 
-    // Créer la feuille principale avec les résultats
-    if (onProgress) onProgress(60, 'Création de la feuille Excel...');
-    const resultsSheet = createResultsSheet(exportData);
-    XLSX.utils.book_append_sheet(workbook, resultsSheet, 'Résultats Analyse');
+    // 1. Créer la feuille SYNTHÈSE (selon photo 2)
+    if (onProgress) onProgress(50, 'Création de la feuille SYNTHÈSE...');
+    const synthesisSheet = createSynthesisSheet(exportData, enrichedAnalysisResult);
+    XLSX.utils.book_append_sheet(workbook, synthesisSheet, 'SYNTHÈSE');
 
-    // Créer une feuille de détails par rôle métier
-    if (onProgress) onProgress(80, 'Création des feuilles détaillées...');
-    exportData.forEach((data) => {
-      const detailSheet = createDetailSheet(data);
-      const sheetName = `${data.businessRole.substring(0, 25)}...`.replace(/[\\\/\?\*\[\]]/g, '_');
-      XLSX.utils.book_append_sheet(workbook, detailSheet, sheetName);
-    });
+    // 2. Créer la feuille DÉTAIL (selon photo 3)
+    if (onProgress) onProgress(70, 'Création de la feuille DÉTAIL...');
+    const detailSheet = createDetailSheet(enrichedAnalysisResult, selectedRoles);
+    XLSX.utils.book_append_sheet(workbook, detailSheet, 'DÉTAIL');
 
     // Générer le fichier Excel
-    if (onProgress) onProgress(95, 'Génération du fichier Excel...');
+    if (onProgress) onProgress(90, 'Génération du fichier Excel...');
     const excelBuffer = XLSX.write(workbook, {
       bookType: 'xlsx',
       type: 'array',
@@ -82,7 +109,6 @@ export async function exportResultsToExcel(
     saveAs(blob, finalFileName);
 
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
     throw new Error(`Impossible d'exporter les résultats vers Excel : ${errorMessage}`);
   }
@@ -151,15 +177,17 @@ function prepareExportData(
 }
 
 /**
- * Crée la feuille principale avec un résumé de tous les rôles métier
+ * Crée la feuille SYNTHÈSE (selon photo 2)
  */
-function createResultsSheet(exportData: ResultsExportData[]): XLSX.WorkSheet {
+function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisResult: SimplifiedAnalysisResult): XLSX.WorkSheet {
   const data = [
     [
       'Rôle Métier',
-      'Transactions Non Couvertes (Nombre)',
+      'Licence',
       'Rôles Simples Choisis (Nombre)',
       'Transactions Couvertes (Nombre)',
+      'Transactions Non Couvertes (Nombre)',
+      'Transactions Non Couvertes (liste séparée par ,)',
       'Transactions Non Utilisées (Nombre)',
       'Taux de Couverture (%)'
     ]
@@ -171,11 +199,16 @@ function createResultsSheet(exportData: ResultsExportData[]): XLSX.WorkSheet {
       ? ((item.coveredTransactions.length / totalTransactions) * 100).toFixed(1)
       : '0.0';
 
+    const businessRoleData = enrichedAnalysisResult.coverageAnalyses.find(analysis => analysis.businessRole === item.businessRole);
+    const license = businessRoleData?.maxLicence || 'Aucune';
+
     data.push([
       item.businessRole,
-      item.uncoveredTransactions.length.toString(),
+      license,
       item.selectedSimpleRoles.length.toString(),
       item.coveredTransactions.length.toString(),
+      item.uncoveredTransactions.length.toString(),
+      item.uncoveredTransactions.join(', '), // Liste séparée par virgules
       item.unusedTransactions.length.toString(),
       coverageRate
     ]);
@@ -186,9 +219,11 @@ function createResultsSheet(exportData: ResultsExportData[]): XLSX.WorkSheet {
   // Définir la largeur des colonnes
   worksheet['!cols'] = [
     { wch: 30 }, // Rôle Métier
-    { wch: 25 }, // Transactions Non Couvertes
+    { wch: 15 }, // Licence
     { wch: 25 }, // Rôles Simples Choisis
     { wch: 25 }, // Transactions Couvertes
+    { wch: 25 }, // Transactions Non Couvertes
+    { wch: 40 }, // Transactions Non Couvertes (liste)
     { wch: 25 }, // Transactions Non Utilisées
     { wch: 20 }  // Taux de Couverture
   ];
@@ -197,68 +232,106 @@ function createResultsSheet(exportData: ResultsExportData[]): XLSX.WorkSheet {
 }
 
 /**
- * Crée une feuille détaillée pour un rôle métier spécifique
+ * Crée la feuille DÉTAIL (selon photo 3) - UNE TRANSACTION PAR LIGNE
  */
-function createDetailSheet(data: ResultsExportData): XLSX.WorkSheet {
-  const sheetData = [];
+function createDetailSheet(analysisResult: SimplifiedAnalysisResult, selectedRoles: Map<string, Set<string>>): XLSX.WorkSheet {
+  const data = [
+    [
+      'Rôle Métier',
+      'Description du rôle métier',
+      'Rôle Simple',
+      'Description du rôle simple',
+      'Toutes les Transactions du rôle simple',
+      'Description des transactions',
+      'Fréquence d\'Usage',
+      'Marqué si utilisée'
+    ]
+  ];
 
-  // Section: Informations générales
-  sheetData.push(['INFORMATIONS GÉNÉRALES']);
-  sheetData.push(['Rôle Métier:', data.businessRole]);
-  sheetData.push(['Nombre de rôles simples sélectionnés:', data.selectedSimpleRoles.length.toString()]);
-  sheetData.push(['Nombre de transactions couvertes:', data.coveredTransactions.length.toString()]);
-  sheetData.push(['Nombre de transactions non couvertes:', data.uncoveredTransactions.length.toString()]);
-  sheetData.push(['Nombre de transactions non utilisées:', data.unusedTransactions.length.toString()]);
-  sheetData.push([]);
+  // Créer un Map pour récupérer toutes les transactions d'un rôle simple depuis les données source
+  const simpleRoleTransactionsMap = new Map<string, string[]>();
+  analysisResult.simpleRoleTransactions.forEach(srt => {
+    if (!simpleRoleTransactionsMap.has(srt.simpleRole)) {
+      simpleRoleTransactionsMap.set(srt.simpleRole, []);
+    }
+    simpleRoleTransactionsMap.get(srt.simpleRole)!.push(srt.transaction);
+  });
 
-  // Section: Rôles simples choisis
-  sheetData.push(['RÔLES SIMPLES CHOISIS']);
-  if (data.selectedSimpleRoles.length > 0) {
-    data.selectedSimpleRoles.forEach(role => {
-      sheetData.push([role]);
+  // Créer un Map pour récupérer la fréquence d'usage des transactions par rôle métier
+  const businessRoleTransactionFrequencyMap = new Map<string, Map<string, number>>();
+  analysisResult.businessRoleTransactions.forEach(brt => {
+    if (!businessRoleTransactionFrequencyMap.has(brt.businessRole)) {
+      businessRoleTransactionFrequencyMap.set(brt.businessRole, new Map<string, number>());
+    }
+    const transactionMap = businessRoleTransactionFrequencyMap.get(brt.businessRole)!;
+    const currentCount = transactionMap.get(brt.transaction) || 0;
+    transactionMap.set(brt.transaction, currentCount + (brt.executionCount || 1));
+  });
+
+  // Parcourir chaque analyse de couverture
+  analysisResult.coverageAnalyses.forEach(analysis => {
+    const businessRole = analysis.businessRole;
+    const selectedRolesForBusiness = selectedRoles.get(businessRole) || new Set<string>();
+    
+    // Parcourir chaque rôle simple SÉLECTIONNÉ uniquement
+    analysis.simpleRoles.forEach(role => {
+      const isSelected = selectedRolesForBusiness.has(role.roleName);
+      
+      // Ne traiter que les rôles sélectionnés
+      if (!isSelected) return;
+      
+      // Récupérer TOUTES les transactions du rôle simple depuis les données source
+      const allTransactionsForRole = simpleRoleTransactionsMap.get(role.roleName) || [];
+      
+      // Si le rôle n'a aucune transaction, créer une ligne vide
+      if (allTransactionsForRole.length === 0) {
+        data.push([
+          businessRole,
+          `Rôle métier: ${businessRole}`,
+          role.roleName,
+          `Rôle simple: ${role.roleName}`,
+          'Aucune transaction',
+          'Aucune transaction disponible',
+          '0', // Pas de fréquence si pas de transaction
+          'Non'
+        ]);
+        return;
+      }
+      
+      // Créer UNE LIGNE PAR TRANSACTION
+      allTransactionsForRole.forEach(transaction => {
+        const isTransactionUsed = role.coveredTransactions?.includes(transaction) || false;
+        
+        // Récupérer la fréquence d'usage de cette transaction pour ce rôle métier
+        const businessRoleFrequencyMap = businessRoleTransactionFrequencyMap.get(businessRole);
+        const usageFrequency = businessRoleFrequencyMap?.get(transaction) || 0;
+        
+        data.push([
+          businessRole,
+          `Rôle métier: ${businessRole}`,
+          role.roleName,
+          `Rôle simple: ${role.roleName}`,
+          transaction, // UNE SEULE TRANSACTION PAR LIGNE
+          `Transaction: ${transaction}`,
+          usageFrequency.toString(), // VRAIE fréquence d'usage depuis businessRoleTransactions
+          isTransactionUsed ? 'Oui' : 'Non' // Marqué si cette transaction spécifique est utilisée
+        ]);
+      });
     });
-  } else {
-    sheetData.push(['Aucun rôle sélectionné']);
-  }
-  sheetData.push([]);
+  });
 
-  // Section: Transactions couvertes
-  sheetData.push(['TRANSACTIONS COUVERTES']);
-  if (data.coveredTransactions.length > 0) {
-    data.coveredTransactions.forEach(tx => {
-      sheetData.push([tx]);
-    });
-  } else {
-    sheetData.push(['Aucune transaction couverte']);
-  }
-  sheetData.push([]);
-
-  // Section: Transactions non couvertes
-  sheetData.push(['TRANSACTIONS NON COUVERTES']);
-  if (data.uncoveredTransactions.length > 0) {
-    data.uncoveredTransactions.forEach(tx => {
-      sheetData.push([tx]);
-    });
-  } else {
-    sheetData.push(['Toutes les transactions sont couvertes']);
-  }
-  sheetData.push([]);
-
-  // Section: Transactions non utilisées
-  sheetData.push(['TRANSACTIONS NON UTILISÉES (ajoutées par les rôles simples)']);
-  if (data.unusedTransactions.length > 0) {
-    data.unusedTransactions.forEach(tx => {
-      sheetData.push([tx]);
-    });
-  } else {
-    sheetData.push(['Aucune transaction non utilisée']);
-  }
-
-  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
   
   // Définir la largeur des colonnes
   worksheet['!cols'] = [
-    { wch: 50 } // Largeur principale pour les données
+    { wch: 30 }, // Rôle Métier
+    { wch: 35 }, // Description du rôle métier
+    { wch: 30 }, // Rôle Simple
+    { wch: 35 }, // Description du rôle simple
+    { wch: 40 }, // Toutes les Transactions (une par ligne)
+    { wch: 40 }, // Description des transactions
+    { wch: 20 }, // Fréquence d'Usage
+    { wch: 20 }  // Marqué si utilisée
   ];
 
   return worksheet;

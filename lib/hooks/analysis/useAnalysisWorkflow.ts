@@ -43,7 +43,6 @@ import {
 } from './useAutoSelection';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 import { reconstructSelectedRoles } from 'lib/services/analysis/savedAnalysisService';
-import { enrichAnalysisWithLicenses } from 'lib/services/license/licenseService';
 
 // Interface principale du workflow d'analyse - VERSION OPTIMISÉE
 export interface AnalysisWorkflow {
@@ -160,19 +159,10 @@ export const useAnalysisWorkflow = (
   
   // Callbacks pour synchroniser les sous-hooks
   const fileManagerCallbacks: FileManagerCallbacks = {
-    onAnalysisResult: async (result) => {
+    onAnalysisResult: (result) => {
       if (result) {
-        try {
-          // 🚀 ENRICHISSEMENT AUTOMATIQUE DES LICENCES au chargement
-          const enrichedResult = await enrichAnalysisWithLicenses(result);
-          callbacks?.onAnalysisComplete?.(enrichedResult);
-          callbacks?.onPhaseChange?.('ready');
-        } catch (error) {
-          console.warn('⚠️ Erreur lors de l\'enrichissement des licences:', error);
-          // En cas d'erreur, utiliser le résultat non enrichi
-          callbacks?.onAnalysisComplete?.(result);
-          callbacks?.onPhaseChange?.('ready');
-        }
+        callbacks?.onAnalysisComplete?.(result);
+        callbacks?.onPhaseChange?.('ready');
       }
     },
     onLoading: (loading) => {
@@ -365,35 +355,19 @@ export const useAnalysisWorkflow = (
       if (restorationExecutedRef.current !== analysisId) {
         restorationExecutedRef.current = analysisId;
         
-        // 🚀 ENRICHISSEMENT AUTOMATIQUE DES LICENCES lors de la restauration
-        enrichAnalysisWithLicenses(analysisResult).then(enrichedResult => {
-          // Restaurer les sélections utilisateur
-          const selectedRolesMap = reconstructSelectedRoles(enrichedResult);
-          selections.synchronizeSelectedRoles(selectedRolesMap);
-          
-          // 🔧 CORRECTION : Synchroniser les flags isSelected SANS modifier analysisResult dans le state
-          // On va directement modifier l'objet sans déclencher de re-render
-          if (enrichedResult.coverageAnalyses) {
-            enrichedResult.coverageAnalyses.forEach(analysis => {
-              analysis.simpleRoles.forEach(role => {
-                role.isSelected = selectedRolesMap.get(analysis.businessRole)?.has(role.roleName) || false;
-              });
+        // Restaurer les sélections utilisateur
+        const selectedRolesMap = reconstructSelectedRoles(analysisResult);
+        selections.synchronizeSelectedRoles(selectedRolesMap);
+        
+        // 🔧 CORRECTION : Synchroniser les flags isSelected SANS modifier analysisResult dans le state
+        // On va directement modifier l'objet sans déclencher de re-render
+        if (analysisResult.coverageAnalyses) {
+          analysisResult.coverageAnalyses.forEach(analysis => {
+            analysis.simpleRoles.forEach(role => {
+              role.isSelected = selectedRolesMap.get(analysis.businessRole)?.has(role.roleName) || false;
             });
-          }
-        }).catch(error => {
-          console.warn('⚠️ Erreur lors de l\'enrichissement des licences lors de la restauration:', error);
-          // En cas d'erreur, utiliser le résultat non enrichi
-          const selectedRolesMap = reconstructSelectedRoles(analysisResult);
-          selections.synchronizeSelectedRoles(selectedRolesMap);
-          
-          if (analysisResult.coverageAnalyses) {
-            analysisResult.coverageAnalyses.forEach(analysis => {
-              analysis.simpleRoles.forEach(role => {
-                role.isSelected = selectedRolesMap.get(analysis.businessRole)?.has(role.roleName) || false;
-              });
-            });
-          }
-        });
+          });
+        }
       }
     } else {
       // Pas de sélections à restaurer, reset du flag
