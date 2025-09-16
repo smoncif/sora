@@ -874,9 +874,9 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             maxWidth: '310px',
             maxHeight: '250px', 
             overflowY: 'auto',
-            border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+            border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
             borderRadius: 1,
-            bgcolor: '#fff',
+            bgcolor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
             // Personnalisation de la scrollbar pour réduire sa largeur
             '&::-webkit-scrollbar': {
               width: '6px',
@@ -895,7 +895,9 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             {/* En-têtes fixes */}
             <Box sx={{ 
               display: 'flex',
-              bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.6 : 0.9),
+              bgcolor: theme.palette.mode === 'dark' 
+                ? alpha(theme.palette.common.white, 0.15)
+                : alpha(theme.palette.common.black, 0.08),
               borderBottom: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
               position: 'sticky',
               top: 0,
@@ -957,10 +959,14 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                   sx={{ 
                     display: 'flex',
                     '&:nth-of-type(odd)': { 
-                      bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.2 : 0.3) 
+                      bgcolor: theme.palette.mode === 'dark' 
+                        ? alpha(theme.palette.common.white, 0.08)
+                        : alpha(theme.palette.common.black, 0.04)
                     },
                     '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.04)
+                      bgcolor: theme.palette.mode === 'dark'
+                        ? alpha(theme.palette.primary.main, 0.08)
+                        : alpha(theme.palette.primary.main, 0.04)
                     },
                     minHeight: '24px'
                   }}
