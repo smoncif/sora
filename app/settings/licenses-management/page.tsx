@@ -349,11 +349,6 @@ export default function LicensesManagementPage() {
               />
             </Button>
             
-            <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
-              <strong>Format Excel attendu :</strong><br />
-              • <strong>Feuille 1</strong> : colonnes "Rôle simple" et "Licence" <br />
-              • <strong>Feuille 2</strong> : colonnes "Licence", "Ordre" et optionnellement "Description"
-            </Typography>
           </Stack>
         </CardContent>
       </Card>

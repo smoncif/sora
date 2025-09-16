@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
+import { SimplifiedAnalysisResult, BusinessRoleTransaction, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 import { 
   parseExcelFile, 
   calculateCoverageAnalysis, 
@@ -69,7 +69,8 @@ const initialState: FileManagerState = {
 
 export const useAnalysisFileManager = (
   callbacks?: FileManagerCallbacks,
-  cache?: any // 🚀 OPTIMISATION : Ajouter le cache comme paramètre
+  cache?: any, // 🚀 OPTIMISATION : Ajouter le cache comme paramètre
+  mode?: 'roles' | 'users' // Mode d'analyse pour déterminer le parser
 ): AnalysisFileManager => {
   const [state, setState] = useState<FileManagerState>(initialState);
   
@@ -120,38 +121,137 @@ export const useAnalysisFileManager = (
     setProcessingStep('Début de l\'analyse...');
     
     try {
-      setProgress(10);
+      setProgress(5);
+      setProcessingStep('Détection du type de fichier...');
+      
+      // 🔍 NOUVELLE LOGIQUE : Détection automatique du type de fichier
+      const { detectExcelFileType, validateExcelFileForType } = await import('lib/services/analysis/excelFileDetectionService');
+      
+      let detectedType: 'roles' | 'users' = 'roles';
+      
+      if (mode) {
+        // Mode explicite fourni - valider que le fichier est compatible
+        setProcessingStep(`Validation du fichier pour analyse ${mode}...`);
+        const validation = await validateExcelFileForType(file, mode);
+        
+        if (!validation.isValid) {
+          throw new Error(`Fichier incompatible avec l'analyse ${mode}:\n${validation.errors.join('\n')}`);
+        }
+        
+        if (validation.warnings.length > 0) {
+          console.warn('Avertissements lors de la validation:', validation.warnings);
+        }
+        
+        detectedType = mode;
+      } else {
+        // Mode automatique - détecter le type
+        const detection = await detectExcelFileType(file);
+        
+        if (detection.type === 'unknown' || detection.confidence < 60) {
+          throw new Error(`Impossible de déterminer le type de fichier Excel.\nRaisons: ${detection.reasoning.join(', ')}\nFeuilles trouvées: ${detection.sheetsFound.join(', ')}`);
+        }
+        
+        detectedType = detection.type;
+        setProcessingStep(`Type détecté: analyse ${detectedType} (confiance: ${detection.confidence}%)`);
+      }
+      
+      setProgress(15);
       setProcessingStep('Lecture du fichier Excel...');
       
-      // Parse du fichier Excel
-      const data = await parseExcelFile(file);
-      setProgress(30);
+      // 🚀 PARSING ADAPTATIF : Router vers le bon parser selon le type détecté
+      let businessRoleTransactions, simpleRoleTransactions, userAnalysisData = null;
+      
+      if (detectedType === 'users') {
+        // Parser pour utilisateurs (3 feuilles) - Import direct pour éviter les problèmes d'import dynamique
+        try {
+          const userParsingModule = require('../../services/analysis/userAnalysisParsingService');
+          const userParsingResult = await userParsingModule.parseUserExcelFile(file);
+          
+          // Transformer les données utilisateurs au format d'analyse standard
+          const transformedData = userParsingModule.transformUserDataToAnalysisFormat(userParsingResult);
+          businessRoleTransactions = transformedData.businessRoleTransactions;
+          simpleRoleTransactions = transformedData.simpleRoleTransactions;
+          userAnalysisData = transformedData.userAnalysisData;
+          
+          setProcessingStep('Données utilisateurs parsées avec succès...');
+        } catch (error) {
+          console.error('Erreur lors de l\'import du parser utilisateurs:', error);
+          throw new Error(`Impossible de charger le parser utilisateurs: ${error}`);
+        }
+      } else {
+        // Parser pour rôles (2 feuilles) - logique existante
+        const { parseExcelFile } = await import('lib/services/role/simplifiedAnalysisService');
+        const roleParsingResult = await parseExcelFile(file);
+        businessRoleTransactions = roleParsingResult.businessRoleTransactions;
+        simpleRoleTransactions = roleParsingResult.simpleRoleTransactions;
+        
+        setProcessingStep('Données rôles parsées avec succès...');
+      }
+      
+      setProgress(35);
       setProcessingStep('Traitement des données...');
       
-      // Calcul de l'analyse de couverture
+      // Calcul de l'analyse de couverture (même logique pour les 2 types)
+      const { calculateCoverageAnalysis } = await import('lib/services/role/simplifiedAnalysisService');
       const analysis = calculateCoverageAnalysis(
-        data.businessRoleTransactions,
-        data.simpleRoleTransactions,
+        businessRoleTransactions,
+        simpleRoleTransactions,
         0 // minCoverageThreshold
       );
       setProgress(60);
       setProcessingStep('Génération des résultats...');
       
       // Création du résultat simplifié
+      const { createSimplifiedAnalysisResult } = await import('lib/services/role/simplifiedAnalysisService');
       const baseResult = createSimplifiedAnalysisResult(
-        data,
+        {
+          businessRoleTransactions,
+          simpleRoleTransactions,
+          metadata: {
+            fileName: file.name,
+            fileSize: file.size,
+            sheetsFound: [],
+            businessRoleCount: new Set(businessRoleTransactions.map((t: BusinessRoleTransaction) => t.businessRole)).size,
+            simpleRoleCount: new Set(simpleRoleTransactions.map((t: SimpleRoleTransaction) => t.simpleRole)).size,
+            totalTransactions: new Set([...businessRoleTransactions.map((t: BusinessRoleTransaction) => t.transaction), ...simpleRoleTransactions.map((t: SimpleRoleTransaction) => t.transaction)]).size,
+            processingTimeMs: 0
+          },
+          warnings: [],
+          errors: []
+        },
         analysis,
         file.name,
-        'Analyse importée'
+        `Analyse ${detectedType} importée`
       );
-      setProgress(80);
-      setProcessingStep('Enrichissement avec les licences...');
       
-      // Enrichir avec les licences
-      const { enrichAnalysisWithLicenses } = await import('lib/services/license/licenseService');
-      const result = await enrichAnalysisWithLicenses(baseResult);
+      // 🔧 ENRICHIR avec les données spécifiques utilisateurs si nécessaire
+      console.log('🔍 DEBUG userAnalysisData:', userAnalysisData);
+      console.log('🔍 DEBUG detectedType:', detectedType);
+      console.log('🔍 DEBUG baseResult before:', baseResult);
+      
+      if (detectedType === 'users' && userAnalysisData) {
+        (baseResult as any).userAnalysisData = userAnalysisData;
+        (baseResult as any).analysisMode = 'users';
+        console.log('🔍 DEBUG userAnalysisData assigned successfully');
+      } else {
+        (baseResult as any).analysisMode = 'roles';
+        console.log('🔍 DEBUG using roles mode');
+      }
+      
+      console.log('🔍 DEBUG baseResult after:', baseResult);
+      
+      setProgress(80);
+      
+      // Enrichir avec les licences seulement pour les analyses de rôles
+      let result = baseResult;
+      if (mode === 'roles') {
+        setProcessingStep('Enrichissement avec les licences...');
+        const { enrichAnalysisWithLicenses } = await import('lib/services/license/licenseService');
+        result = await enrichAnalysisWithLicenses(baseResult);
+      } else {
+        setProcessingStep('Finalisation...');
+      }
       setProgress(90);
-      setProcessingStep('Finalisation...');
       
       // Mise à jour du résultat
       setAnalysisResult(result);

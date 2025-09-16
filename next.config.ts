@@ -50,7 +50,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/dashboard',
-        destination: '/dashboard/analysis/roles/analysis',
+        destination: '/dashboard/analysis/roles',
         permanent: true,
       },
     ];

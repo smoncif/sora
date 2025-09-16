@@ -29,6 +29,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 
 import HomeIcon from '@mui/icons-material/Home';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
+import PersonIcon from '@mui/icons-material/Person';
 
 import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -88,7 +89,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const navItems = [
     { text: 'Accueil', href: '/', icon: <HomeIcon fontSize="small" /> },
-    { text: 'Analyse de Rôles', href: '/dashboard/analysis/roles/analysis', icon: <AnalyticsIcon fontSize="small" /> },
+    { text: 'Analyse de Rôles', href: '/dashboard/analysis/roles', icon: <AnalyticsIcon fontSize="small" /> },
+    { text: 'Analyse des Utilisateurs', href: '/dashboard/analysis/users', icon: <PersonIcon fontSize="small" /> },
   ];
 
   // Fonction pour vérifier si un lien est actif avec une logique plus précise
@@ -102,8 +104,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     
     // Pour les autres pages : logique hiérarchique
     // On priorise les chemins les plus spécifiques
-    if (href === '/dashboard/analysis/roles/analysis') {
-      return pathname === '/dashboard/analysis/roles/analysis';
+    if (href === '/dashboard/analysis/roles') {
+      return pathname === '/dashboard/analysis/roles';
+    }
+    
+    if (href === '/dashboard/analysis/users') {
+      return pathname === '/dashboard/analysis/users';
     }
     
     

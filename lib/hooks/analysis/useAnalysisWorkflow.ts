@@ -42,10 +42,15 @@ import {
   type UseAutoSelectionReturn
 } from './useAutoSelection';
 import { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
+import { AnalysisMode, getLabels } from 'lib/types/analysis';
 import { reconstructSelectedRoles } from 'lib/services/analysis/savedAnalysisService';
 
 // Interface principale du workflow d'analyse - VERSION OPTIMISÉE
 export interface AnalysisWorkflow {
+  // Configuration
+  mode: AnalysisMode;
+  labels: ReturnType<typeof getLabels>;
+  
   // Sous-hooks spécialisés (gestion données)
   fileManager: AnalysisFileManager;
   configuration: AnalysisConfiguration;
@@ -85,7 +90,7 @@ export interface SharedBusinessRoleProps {
   usageWeight: number;
   includeFrequency: boolean;
   showLicenses: boolean;
-  simpleRoleFilter: string;
+  targetRoleFilter: string;
   showZeroCoverageRoles: Map<string, boolean>;
   onRoleSelectionChange: (businessRole: string, selectedRoles: Set<string>) => void;
   onToggleZeroCoverageRoles: (businessRole: string) => void;
@@ -136,6 +141,7 @@ export interface WorkflowConfig {
   enableAutoSave?: boolean;
   autoSaveInterval?: number; // en millisecondes
   userId?: string; // Pour les fonctions nécessitant l'authentification
+  mode?: AnalysisMode; // Mode d'analyse (roles ou users)
 }
 
 // Configuration par défaut
@@ -144,18 +150,23 @@ const defaultConfig: Required<Omit<WorkflowConfig, 'userId'>> & Pick<WorkflowCon
   defaultExportFormat: 'excel',
   enableAutoSave: false,
   autoSaveInterval: 30000,
+  mode: 'roles',
   userId: undefined,
 };
 
 export const useAnalysisWorkflow = (
-  callbacks?: WorkflowCallbacks,
-  config?: Partial<WorkflowConfig>
+  mode: 'roles' | 'users' = 'roles',
+  config?: Partial<WorkflowConfig>,
+  callbacks?: WorkflowCallbacks
 ): AnalysisWorkflow => {
   
   // Configuration fusionnée avec les valeurs par défaut
   const mergedConfig = useMemo((): WorkflowConfig => {
-    return { ...defaultConfig, ...config };
-  }, [config]);
+    return { ...defaultConfig, ...config, mode };
+  }, [config, mode]);
+  
+  // Labels basés sur le mode
+  const labels = useMemo(() => getLabels(mode), [mode]);
   
   // Callbacks pour synchroniser les sous-hooks
   const fileManagerCallbacks: FileManagerCallbacks = {
@@ -236,7 +247,7 @@ export const useAnalysisWorkflow = (
   
   // 🔍 DIAGNOSTIC DES SOUS-HOOKS : Tracer les initialisations
   // Initialisation des sous-hooks de données (avec cache intégré)
-  const fileManager = useAnalysisFileManager(fileManagerCallbacks, cache); // 🚀 OPTIMISATION
+  const fileManager = useAnalysisFileManager(fileManagerCallbacks, cache, mode); // 🚀 OPTIMISATION avec mode
   
   const configuration = useAnalysisConfiguration(
     configurationCallbacks, 
@@ -276,6 +287,7 @@ export const useAnalysisWorkflow = (
     onSelectionChange: stableHandlersRef.current.handleSelectionChange, // 🔒 STABLE
     getSelectedRoles: stableHandlersRef.current.getSelectedRolesForBusinessRole, // 🔒 STABLE
     selectionDelay: 300, // 300ms entre chaque sélection
+    mode: mode,
     scoreCalculationConfig: {
       coverageWeight: configuration.state.coverageWeight,
       sizeWeight: configuration.state.sizeWeight,
@@ -285,7 +297,7 @@ export const useAnalysisWorkflow = (
       simpleRoleTransactions: fileManager.state.analysisResult?.simpleRoleTransactions || [],
       staticScoresCache: staticData.staticScoresCache,
       transactionDetailsCache: staticData.transactionDetailsCache,
-      simpleRoleFilter: localState.state.simpleRoleFilter,
+      targetRoleFilter: localState.state.targetRoleFilter,
       shouldShowZeroCoverage: localState.state.showZeroCoverageRoles.get('default') || false,
     },
   }), [
@@ -297,8 +309,9 @@ export const useAnalysisWorkflow = (
     configuration.state.includeFrequency,
     staticData.staticScoresCache,
     staticData.transactionDetailsCache,
-    localState.state.simpleRoleFilter,
-    localState.state.showZeroCoverageRoles
+    localState.state.targetRoleFilter,
+    localState.state.showZeroCoverageRoles,
+    mode
   ]);
 
   // 🚀 HOOK POUR SÉLECTION AUTOMATIQUE
@@ -306,10 +319,11 @@ export const useAnalysisWorkflow = (
 
   const calculations = useAnalysisCalculations({
     analysisResult: fileManager.state.analysisResult,
-    businessRoleFilter: localState.state.businessRoleFilter,
-    focusedBusinessRole: localState.state.focusedBusinessRole,
-    currentBusinessRolePage: localState.state.currentBusinessRolePage,
-    businessRolesPerPage: localState.state.businessRolesPerPage,
+    primaryFilter: localState.state.primaryFilter,
+    focusedItem: localState.state.focusedItem,
+    currentPage: localState.state.currentPage,
+    itemsPerPage: localState.state.itemsPerPage,
+    mode: mode,
   });
   
   // États dérivés
@@ -400,30 +414,35 @@ export const useAnalysisWorkflow = (
   const usageWeight = configuration.state.usageWeight;
   const includeFrequency = configuration.state.includeFrequency;
   const showLicenses = configuration.state.showLicenses;
-  const simpleRoleFilter = localState.state.simpleRoleFilter;
+  const targetRoleFilter = localState.state.targetRoleFilter;
   const showZeroCoverageRoles = localState.state.showZeroCoverageRoles;
   
   // ⚡ OPTIMISÉ : Getter mémorisé avec useMemo pour éviter les re-renders de toutes les cartes
   const sharedBusinessRoleProps = useMemo((): SharedBusinessRoleProps => {
+    // 🛡️ Protection contre les handlers non initialisés
+    const currentHandlers = stableHandlersRef.current || {
+      handleSelectionChange: () => {},
+      getSelectedRolesForBusinessRole: () => new Set()
+    };
     
     return {
       coverageWeight: coverageWeight,
       sizeWeight: sizeWeight,
       usageWeight: usageWeight,
       includeFrequency: includeFrequency,
-      showLicenses: showLicenses, // Assuming showLicenses is part of configuration
-      simpleRoleFilter: simpleRoleFilter,
+      showLicenses: mode === 'users' ? false : showLicenses, // Forcer showLicenses à false pour les analyses utilisateur
+      targetRoleFilter: targetRoleFilter,
       showZeroCoverageRoles: showZeroCoverageRoles,
       // 🔒 HANDLERS STABLES : Utiliser les références stables
-      onRoleSelectionChange: stableHandlersRef.current.handleSelectionChange,
+      onRoleSelectionChange: currentHandlers.handleSelectionChange,
       onToggleZeroCoverageRoles: localState.actions.handleToggleZeroCoverageRoles,
-      getSelectedRoles: stableHandlersRef.current.getSelectedRolesForBusinessRole,
+      getSelectedRoles: currentHandlers.getSelectedRolesForBusinessRole,
       // 🔒 OBJETS MÉMORISÉS : Utiliser les objets mémorisés
       staticScoresCache: memoizedStaticScoresCache,
       transactionDetailsCache: memoizedTransactionDetailsCache,
       businessRoleTransactions: memoizedBusinessRoleTransactions,
       simpleRoleTransactions: memoizedSimpleRoleTransactions,
-      onGlobalSelectionChange: stableHandlersRef.current.handleSelectionChange,
+      onGlobalSelectionChange: currentHandlers.handleSelectionChange,
     };
   }, [
     // 🔒 DÉPENDANCES STABLES : Seulement les valeurs primitives qui changent réellement
@@ -432,7 +451,7 @@ export const useAnalysisWorkflow = (
     usageWeight,
     includeFrequency,
     showLicenses, // Added showLicenses to dependencies
-    simpleRoleFilter,
+    targetRoleFilter,
     showZeroCoverageRoles,
     // 🔒 OBJETS COMPLEXES : Mémoriser séparément pour éviter les re-créations
     memoizedStaticScoresCache,
@@ -725,6 +744,11 @@ export const useAnalysisWorkflow = (
   }, [fileManager.actions, mergedConfig.userId]);
   
   return {
+    // Configuration
+    mode,
+    labels,
+    
+    // Sous-hooks
     fileManager,
     configuration,
     exportManager,
@@ -734,15 +758,21 @@ export const useAnalysisWorkflow = (
     localState,
     staticData,
     autoSelection,
+    
+    // États dérivés
     isReady,
     hasAnalysisResult,
     canExport,
     canSave,
+    
+    // Actions
     startNewAnalysis,
     saveCurrentAnalysis,
     exportCurrentAnalysis,
     resetWorkflow,
     loadSavedAnalysis: loadSavedAnalysisWithUser, // 🚀 NOUVEAU wrapper avec userId
+    
+    // Getters
     getCurrentAnalysisResult,
     getWorkflowStatus,
     getSharedBusinessRoleProps,

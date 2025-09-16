@@ -7,27 +7,24 @@
 // Formulaires d'authentification
 export * from './LoginForm';
 export * from './RegisterForm';
-export * from './RequestResetPasswordForm';
-export * from './ConfirmResetPasswordForm';
+// RequestResetPasswordForm et ConfirmResetPasswordForm supprimés car non utilisés
 
 // Pages d'authentification
 export * from './LoginPage';
 export * from './RegisterPage';
-export * from './RequestResetPasswordPage';
-export * from './ConfirmResetPasswordPage';
+// RequestResetPasswordPage et ConfirmResetPasswordPage supprimés car non utilisés
 
 // Composants de protection
-export * from './ProtectedRoute';
-export * from './RoleGuard';
+// ProtectedRoute supprimé car non utilisé
 
 // Composants d'authentification
 export { LoginForm } from './LoginForm';
 export { LoginPage } from './LoginPage';
-export { ProtectedRoute, useProtectedRoute } from './ProtectedRoute';
+// ProtectedRoute et useProtectedRoute supprimés car non utilisés
 
 // Types
 export type { LoginFormProps } from './LoginForm';
 export type { LoginPageProps } from './LoginPage';
-export type { ProtectedRouteProps } from './ProtectedRoute'; 
+// ProtectedRouteProps supprimé car non utilisé 
 
 

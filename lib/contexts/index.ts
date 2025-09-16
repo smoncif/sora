@@ -7,7 +7,17 @@
 // Export contexts here as they are created
 // Example: export { AuthProvider, useAuthContext } from './AuthContext'; 
 
-export { AppProvider, useAppContext } from './AppContext'; 
+export { AppProvider, useAppContext } from './AppContext';
+export { 
+  FocusProvider, 
+  useFocus, 
+  useItemFocus
+} from './FocusContext';
+
+export {
+  ComparisonProvider,
+  useComparisonContext
+} from './ComparisonContext'; 
 
 
 

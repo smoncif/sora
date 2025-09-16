@@ -39,7 +39,7 @@ export interface UseScoreCalculationReturn {
  * Wrapper React autour du service scoreCalculationService qui :
  * - Mémorise les calculs pour éviter les recalculs inutiles
  * - Fournit des utilitaires pour la sélection automatique
- * - Réutilise exactement la même logique que BusinessRoleAnalysisCard
+ * - Réutilise exactement la même logique que AnalysisCard
  * 
  * @param analysis - Analyse de couverture du business rôle
  * @param selectedRoles - Rôles actuellement sélectionnés
@@ -70,7 +70,7 @@ export const useScoreCalculation = (
     config.simpleRoleTransactions,
     config.staticScoresCache,
     config.transactionDetailsCache,
-    config.simpleRoleFilter,
+    config.targetRoleFilter,
     config.shouldShowZeroCoverage
   ]);
 

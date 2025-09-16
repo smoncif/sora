@@ -9,5 +9,5 @@ export { useAnalysisWorkflow } from './useAnalysisWorkflow';
 export { useAutoSelection } from './useAutoSelection';
 export { useScoreCalculation } from './useScoreCalculation';
 export { useStaticAnalysisData } from './useStaticAnalysisData';
-export { useVirtualization } from './useVirtualization';
 export { useWorkflowLocalState } from './useWorkflowLocalState';
+export { useComparison } from './useComparisonReducer';

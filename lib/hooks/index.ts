@@ -11,14 +11,13 @@ export { useAuth } from './auth';
 export * from './analysis';
 
 // Export des hooks de rôles
-export * from './roles';
+// Aucun hook de rôles actuellement utilisé
 
 // Export des hooks d'administration
 export * from './admin';
 
 // Hooks génériques
 export { useTheme } from './useTheme';
-export { useRoleAnalysisWorker } from './useRoleAnalysisWorker';
 
 // Réexportation d'autres hooks spécifiques au besoin
 // export * from './usePagination'; 

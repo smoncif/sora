@@ -13,6 +13,7 @@ import {
   BusinessRoleTransaction,
   SimpleRoleTransaction
 } from 'lib/types/roleAnalysis';
+import { AnalysisMode, getLabels } from 'lib/types/analysis';
 
 /**
  * Options d'export Excel
@@ -23,6 +24,7 @@ export interface ExportOptions {
   includeUserSelections?: boolean;
   fileName?: string;
   onProgress?: (progress: number, stage: string) => void;
+  mode?: AnalysisMode; // Mode d'analyse
 }
 
 /**
@@ -47,10 +49,13 @@ export interface ExportMetadata {
  * Informations de progression
  */
 export interface ProgressInfo {
-  totalBusinessRoles: number;
-  completedBusinessRoles: string[];
+  totalItems: number; // totalBusinessRoles générique
+  completedItems: string[]; // completedBusinessRoles générique
   progressPercentage: number;
   lastModified: string;
+  // Compatibilité
+  totalBusinessRoles?: number;
+  completedBusinessRoles?: string[];
 }
 
 /**
@@ -67,8 +72,11 @@ export async function exportAnalysisToExcel(
     includeProgressInfo = true,
     includeUserSelections = true,
     fileName,
-    onProgress
+    onProgress,
+    mode = 'roles'
   } = options;
+  
+  const labels = getLabels(mode);
 
   try {
     // Notification de début
@@ -84,33 +92,33 @@ export async function exportAnalysisToExcel(
       XLSX.utils.book_append_sheet(workbook, metadataSheet, 'Metadata');
     }
 
-    // 2. Feuille des transactions de rôles métier
-    if (onProgress) onProgress(35, 'Export des transactions de rôles métier...');
-    const businessRoleSheet = createBusinessRoleTransactionsSheet(analysisResult.businessRoleTransactions);
-    XLSX.utils.book_append_sheet(workbook, businessRoleSheet, 'BusinessRoleTransactions');
+    // 2. Feuille des transactions des éléments principaux
+    if (onProgress) onProgress(35, `Export des transactions des ${labels?.itemPlural?.toLowerCase() || 'éléments'}...`);
+    const itemSheet = createBusinessRoleTransactionsSheet(analysisResult.businessRoleTransactions, mode);
+    XLSX.utils.book_append_sheet(workbook, itemSheet, mode === 'users' ? 'UserTransactions' : 'BusinessRoleTransactions');
 
-    // 3. Feuille des transactions de rôles simples
-    if (onProgress) onProgress(50, 'Export des transactions de rôles simples...');
-    const simpleRoleSheet = createSimpleRoleTransactionsSheet(analysisResult.simpleRoleTransactions);
-    XLSX.utils.book_append_sheet(workbook, simpleRoleSheet, 'SimpleRoleTransactions');
+    // 3. Feuille des transactions des rôles cibles
+    if (onProgress) onProgress(50, `Export des transactions des ${labels?.targetRolePlural?.toLowerCase() || 'rôles cibles'}...`);
+    const targetRoleSheet = createSimpleRoleTransactionsSheet(analysisResult.simpleRoleTransactions, mode);
+    XLSX.utils.book_append_sheet(workbook, targetRoleSheet, mode === 'users' ? 'BusinessRoleTransactions' : 'SimpleRoleTransactions');
 
     // 4. Feuille des sélections utilisateur
     if (includeUserSelections) {
       if (onProgress) onProgress(65, 'Export des sélections utilisateur...');
-      const selectionsSheet = createUserSelectionsSheet(userSelections);
+      const selectionsSheet = createUserSelectionsSheet(userSelections, mode);
       XLSX.utils.book_append_sheet(workbook, selectionsSheet, 'UserSelections');
     }
 
     // 5. Feuille d'informations de progression
     if (includeProgressInfo) {
       if (onProgress) onProgress(75, 'Export des informations de progression...');
-      const progressSheet = createProgressInfoSheet(analysisResult, userSelections);
+      const progressSheet = createProgressInfoSheet(analysisResult, userSelections, mode);
       XLSX.utils.book_append_sheet(workbook, progressSheet, 'ProgressInfo');
     }
 
     // 6. Feuille résumé d'analyse pour consultation
     if (onProgress) onProgress(85, 'Création du résumé d\'analyse...');
-    const summarySheet = createAnalysisSummarySheet(analysisResult, userSelections);
+    const summarySheet = createAnalysisSummarySheet(analysisResult, userSelections, mode);
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Résumé');
 
     // 7. Générer le fichier Excel
@@ -161,9 +169,10 @@ function createMetadataSheet(metadata: ExportMetadata): XLSX.WorkSheet {
 /**
  * Crée la feuille des transactions de rôles métier
  */
-function createBusinessRoleTransactionsSheet(transactions: BusinessRoleTransaction[]): XLSX.WorkSheet {
+function createBusinessRoleTransactionsSheet(transactions: BusinessRoleTransaction[], mode: AnalysisMode = 'roles'): XLSX.WorkSheet {
+  const labels = getLabels(mode);
   const data = [
-    ['Rôle métier', 'Transaction', 'Nombre d\'exécutions', 'Année', 'Mois']
+    [labels?.item || 'Élément', 'Transaction', 'Nombre d\'exécutions', 'Année', 'Mois']
   ];
 
   transactions.forEach(tx => {
@@ -182,9 +191,10 @@ function createBusinessRoleTransactionsSheet(transactions: BusinessRoleTransacti
 /**
  * Crée la feuille des transactions de rôles simples
  */
-function createSimpleRoleTransactionsSheet(transactions: SimpleRoleTransaction[]): XLSX.WorkSheet {
+function createSimpleRoleTransactionsSheet(transactions: SimpleRoleTransaction[], mode: AnalysisMode = 'roles'): XLSX.WorkSheet {
+  const labels = getLabels(mode);
   const data = [
-    ['Rôle simple', 'Transaction']
+    [labels?.targetRole || 'Rôle Cible', 'Transaction']
   ];
 
   transactions.forEach(tx => {
@@ -200,12 +210,13 @@ function createSimpleRoleTransactionsSheet(transactions: SimpleRoleTransaction[]
 /**
  * Crée la feuille des sélections utilisateur
  */
-function createUserSelectionsSheet(userSelections: Map<string, Set<string>>): XLSX.WorkSheet {
-  const data = [['Rôle métier', 'Rôles simples sélectionnés (séparés par |)']];
+function createUserSelectionsSheet(userSelections: Map<string, Set<string>>, mode: AnalysisMode = 'roles'): XLSX.WorkSheet {
+  const labels = getLabels(mode);
+  const data = [[labels?.item || 'Élément', `${labels?.targetRolePlural || 'Rôles cibles'} sélectionnés (séparés par |)`]];
   
-  userSelections.forEach((simpleRoles, businessRole) => {
-    const selectedRolesList = Array.from(simpleRoles).join(' | ');
-    data.push([businessRole, selectedRolesList]);
+  userSelections.forEach((targetRoles, itemId) => {
+    const selectedRolesList = Array.from(targetRoles).join(' | ');
+    data.push([itemId, selectedRolesList]);
   });
 
   return XLSX.utils.aoa_to_sheet(data);
@@ -216,25 +227,27 @@ function createUserSelectionsSheet(userSelections: Map<string, Set<string>>): XL
  */
 function createProgressInfoSheet(
   analysisResult: SimplifiedAnalysisResult,
-  userSelections: Map<string, Set<string>>
+  userSelections: Map<string, Set<string>>,
+  mode: AnalysisMode = 'roles'
 ): XLSX.WorkSheet {
-  const totalBusinessRoles = analysisResult.coverageAnalyses.length;
-  const completedBusinessRoles = Array.from(userSelections.keys());
-  const progressPercentage = totalBusinessRoles > 0 
-    ? Math.round((completedBusinessRoles.length / totalBusinessRoles) * 100)
+  const labels = getLabels(mode);
+  const totalItems = analysisResult.coverageAnalyses.length;
+  const completedItems = Array.from(userSelections.keys());
+  const progressPercentage = totalItems > 0 
+    ? Math.round((completedItems.length / totalItems) * 100)
     : 0;
 
   const summaryData = [
     ['Propriété', 'Valeur'],
-    ['Total rôles métier', totalBusinessRoles.toString()],
-    ['Rôles métier avec sélections', completedBusinessRoles.length.toString()],
+    [`Total ${labels?.itemPlural?.toLowerCase() || 'éléments'}`, totalItems.toString()],
+    [`${labels?.itemPlural || 'Éléments'} avec sélections`, completedItems.length.toString()],
     ['Pourcentage de progression', progressPercentage.toString()],
     ['Dernière modification', new Date().toISOString()]
   ];
 
-  // Ajouter la liste des rôles métier complétés
+  // Ajouter la liste des éléments complétés
   summaryData.push(['', '']);
-  summaryData.push(['Rôles métier', 'Statut']);
+  summaryData.push([labels?.itemPlural || 'Éléments', 'Statut']);
   
   analysisResult.coverageAnalyses.forEach(analysis => {
     const status = userSelections.has(analysis.businessRole) ? 'Complété' : 'En attente';
@@ -249,10 +262,12 @@ function createProgressInfoSheet(
  */
 function createAnalysisSummarySheet(
   analysisResult: SimplifiedAnalysisResult,
-  userSelections: Map<string, Set<string>>
+  userSelections: Map<string, Set<string>>,
+  mode: AnalysisMode = 'roles'
 ): XLSX.WorkSheet {
+  const labels = getLabels(mode);
   const data = [
-    ['Rôle métier', 'Transactions totales', 'Rôles simples sélectionnés', 'Transactions couvertes', '% Couverture']
+    [labels?.item || 'Élément', 'Transactions totales', `${labels?.targetRolePlural || 'Rôles cibles'} sélectionnés`, 'Transactions couvertes', '% Couverture']
   ];
 
   analysisResult.coverageAnalyses.forEach(analysis => {

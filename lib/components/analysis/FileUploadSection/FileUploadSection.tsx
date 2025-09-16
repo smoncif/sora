@@ -24,6 +24,7 @@ export interface FileUploadSectionProps {
   loading: boolean;
   error: string | null;
   user: any;
+  mode?: 'roles' | 'users'; // Ajout de la prop mode pour compatibilité TypeScript
 
   // Handlers
   onImportTypeChange: (type: 'new' | 'saved' | 'resume') => void;
@@ -37,6 +38,7 @@ export function FileUploadSection({
   loading,
   error,
   user,
+  mode,
   onImportTypeChange,
   onFileUpload,
   onLoadSavedAnalysis,
@@ -142,8 +144,6 @@ export function FileUploadSection({
           <Grid size={{ xs: 12 }}>
             {importType === 'new' && (
               <Box>
-                
-                
                 <FileUpload
                   accept=".xlsx,.xls"
                   maxSize={100}
@@ -187,6 +187,7 @@ export function FileUploadSection({
                     userId={user.id}
                     onAnalysisSelect={onLoadSavedAnalysis}
                     loading={loading}
+                    mode={mode}
                   />
                 )}
               </Box>

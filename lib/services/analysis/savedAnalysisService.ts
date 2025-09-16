@@ -373,19 +373,25 @@ function decompressAnalysisData(compressedData: any): SimplifiedAnalysisResult {
 }
 
 /**
- * 🚀 OPTIMISÉ : Récupère toutes les analyses avec gestion d'erreur robuste
+ * 🚀 OPTIMISÉ : Récupère les analyses filtrées par mode avec gestion d'erreur robuste
  */
-export async function getSavedAnalyses(userId: string): Promise<SavedAnalysisMetadata[]> {
+export async function getSavedAnalyses(userId: string, mode?: 'roles' | 'users'): Promise<SavedAnalysisMetadata[]> {
   if (!userId?.trim()) {
       return [];
     }
 
   try {
-    const { data, error } = await getSupabaseClient()
+    let query = getSupabaseClient()
       .from('saved_analyses')
-      .select('id, title, description, created_at, updated_at, data')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+      .select('id, title, description, created_at, updated_at, data, analysis_mode')
+      .eq('user_id', userId);
+    
+    // Filtrer par mode si spécifié
+    if (mode) {
+      query = query.eq('analysis_mode', mode);
+    }
+    
+    const { data, error } = await query.order('updated_at', { ascending: false });
 
     if (error) {
       console.error('Erreur récupération analyses:', error.message);
@@ -574,7 +580,8 @@ export async function saveAnalysisWithSelections(
         description: analysisDescription,
         user_id: userId,
         is_public: false,
-        data: compressedData
+        data: compressedData,
+        analysis_mode: analysisResult.analysisMode || analysisResult.mode || 'roles' // Mode d'analyse
       }])
       .select('*')
       .single();
@@ -796,5 +803,60 @@ export const diagnostics = {
     };
   }
 };
+
+/**
+ * Met à jour le titre et la description d'une analyse sauvegardée
+ */
+export async function updateSavedAnalysis(
+  analysisId: string,
+  userId: string,
+  updates: { title?: string; description?: string }
+): Promise<void> {
+  try {
+    // Validation de session
+    const supabase = getSupabaseClient();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session || session.user.id !== userId) {
+      throw new Error('Authentification invalide');
+    }
+
+    // Validation des données
+    if (!analysisId?.trim()) {
+      throw new Error('ID d\'analyse requis');
+    }
+
+    if (!updates.title?.trim() && !updates.description?.trim()) {
+      throw new Error('Au moins un champ doit être modifié');
+    }
+
+    // Préparer les données à mettre à jour
+    const updateData: any = {};
+    if (updates.title?.trim()) {
+      updateData.title = updates.title.trim();
+    }
+    if (updates.description !== undefined) {
+      updateData.description = updates.description.trim();
+    }
+
+    // Mettre à jour en base
+    const { error } = await supabase
+      .from('saved_analyses')
+      .update(updateData)
+      .eq('id', analysisId)
+      .eq('user_id', userId);
+
+    if (error) {
+      throw new Error(`Erreur lors de la mise à jour: ${error.message}`);
+    }
+
+    // Invalider le cache pour forcer le rechargement
+    analysisCache.clear();
+
+  } catch (error: any) {
+    console.error('Erreur updateSavedAnalysis:', error);
+    throw error;
+  }
+}
 
 // Interfaces et fonctions exportées automatiquement par les déclarations export ci-dessus 

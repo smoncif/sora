@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  TextField,
 } from '@mui/material';
 import {
   Schedule as ScheduleIcon,
@@ -30,18 +31,20 @@ import {
   Timeline as TransactionIcon,
   CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
   Warning as WarningIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { SavedAnalysisMetadata, getSavedAnalyses, deleteSavedAnalysis } from 'lib/services/analysis/savedAnalysisService';
+import { SavedAnalysisMetadata, getSavedAnalyses, deleteSavedAnalysis, updateSavedAnalysis } from 'lib/services/analysis/savedAnalysisService';
 
 interface SavedAnalysisSelectorProps {
   userId: string;
   onAnalysisSelect: (analysisId: string) => void;
   loading?: boolean;
+  mode?: 'roles' | 'users';
 }
 
-export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = false }: SavedAnalysisSelectorProps) {
+export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = false, mode }: SavedAnalysisSelectorProps) {
   const theme = useTheme();
   const [analyses, setAnalyses] = useState<SavedAnalysisMetadata[]>([]);
   const [loadingAnalyses, setLoadingAnalyses] = useState(true);
@@ -49,16 +52,23 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [analysisToDelete, setAnalysisToDelete] = useState<SavedAnalysisMetadata | null>(null);
   const [deleting, setDeleting] = useState(false);
+  
+  // États pour l'édition
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [analysisToEdit, setAnalysisToEdit] = useState<SavedAnalysisMetadata | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     loadSavedAnalyses();
-  }, [userId]);
+  }, [userId, mode]);
 
   const loadSavedAnalyses = async () => {
     try {
       setLoadingAnalyses(true);
       setError(null);
-      const data = await getSavedAnalyses(userId);
+      const data = await getSavedAnalyses(userId, mode);
       setAnalyses(data);
     } catch (err) {
 
@@ -87,17 +97,27 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
     const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
     const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    const diffInMonths = Math.floor(diffInDays / 30);
     
     if (diffInMinutes < 1) {
       return 'À l\'instant';
     } else if (diffInMinutes < 60) {
-      return `Il y a ${diffInMinutes} min`;
+      return `${diffInMinutes}min`;
     } else if (diffInHours < 24) {
-      return `Il y a ${diffInHours}h`;
+      return `${diffInHours}h`;
     } else if (diffInDays === 1) {
-      return 'Hier';
+      return '1 jour';
     } else if (diffInDays < 7) {
-      return `Il y a ${diffInDays} jours`;
+      return `${diffInDays} jours`;
+    } else if (diffInWeeks === 1) {
+      return '1 semaine';
+    } else if (diffInWeeks < 4) {
+      return `${diffInWeeks} semaines`;
+    } else if (diffInMonths === 1) {
+      return '1 mois';
+    } else if (diffInMonths < 12) {
+      return `${diffInMonths} mois`;
     } else {
       return formatDate(dateString).split(' ')[0];
     }
@@ -157,6 +177,48 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
     setAnalysisToDelete(null);
   };
 
+  const handleEditClick = (analysis: SavedAnalysisMetadata, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setAnalysisToEdit(analysis);
+    setEditTitle(analysis.title);
+    setEditDescription(analysis.description || '');
+    setEditDialogOpen(true);
+  };
+
+  const handleEditConfirm = async () => {
+    if (!analysisToEdit) return;
+
+    try {
+      setUpdating(true);
+      await updateSavedAnalysis(analysisToEdit.id, userId, {
+        title: editTitle,
+        description: editDescription
+      });
+      
+      // Recharger la liste des analyses
+      await loadSavedAnalyses();
+      
+      // Fermer la boîte de dialogue
+      setEditDialogOpen(false);
+      setAnalysisToEdit(null);
+      setEditTitle('');
+      setEditDescription('');
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la mise à jour de l\'analyse';
+      setError(errorMessage);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditDialogOpen(false);
+    setAnalysisToEdit(null);
+    setEditTitle('');
+    setEditDescription('');
+  };
+
   if (loadingAnalyses) {
     return (
       <Box sx={{ 
@@ -209,12 +271,12 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
           color: theme.palette.text.secondary,
           mb: 1,
         }}>
-          Aucune analyse sauvegardée
+          {mode ? `Aucune analyse ${mode === 'roles' ? 'de rôles' : 'd\'utilisateurs'} sauvegardée` : 'Aucune analyse sauvegardée'}
         </Typography>
         <Typography variant="body2" sx={{ 
           color: alpha(theme.palette.text.secondary, 0.7),
         }}>
-          Vos analyses sauvegardées apparaîtront ici
+          {mode ? `Vos analyses ${mode === 'roles' ? 'de rôles' : 'd\'utilisateurs'} apparaîtront ici` : 'Vos analyses sauvegardées apparaîtront ici'}
         </Typography>
       </Box>
     );
@@ -234,7 +296,7 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
             fontWeight: 600,
             fontSize: '1.1rem',
           }}>
-            Analyses sauvegardées
+            Analyses sauvegardées {mode ? `(${mode === 'roles' ? 'Rôles' : 'Utilisateurs'})` : ''}
           </Typography>
           <Tooltip title="Actualiser la liste">
             <IconButton
@@ -346,101 +408,43 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
                 )}
               </Box>
 
-              {/* Section avancement */}
-              <Box sx={{ 
-                width: 160,
-                flexShrink: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                gap: 0.6,
-                py: 0.3,
-              }}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                }}>
-                  <Typography variant="caption" sx={{ 
-                    fontSize: '0.65rem',
-                    fontWeight: 500,
-                    color: theme.palette.text.secondary,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    Avancement
-                  </Typography>
-                  <Chip
-                    label={getProgressLabel(analysis.progress)}
-                    color={getProgressColor(analysis.progress)}
-                    size="small"
-                    sx={{ 
-                      fontSize: '0.65rem',
-                      height: 18,
-                      '& .MuiChip-label': { px: 0.8 },
-                    }}
-                  />
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={analysis.progress}
-                  color={getProgressColor(analysis.progress)}
-                  sx={{
-                    height: 5,
-                    borderRadius: 3,
-                    bgcolor: alpha(theme.palette.divider, 0.1),
-                  }}
-                />
-              </Box>
-
-              {/* Section timing */}
-              <Box sx={{ 
-                width: 120,
-                flexShrink: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 0.3,
-                textAlign: 'center',
-                py: 0.3,
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-                  <ScheduleIcon sx={{ 
-                    fontSize: 11,
-                    color: theme.palette.primary.main,
-                  }} />
-                  <Typography variant="caption" sx={{ 
-                    fontSize: '0.7rem',
-                    color: theme.palette.primary.main,
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {formatRelativeTime(analysis.updated_at)}
-                  </Typography>
-                </Box>
-                <Typography variant="caption" sx={{ 
-                  fontSize: '0.6rem',
-                  color: alpha(theme.palette.text.secondary, 0.7),
-                  lineHeight: 1.1,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: '100%',
-                }}>
-                  {formatDate(analysis.updated_at).split(' ').slice(0, 2).join(' ')}
-                </Typography>
-              </Box>
-                
               {/* Section boutons d'action */}
               <Box sx={{ 
                 width: 120,
                 flexShrink: 0,
-                display: 'flex', 
-                gap: 0.6,
-                alignItems: 'center',
-                justifyContent: 'flex-end',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                gap: 1,
                 py: 0.3,
               }}>
+                {/* Icônes d'action */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  gap: 0.6,
+                  alignItems: 'center',
+                }}>
+                <Tooltip title="Modifier cette analyse">
+                  <IconButton
+                    size="small"
+                    onClick={(e: React.MouseEvent) => handleEditClick(analysis, e)}
+                    disabled={loading || updating}
+                    sx={{
+                      color: alpha(theme.palette.primary.main, 0.7),
+                      padding: '4px',
+                      '&:hover': {
+                        color: theme.palette.primary.main,
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        transform: 'scale(1.1)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <EditIcon sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Tooltip>
+
                 <Tooltip title="Supprimer cette analyse">
                   <IconButton
                     size="small"
@@ -460,35 +464,26 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
                     <DeleteIcon sx={{ fontSize: 15 }} />
                   </IconButton>
                 </Tooltip>
+                </Box>
 
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    handleAnalysisSelect(analysis.id);
-                  }}
-                  disabled={loading}
-                  startIcon={loading ? <CircularProgress size={10} /> : <CheckCircleIcon sx={{ fontSize: 14 }} />}
-                  sx={{
-                    borderRadius: 1.5,
-                    textTransform: 'none',
+                {/* Date de dernière mise à jour */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 0.5,
+                }}>
+                  <ScheduleIcon sx={{ 
+                    fontSize: 10,
+                    color: alpha(theme.palette.text.secondary, 0.6),
+                  }} />
+                  <Typography variant="caption" sx={{ 
+                    fontSize: '0.65rem',
+                    color: alpha(theme.palette.text.secondary, 0.8),
                     fontWeight: 500,
-                    fontSize: '0.7rem',
-                    px: 1,
-                    py: 0.3,
-                    minWidth: 70,
-                    maxWidth: 80,
-                    boxShadow: 1,
-                    '&:hover': {
-                      boxShadow: 2,
-                      transform: 'translateY(-1px)',
-                    },
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {loading ? 'Chargement...' : 'Charger'}
-                </Button>
+                  }}>
+                    {formatRelativeTime(analysis.updated_at)}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
 
@@ -500,6 +495,67 @@ export function SavedAnalysisSelector({ userId, onAnalysisSelect, loading = fals
       </Box>
 
       {/* 🗑️ Boîte de dialogue de confirmation de suppression */}
+      {/* Boîte de dialogue d'édition */}
+      <Dialog 
+        open={editDialogOpen} 
+        onClose={handleEditCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1, 
+          color: theme.palette.primary.main,
+          pb: 1,
+        }}>
+          <EditIcon />
+          Modifier l'analyse
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Titre de l'analyse"
+            value={editTitle}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditTitle(e.target.value)}
+            fullWidth
+            required
+            margin="normal"
+            variant="outlined"
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            label="Description (optionnelle)"
+            value={editDescription}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditDescription(e.target.value)}
+            fullWidth
+            multiline
+            rows={3}
+            margin="normal"
+            variant="outlined"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            onClick={handleEditCancel}
+            disabled={updating}
+            sx={{ textTransform: 'none' }}
+          >
+            Annuler
+          </Button>
+          <Button 
+            onClick={handleEditConfirm}
+            disabled={updating || !editTitle.trim()}
+            variant="contained"
+            color="primary"
+            startIcon={updating ? <CircularProgress size={16} /> : <EditIcon />}
+            sx={{ textTransform: 'none' }}
+          >
+            {updating ? 'Mise à jour...' : 'Enregistrer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Boîte de dialogue de suppression */}
       <Dialog
         open={deleteDialogOpen}
         onClose={handleDeleteCancel}

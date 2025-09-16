@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import { AutoSelectionControl } from '../AutoSelectionControl';
 import { UseAutoSelectionReturn } from 'lib/hooks/analysis/useAutoSelection';
+import { AnalysisMode, getLabels } from 'lib/types/analysis';
 
 /**
  * Props pour AutoSelectionSection
@@ -23,6 +24,8 @@ export interface AutoSelectionSectionProps {
   disabled?: boolean;
   /** Afficher la section de sélection automatique */
   show?: boolean;
+  /** Mode d'analyse */
+  mode?: AnalysisMode;
 }
 
 /**
@@ -35,8 +38,10 @@ export function AutoSelectionSection({
   autoSelection,
   disabled = false,
   show = true,
+  mode = 'roles',
 }: AutoSelectionSectionProps) {
   const theme = useTheme();
+  const labels = getLabels(mode);
 
   // Ne pas afficher si show est false
   if (!show) {
@@ -100,7 +105,10 @@ export function AutoSelectionSection({
               fontSize: '0.9rem',
             }}
           >
-            Optimisez la sélection des rôles simples basée sur les scores
+            {mode === 'users' 
+              ? `Optimisez la sélection du ${labels?.targetRole?.toLowerCase()} pour chaque ${labels?.item?.toLowerCase()}`
+              : `Optimisez la sélection des ${labels?.targetRolePlural?.toLowerCase()} basée sur les scores`
+            }
           </Typography>
         </Box>
       </Box>
@@ -110,6 +118,7 @@ export function AutoSelectionSection({
         <AutoSelectionControl
           autoSelection={autoSelection}
           disabled={disabled}
+          mode={mode}
         />
       </Box>
     </Paper>

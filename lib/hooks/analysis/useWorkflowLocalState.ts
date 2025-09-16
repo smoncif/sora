@@ -2,26 +2,27 @@ import { useState, useCallback } from 'react';
 
 // États locaux pour filtres et pagination
 export interface WorkflowLocalState {
-  businessRoleFilter: string;
-  simpleRoleFilter: string;
+  primaryFilter: string;
+  targetRoleFilter: string;
   showFilters: boolean;
-  currentBusinessRolePage: number;
-  businessRolesPerPage: number;
-  focusedBusinessRole: string | null;
+  currentPage: number;
+  itemsPerPage: number;
+  focusedItem: string | null;
   showZeroCoverageRoles: Map<string, boolean>;
   pageBeforeFocus: number; // 🆕 Sauvegarder la page avant le focus
+  
 }
 
 export interface WorkflowLocalActions {
-  setBusinessRoleFilter: (filter: string) => void;
-  setSimpleRoleFilter: (filter: string) => void;
+  setPrimaryFilter: (filter: string) => void;
+  setTargetRoleFilter: (filter: string) => void;
   toggleFilters: () => void;
   clearFilters: () => void;
-  setCurrentBusinessRolePage: (page: number) => void;
-  setBusinessRolesPerPage: (perPage: number) => void;
-  handleFocusBusinessRole: (businessRole: string) => void;
+  setCurrentPage: (page: number) => void;
+  setItemsPerPage: (perPage: number) => void;
+  handleFocusItem: (item: string) => void;
   handleExitFocus: () => void;
-  handleToggleZeroCoverageRoles: (businessRole: string) => void;
+  handleToggleZeroCoverageRoles: (item: string) => void;
   resetLocalState: () => void;
 }
 
@@ -35,12 +36,12 @@ export interface WorkflowLocalReturn {
 }
 
 const initialState: WorkflowLocalState = {
-  businessRoleFilter: '',
-  simpleRoleFilter: '',
+  primaryFilter: '',
+  targetRoleFilter: '',
   showFilters: false,
-  currentBusinessRolePage: 0,
-  businessRolesPerPage: 3,
-  focusedBusinessRole: null,
+  currentPage: 0,
+  itemsPerPage: 3,
+  focusedItem: null,
   showZeroCoverageRoles: new Map(),
   pageBeforeFocus: 0,
 };
@@ -56,17 +57,35 @@ export const useWorkflowLocalState = (
     callbacks?.onFocusChange?.(businessRole);
   }, [callbacks]);
   
-  // Actions de filtrage et pagination
-  const setBusinessRoleFilter = useCallback((filter: string) => {
-    setState(prev => ({ 
+  // Actions de filtrage et pagination - NOUVEAUX NOMS
+  const setPrimaryFilter = useCallback((filter: string) => {
+    setState(prev => ({
       ...prev,
-      businessRoleFilter: filter,
-      currentBusinessRolePage: 0 // Reset pagination quand on filtre
+      primaryFilter: filter,
+      currentPage: 0,
     }));
   }, []);
   
-  const setSimpleRoleFilter = useCallback((filter: string) => {
-    setState(prev => ({ ...prev, simpleRoleFilter: filter }));
+  const setTargetRoleFilter = useCallback((filter: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      targetRoleFilter: filter,
+    }));
+  }, []);
+  
+  const setCurrentPage = useCallback((page: number) => {
+    setState(prev => ({ 
+      ...prev, 
+      currentPage: page,
+    }));
+  }, []);
+  
+  const setItemsPerPage = useCallback((perPage: number) => {
+    setState(prev => ({ 
+      ...prev,
+      itemsPerPage: perPage,
+      currentPage: 0,
+    }));
   }, []);
   
   const toggleFilters = useCallback(() => {
@@ -74,47 +93,37 @@ export const useWorkflowLocalState = (
   }, []);
   
   const clearFilters = useCallback(() => {
-    setState(prev => ({ 
+    setState(prev => ({
       ...prev,
-      businessRoleFilter: '',
-      simpleRoleFilter: '',
-      currentBusinessRolePage: 0
+      primaryFilter: '',
+      targetRoleFilter: '',
+      currentPage: 0,
     }));
   }, []);
-  
-  const setCurrentBusinessRolePage = useCallback((page: number) => {
-    setState(prev => ({ ...prev, currentBusinessRolePage: page }));
-  }, []);
-  
-  const setBusinessRolesPerPage = useCallback((perPage: number) => {
-    setState(prev => ({ 
-      ...prev,
-      businessRolesPerPage: perPage,
-      currentBusinessRolePage: 0 // Reset pagination
-    }));
-  }, []);
+
   
   // Actions de focus - OPTIMISÉES pour réactivité immédiate
-  const handleFocusBusinessRole = useCallback((businessRole: string) => {
+  const handleFocusItem = useCallback((item: string) => {
     setState(prev => ({ 
       ...prev,
-      focusedBusinessRole: businessRole,
-      pageBeforeFocus: prev.currentBusinessRolePage, // 🆕 Sauvegarder la page actuelle
-      currentBusinessRolePage: 0
+      focusedItem: item,
+      pageBeforeFocus: prev.currentPage,
+      currentPage: 0,
     }));
     // ⚡ OPTIMISÉ : Notification immédiate pour meilleure réactivité
-    stableOnFocusChange(businessRole);
+    stableOnFocusChange(item);
   }, [stableOnFocusChange]);
   
   const handleExitFocus = useCallback(() => {
     setState(prev => ({ 
       ...prev,
-      focusedBusinessRole: null,
-      currentBusinessRolePage: prev.pageBeforeFocus // 🆕 Restaurer la page sauvegardée
+      focusedItem: null,
+      currentPage: prev.pageBeforeFocus,
     }));
     // ⚡ OPTIMISÉ : Notification immédiate pour meilleure réactivité
     stableOnFocusChange(null);
   }, [stableOnFocusChange]);
+
   
   // Actions d'affichage
   const handleToggleZeroCoverageRoles = useCallback((businessRole: string) => {
@@ -133,13 +142,14 @@ export const useWorkflowLocalState = (
   return {
     state,
     actions: {
-      setBusinessRoleFilter,
-      setSimpleRoleFilter,
+      // Nouvelles fonctions génériques
+      setPrimaryFilter,
+      setTargetRoleFilter,
+      setCurrentPage,
+      setItemsPerPage,
+      handleFocusItem,
       toggleFilters,
       clearFilters,
-      setCurrentBusinessRolePage,
-      setBusinessRolesPerPage,
-      handleFocusBusinessRole,
       handleExitFocus,
       handleToggleZeroCoverageRoles,
       resetLocalState,

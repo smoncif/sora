@@ -2,8 +2,11 @@
  * Types pour le module d'analyse des rôles métier
  */
 
+import { BaseAnalysisItem, GenericAnalysisResult, TransactionExecution } from './analysis';
+
 /**
  * Transaction système représentant une action ou permission
+ * Étendue de la transaction de base avec des propriétés spécifiques aux rôles
  */
 export interface Transaction {
   id: string;
@@ -22,8 +25,9 @@ export interface Transaction {
 
 /**
  * Rôle métier défini pour regrouper des transactions
+ * Étend BaseAnalysisItem avec des propriétés spécifiques aux rôles
  */
-export interface BusinessRole {
+export interface BusinessRole extends BaseAnalysisItem {
   id: string;
   name: string;
   description: string;
@@ -38,6 +42,20 @@ export interface BusinessRole {
   score?: number;
   coverage?: number;
   quality?: number;
+}
+
+/**
+ * Rôle simple SAP
+ * Étend BaseAnalysisItem pour la compatibilité avec le système générique
+ */
+export interface SimpleRole extends BaseAnalysisItem {
+  id: string;
+  name: string;
+  description?: string;
+  transactions: string[]; // IDs des transactions associées
+  metadata?: Record<string, any>;
+  license?: string; // Type de licence associé
+  licenseOrder?: number; // Ordre de priorité de la licence
 }
 
 /**
@@ -316,12 +334,14 @@ export interface SimpleRoleCoverage {
 
 /**
  * Résultat complet de l'analyse simplifiée
+ * Version spécifique pour l'analyse des rôles métier
  */
-export interface SimplifiedAnalysisResult {
+export interface SimplifiedAnalysisResult extends Partial<GenericAnalysisResult<BusinessRole>> {
   id: string;
   name: string;
   description?: string;
   timestamp: Date;
+  mode?: 'roles'; // Mode par défaut pour la compatibilité
   
   // Données source
   businessRoleTransactions: BusinessRoleTransaction[];
@@ -329,6 +349,15 @@ export interface SimplifiedAnalysisResult {
   
   // Résultats d'analyse
   coverageAnalyses: CoverageAnalysis[];
+  
+  // Données spécifiques utilisateurs (pour mode 'users')
+  userAnalysisData?: {
+    users: { id: string; transactions: string[]; executionCount: number }[];
+    businessRoleMappings: { businessRole: string; simpleRole: string }[];
+  };
+  
+  // Mode d'analyse (pour différencier les types de données)
+  analysisMode?: 'roles' | 'users';
   
   // Métadonnées
   metadata: {

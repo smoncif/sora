@@ -97,7 +97,10 @@ export const useStaticAnalysisData = (
         });
       });
       
-      const orphanTransactions = analysis.uniqueTransactions.filter(tx => !allCoverableTransactions.has(tx));
+      const orphanTransactions = analysis.uniqueTransactions.filter(tx => {
+        return !allCoverableTransactions.has(tx);
+      });
+      
       const maxAchievableTransactions = analysis.uniqueTransactions.length - orphanTransactions.length;
 
       // Stocker les données du rôle métier

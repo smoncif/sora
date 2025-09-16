@@ -20,6 +20,7 @@ import {
   TrendingUp as ScoreIcon,
 } from '@mui/icons-material';
 import { UseAutoSelectionReturn } from 'lib/hooks/analysis/useAutoSelection';
+import { AnalysisMode, getLabels } from 'lib/types/analysis';
 
 /**
  * Props pour le composant AutoSelectionControl
@@ -29,6 +30,8 @@ export interface AutoSelectionControlProps {
   autoSelection: UseAutoSelectionReturn;
   /** Désactiver le contrôle (par exemple si aucune analyse n'est disponible) */
   disabled?: boolean;
+  /** Mode d'analyse */
+  mode?: AnalysisMode;
 }
 
 /**
@@ -42,8 +45,10 @@ export interface AutoSelectionControlProps {
 export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
   autoSelection,
   disabled = false,
+  mode = 'roles',
 }) => {
   const theme = useTheme();
+  const labels = getLabels(mode);
 
   const {
     isRunning,
@@ -65,14 +70,14 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
   }, [setMinScoreThreshold]);
 
   // Calculer le pourcentage de progression
-  const progressPercentage = progress.totalBusinessRoles > 0 
-    ? (progress.businessRolesProcessed / progress.totalBusinessRoles) * 100 
+  const progressPercentage = progress.totalItems > 0 
+    ? (progress.itemsProcessed / progress.totalItems) * 100 
     : 0;
 
   // Déterminer l'état visuel
-  const isCompleted = !isRunning && progress.businessRolesProcessed > 0;
+  const isCompleted = !isRunning && progress.itemsProcessed > 0;
   const hasError = !!error;
-  const hasRealActivity = progress.rolesSelected > 0 || progress.rolesSkipped > 0 || progress.businessRolesProcessed > 0;
+  const hasRealActivity = progress.rolesSelected > 0 || progress.rolesSkipped > 0 || progress.itemsProcessed > 0;
 
   return (
     <Box sx={{ mt: 4 }}>
@@ -141,7 +146,10 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
           display: 'block',
           mt: 1,
         }}>
-          Seuls les rôles simples avec un score global ≥ {minScoreThreshold}% seront sélectionnés automatiquement.
+          {mode === 'users' 
+            ? `Seul le ${labels?.targetRole?.toLowerCase()} avec le meilleur score global ≥ ${minScoreThreshold}% sera sélectionné automatiquement.`
+            : `Seuls les ${labels?.targetRolePlural?.toLowerCase()} avec un score global ≥ ${minScoreThreshold}% seront sélectionnés automatiquement.`
+          }
         </Typography>
       </Box>
 
@@ -222,7 +230,7 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
                     Progression globale
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-                    {progress.businessRolesProcessed}/{progress.totalBusinessRoles} rôles métier
+                    {progress.itemsProcessed}/{progress.totalItems} {labels?.itemPlural?.toLowerCase()}
                   </Typography>
                 </Box>
                 <LinearProgress 
@@ -240,7 +248,7 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
               </Box>
 
               {/* Statut actuel */}
-              {progress.currentBusinessRole && (
+              {progress.currentItem && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="body2" sx={{ 
                     fontWeight: 500,
@@ -248,14 +256,14 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
                     color: theme.palette.info.main,
                     mb: 0.5,
                   }}>
-                    🔄 En cours : {progress.currentBusinessRole}
+                    🔄 En cours : {progress.currentItem}
                   </Typography>
-                  {progress.currentSimpleRole && (
+                  {progress.currentTargetRole && (
                     <Typography variant="caption" sx={{ 
                       fontSize: '0.75rem',
                       color: theme.palette.text.secondary,
                     }}>
-                      Analyse du rôle : {progress.currentSimpleRole}
+                      Analyse du {labels?.targetRole?.toLowerCase()} : {progress.currentTargetRole}
                     </Typography>
                   )}
                 </Box>
@@ -307,7 +315,7 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
                   sx={{ fontSize: '0.7rem' }}
                 />
                 <Chip
-                  label={`${progress.totalBusinessRoles} rôles métier traités`}
+                  label={`${progress.totalItems} ${labels?.itemPlural?.toLowerCase()} traités`}
                   size="small"
                   color="info"
                   sx={{ fontSize: '0.7rem' }}

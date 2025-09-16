@@ -10,16 +10,20 @@ import { saveAs } from 'file-saver';
 import { 
   SimplifiedAnalysisResult
 } from 'lib/types/roleAnalysis';
+import { AnalysisMode, getLabels } from 'lib/types/analysis';
 
 /**
  * Interface pour les données d'export des résultats
  */
 export interface ResultsExportData {
-  businessRole: string;
+  itemId: string; // businessRole pour rôles, userId pour utilisateurs
   uncoveredTransactions: string[];
-  selectedSimpleRoles: string[];
+  selectedTargetRoles: string[]; // selectedSimpleRoles pour rôles, selectedBusinessRoles pour users
   coveredTransactions: string[];
   unusedTransactions: string[];
+  // Compatibilité
+  businessRole?: string;
+  selectedSimpleRoles?: string[];
 }
 
 /**
@@ -28,6 +32,7 @@ export interface ResultsExportData {
 export interface ResultsExportOptions {
   fileName?: string;
   onProgress?: (progress: number, stage: string) => void;
+  mode?: AnalysisMode; // Mode d'analyse
 }
 
 /**
@@ -39,59 +44,65 @@ export async function exportResultsToExcel(
   options: ResultsExportOptions = {},
   showLicenses?: boolean // Plus de valeur par défaut, obligatoire de passer l'état réel
 ): Promise<void> {
-  const { fileName, onProgress } = options;
+  const { fileName, onProgress, mode: optionsMode } = options;
+  const mode = optionsMode || analysisResult.analysisMode || analysisResult.mode || 'roles';
+  const labels = getLabels(mode);
 
   try {
     if (onProgress) onProgress(10, 'Préparation des données...');
 
-    // ENRICHIR LES LICENCES AVANT L'EXPORT
-    if (onProgress) onProgress(20, 'Calcul des licences...');
-    const { enrichAnalysisWithLicenses, recalculateMaxLicenseForAnalysis } = await import('../license/licenseService');
-    
-    // Enrichir d'abord avec toutes les licences
-    let enrichedAnalysisResult = await enrichAnalysisWithLicenses(analysisResult);
-    
-    // Puis recalculer les maxLicence en fonction des sélections réelles
-    enrichedAnalysisResult = {
-      ...enrichedAnalysisResult,
-      coverageAnalyses: enrichedAnalysisResult.coverageAnalyses.map(analysis => {
-        const selectedRolesForBusiness = selectedRoles.get(analysis.businessRole);
-        if (!selectedRolesForBusiness || selectedRolesForBusiness.size === 0) {
-          return analysis;
-        }
-        
-        // Marquer les rôles sélectionnés
-        const updatedAnalysis = {
-          ...analysis,
-          simpleRoles: analysis.simpleRoles.map(role => ({
-            ...role,
-            isSelected: selectedRolesForBusiness.has(role.roleName)
-          }))
-        };
-        
-        // Recalculer la licence max avec les vraies sélections
-        return recalculateMaxLicenseForAnalysis(updatedAnalysis);
-      })
-    };
+    // ENRICHIR LES LICENCES AVANT L'EXPORT (seulement pour les analyses de rôles)
+    let enrichedAnalysisResult = analysisResult;
+    if (mode === 'roles') {
+      if (onProgress) onProgress(20, 'Calcul des licences...');
+      const { enrichAnalysisWithLicenses, recalculateMaxLicenseForAnalysis } = await import('../license/licenseService');
+      
+      // Enrichir d'abord avec toutes les licences
+      enrichedAnalysisResult = await enrichAnalysisWithLicenses(analysisResult);
+      
+      // Puis recalculer les maxLicence en fonction des sélections réelles
+      enrichedAnalysisResult = {
+        ...enrichedAnalysisResult,
+        coverageAnalyses: enrichedAnalysisResult.coverageAnalyses.map(analysis => {
+          const selectedRolesForBusiness = selectedRoles.get(analysis.businessRole);
+          if (!selectedRolesForBusiness || selectedRolesForBusiness.size === 0) {
+            return analysis;
+          }
+          
+          // Marquer les rôles sélectionnés
+          const updatedAnalysis = {
+            ...analysis,
+            simpleRoles: analysis.simpleRoles.map(role => ({
+              ...role,
+              isSelected: selectedRolesForBusiness.has(role.roleName)
+            }))
+          };
+          
+          // Recalculer la licence max avec les vraies sélections
+          return recalculateMaxLicenseForAnalysis(updatedAnalysis);
+        })
+      };
+    }
 
     // Créer un nouveau workbook
     const workbook = XLSX.utils.book_new();
 
     // Préparer les données pour l'export
-    if (onProgress) onProgress(30, 'Traitement des rôles métier...');
-    const exportData = prepareExportData(enrichedAnalysisResult, selectedRoles);
+    if (onProgress) onProgress(30, `Traitement des ${labels?.itemPlural?.toLowerCase() || 'éléments'}...`);
+    const exportData = prepareExportData(enrichedAnalysisResult, selectedRoles, mode);
 
     // Récupérer l'état réel du switch (si pas fourni, utiliser celui de analysisParams)
-    const actualShowLicenses = showLicenses ?? analysisResult.analysisParams?.showLicenses ?? false;
+    // Forcer showLicenses à false pour les analyses utilisateur
+    const actualShowLicenses = mode === 'users' ? false : (showLicenses ?? analysisResult.analysisParams?.showLicenses ?? false);
 
     // 1. Créer la feuille SYNTHÈSE (selon photo 2)
     if (onProgress) onProgress(50, 'Création de la feuille SYNTHÈSE...');
-    const synthesisSheet = createSynthesisSheet(exportData, enrichedAnalysisResult, actualShowLicenses);
+    const synthesisSheet = createSynthesisSheet(exportData, enrichedAnalysisResult, actualShowLicenses, mode);
     XLSX.utils.book_append_sheet(workbook, synthesisSheet, 'SYNTHÈSE');
 
     // 2. Créer la feuille DÉTAIL (selon photo 3)
     if (onProgress) onProgress(70, 'Création de la feuille DÉTAIL...');
-    const detailSheet = createDetailSheet(enrichedAnalysisResult, selectedRoles);
+    const detailSheet = createDetailSheet(enrichedAnalysisResult, selectedRoles, mode);
     XLSX.utils.book_append_sheet(workbook, detailSheet, 'DÉTAIL');
 
     // Générer le fichier Excel
@@ -123,7 +134,8 @@ export async function exportResultsToExcel(
  */
 function prepareExportData(
   analysisResult: SimplifiedAnalysisResult,
-  selectedRoles: Map<string, Set<string>>
+  selectedRoles: Map<string, Set<string>>,
+  mode: AnalysisMode = 'roles'
 ): ResultsExportData[] {
   const exportData: ResultsExportData[] = [];
 
@@ -169,11 +181,14 @@ function prepareExportData(
     );
 
     exportData.push({
-      businessRole,
+      itemId: businessRole,
       uncoveredTransactions,
-      selectedSimpleRoles: Array.from(selectedRolesForBusiness),
+      selectedTargetRoles: Array.from(selectedRolesForBusiness),
       coveredTransactions: Array.from(coveredTransactions),
-      unusedTransactions
+      unusedTransactions,
+      // Compatibilité
+      businessRole,
+      selectedSimpleRoles: Array.from(selectedRolesForBusiness)
     });
   });
 
@@ -183,13 +198,15 @@ function prepareExportData(
 /**
  * Crée la feuille SYNTHÈSE (selon photo 2)
  */
-function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisResult: SimplifiedAnalysisResult, showLicenses: boolean): XLSX.WorkSheet {
+function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisResult: SimplifiedAnalysisResult, showLicenses: boolean, mode: AnalysisMode = 'roles'): XLSX.WorkSheet {
+  const labels = getLabels(mode);
+  
   // Définir les en-têtes selon si les licences sont activées
   const headers = showLicenses 
     ? [
-        'Rôle Métier',
+        labels?.item || 'Élément',
         'Licence',
-        'Rôles Simples Choisis (Nombre)',
+        `${labels?.targetRolePlural || 'Rôles Cibles'} Choisis (Nombre)`,
         'Transactions Couvertes (Nombre)',
         'Transactions Non Couvertes (Nombre)',
         'Transactions Non Couvertes (liste séparée par ,)',
@@ -197,8 +214,8 @@ function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisR
         'Taux de Couverture (%)'
       ]
     : [
-        'Rôle Métier',
-        'Rôles Simples Choisis (Nombre)',
+        labels?.item || 'Élément',
+        `${labels?.targetRolePlural || 'Rôles Cibles'} Choisis (Nombre)`,
         'Transactions Couvertes (Nombre)',
         'Transactions Non Couvertes (Nombre)',
         'Transactions Non Couvertes (liste séparée par ,)',
@@ -214,15 +231,15 @@ function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisR
       ? ((item.coveredTransactions.length / totalTransactions) * 100).toFixed(1)
       : '0.0';
 
-    const businessRoleData = enrichedAnalysisResult.coverageAnalyses.find(analysis => analysis.businessRole === item.businessRole);
-    const license = businessRoleData?.maxLicence || 'Aucune';
+    const itemData = enrichedAnalysisResult.coverageAnalyses.find(analysis => analysis.businessRole === item.itemId);
+    const license = itemData?.maxLicence || 'Aucune';
 
     // Créer la ligne selon si les licences sont activées
     const row = showLicenses 
       ? [
-          item.businessRole,
+          item.itemId,
           license,
-          item.selectedSimpleRoles.length.toString(),
+          item.selectedTargetRoles.length.toString(),
           item.coveredTransactions.length.toString(),
           item.uncoveredTransactions.length.toString(),
           item.uncoveredTransactions.join(', '), // Liste séparée par virgules
@@ -230,8 +247,8 @@ function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisR
           coverageRate
         ]
       : [
-          item.businessRole,
-          item.selectedSimpleRoles.length.toString(),
+          item.itemId,
+          item.selectedTargetRoles.length.toString(),
           item.coveredTransactions.length.toString(),
           item.uncoveredTransactions.length.toString(),
           item.uncoveredTransactions.join(', '), // Liste séparée par virgules
@@ -272,14 +289,16 @@ function createSynthesisSheet(exportData: ResultsExportData[], enrichedAnalysisR
 /**
  * Crée la feuille DÉTAIL (selon photo 3) - UNE TRANSACTION PAR LIGNE
  */
-function createDetailSheet(analysisResult: SimplifiedAnalysisResult, selectedRoles: Map<string, Set<string>>): XLSX.WorkSheet {
+function createDetailSheet(analysisResult: SimplifiedAnalysisResult, selectedRoles: Map<string, Set<string>>, mode: AnalysisMode = 'roles'): XLSX.WorkSheet {
+  const labels = getLabels(mode);
+  
   const data = [
     [
-      'Rôle Métier',
-      'Description du rôle métier',
-      'Rôle Simple',
-      'Description du rôle simple',
-      'Toutes les Transactions du rôle simple',
+      labels?.item || 'Élément',
+      `Description du ${labels?.item?.toLowerCase() || 'élément'}`,
+      labels?.targetRole || 'Rôle Cible',
+      `Description du ${labels?.targetRole?.toLowerCase() || 'rôle cible'}`,
+      `Toutes les Transactions du ${labels?.targetRole?.toLowerCase() || 'rôle cible'}`,
       'Description des transactions',
       'Fréquence d\'Usage',
       'Marqué si utilisée'

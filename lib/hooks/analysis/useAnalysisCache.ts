@@ -5,8 +5,8 @@ export interface AnalysisCacheState {
   // Cache des scores calculés
   roleScores: Map<string, any>;
   
-  // Cache des détails par business role
-  businessRoleDetails: Map<string, any>;
+  // Cache des détails par élément (business role ou utilisateur)
+  itemDetails: Map<string, any>;
   
   // Cache des calculs complexes
   calculations: Map<string, any>;
@@ -62,8 +62,8 @@ export interface AnalysisCacheReturn {
   // Méthodes utilitaires
   getCachedScore: (roleId: string) => any;
   setCachedScore: (roleId: string, score: any) => void;
-  getCachedDetails: (businessRole: string) => any;
-  setCachedDetails: (businessRole: string, details: any) => void;
+  getCachedDetails: (itemId: string) => any;
+  setCachedDetails: (itemId: string, details: any) => void;
   getCachedCalculation: (calculationKey: string) => any;
   setCachedCalculation: (calculationKey: string, result: any) => void;
   
@@ -104,7 +104,7 @@ export const useAnalysisCache = (
   // État du cache principal
   const cacheState = useMemo<AnalysisCacheState>(() => ({
     roleScores: new Map(),
-    businessRoleDetails: new Map(),
+    itemDetails: new Map(),
     calculations: new Map(),
     lastUpdated: Date.now(),
     version: '1.0.0',
@@ -115,8 +115,9 @@ export const useAnalysisCache = (
     switch (category) {
       case 'roleScores':
         return cacheState.roleScores;
-      case 'businessRoleDetails':
-        return cacheState.businessRoleDetails;
+      case 'itemDetails':
+      case 'itemDetails': // Alias pour compatibilité
+        return cacheState.itemDetails;
       case 'calculations':
         return cacheState.calculations;
       default:
@@ -207,7 +208,7 @@ export const useAnalysisCache = (
       } else {
         // Vider tous les caches
         cacheState.roleScores.clear();
-        cacheState.businessRoleDetails.clear();
+        cacheState.itemDetails.clear();
         cacheState.calculations.clear();
       }
       
@@ -227,13 +228,13 @@ export const useAnalysisCache = (
     set(roleId, score, 'roleScores');
   }, [set]);
 
-  // Méthodes spécialisées pour les détails business role
-  const getCachedDetails = useCallback((businessRole: string) => {
-    return get(businessRole, 'businessRoleDetails')?.value;
+  // Méthodes spécialisées pour les détails d'élément (business role ou utilisateur)
+  const getCachedDetails = useCallback((itemId: string) => {
+    return get(itemId, 'itemDetails')?.value;
   }, [get]);
 
-  const setCachedDetails = useCallback((businessRole: string, details: any) => {
-    set(businessRole, details, 'businessRoleDetails');
+  const setCachedDetails = useCallback((itemId: string, details: any) => {
+    set(itemId, details, 'itemDetails');
   }, [set]);
 
   // Méthodes spécialisées pour les calculs
@@ -252,7 +253,7 @@ export const useAnalysisCache = (
     try {
       const serializedCache = {
         roleScores: Array.from(cacheState.roleScores.entries()),
-        businessRoleDetails: Array.from(cacheState.businessRoleDetails.entries()),
+        itemDetails: Array.from(cacheState.itemDetails.entries()),
         calculations: Array.from(cacheState.calculations.entries()),
         lastUpdated: cacheState.lastUpdated,
         version: cacheState.version,
@@ -275,7 +276,7 @@ export const useAnalysisCache = (
         
         // Restaurer les Maps
         cacheState.roleScores = new Map(parsed.roleScores || []);
-        cacheState.businessRoleDetails = new Map(parsed.businessRoleDetails || []);
+        cacheState.itemDetails = new Map(parsed.itemDetails || []);
         cacheState.calculations = new Map(parsed.calculations || []);
         cacheState.lastUpdated = parsed.lastUpdated || Date.now();
         cacheState.version = parsed.version || '1.0.0';
@@ -292,7 +293,7 @@ export const useAnalysisCache = (
     try {
       const now = Date.now();
       
-      [cacheState.roleScores, cacheState.businessRoleDetails, cacheState.calculations].forEach(cache => {
+      [cacheState.roleScores, cacheState.itemDetails, cacheState.calculations].forEach(cache => {
         const entriesToDelete: string[] = [];
         cache.forEach((entry, key) => {
           if (typeof entry === 'object' && entry.timestamp && entry.ttl) {
@@ -321,7 +322,7 @@ export const useAnalysisCache = (
       
       const regex = new RegExp(pattern);
       
-      [cacheState.roleScores, cacheState.businessRoleDetails, cacheState.calculations].forEach(cache => {
+      [cacheState.roleScores, cacheState.itemDetails, cacheState.calculations].forEach(cache => {
         const keysToDelete: string[] = [];
         cache.forEach((_, key) => {
           if (regex.test(key)) {
@@ -339,22 +340,25 @@ export const useAnalysisCache = (
     }
   }, [clear, cacheState, callbacks]);
 
-  // 🚀 OPTIMISATION 2 : Pré-calcul des métriques de couverture pour tous les rôles métiers
+  // 🚀 OPTIMISATION 2 : Pré-calcul des métriques de couverture pour tous les éléments
   const precomputeCoverageAnalysis = useCallback((analysisResult: any) => {
-    if (!analysisResult?.businessRoles) return;
+    // Support des deux modes : businessRoles pour les rôles, users pour les utilisateurs
+    const items = analysisResult?.businessRoles || analysisResult?.users;
+    if (!items) return;
 
     try {
-      // Pré-calculer les métriques statiques pour chaque rôle métier
-      analysisResult.businessRoles.forEach((businessRole: any) => {
-        const businessRoleName = businessRole.businessRole;
+      // Pré-calculer les métriques statiques pour chaque élément
+      items.forEach((item: any) => {
+        const itemId = item.businessRole || item.id;
         
         // Calculer et cacher les métriques de base qui ne changent jamais
+        const roles = item.roles || item.targetRoles || [];
         const staticMetrics = {
-          totalTransactions: businessRole.roles?.reduce((sum: number, role: any) => 
+          totalTransactions: roles.reduce((sum: number, role: any) => 
             sum + (role.transactions?.length || 0), 0) || 0,
-          totalRoles: businessRole.roles?.length || 0,
-          roleExecutionFrequencies: businessRole.roles?.map((role: any) => ({
-            roleId: role.roleId,
+          totalRoles: roles.length || 0,
+          roleExecutionFrequencies: roles.map((role: any) => ({
+            roleId: role.roleId || role.id,
             totalExecutions: role.transactions?.length || 0,
             averageFrequency: role.transactions?.reduce((sum: number, t: any) => 
               sum + (t.executionFrequency || 0), 0) / (role.transactions?.length || 1)
@@ -362,15 +366,15 @@ export const useAnalysisCache = (
         };
         
         // Mettre en cache les métriques statiques
-        setCachedCalculation(`static_metrics_${businessRoleName}`, staticMetrics);
+        setCachedCalculation(`static_metrics_${itemId}`, staticMetrics);
         
         // Pré-calculer les maps de lookup pour éviter les recherches répétées
         const transactionsByRole = new Map();
-        businessRole.roles?.forEach((role: any) => {
-          transactionsByRole.set(role.roleId, role.transactions || []);
+        roles.forEach((role: any) => {
+          transactionsByRole.set(role.roleId || role.id, role.transactions || []);
         });
         
-        setCachedCalculation(`transactions_lookup_${businessRoleName}`, transactionsByRole);
+        setCachedCalculation(`transactions_lookup_${itemId}`, transactionsByRole);
       });
       
       callbacks?.onCacheUpdated?.();
@@ -397,7 +401,7 @@ export const useAnalysisCache = (
     const hitRate = totalOperations > 0 ? (statsRef.current.hits / totalOperations) * 100 : 0;
     
     const totalSize = cacheState.roleScores.size + 
-                     cacheState.businessRoleDetails.size + 
+                     cacheState.itemDetails.size + 
                      cacheState.calculations.size;
     
     return {
@@ -412,7 +416,7 @@ export const useAnalysisCache = (
     
     // Accès direct aux Maps pour la performance
     scoresCache: cacheState.roleScores,
-    detailsCache: cacheState.businessRoleDetails,
+    detailsCache: cacheState.itemDetails,
     calculationsCache: cacheState.calculations,
     
     stats,

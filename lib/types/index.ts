@@ -7,6 +7,12 @@
 // Types d'authentification
 export * from './auth';
 
+// Types génériques pour l'analyse
+export * from './analysis';
+
+// Types pour l'analyse des utilisateurs
+export * from './userAnalysis';
+
 // Types pour les rôles et les analyses de rôle
 export * from './roleAnalysis';
 // Types pour les rôles de base (renommés pour éviter l'ambiguïté)

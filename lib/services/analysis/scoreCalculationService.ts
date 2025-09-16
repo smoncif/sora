@@ -26,7 +26,7 @@ export interface ScoreCalculationConfig {
     orphelines: string[];
     total: number;
   }>;
-  simpleRoleFilter?: string;
+  targetRoleFilter?: string;
   shouldShowZeroCoverage?: boolean;
 }
 
@@ -68,18 +68,18 @@ export interface DynamicData {
   remainingTransactionsList: string[];
 }
 
-// Cache global pour les détails des rôles - RÉUTILISÉ depuis BusinessRoleAnalysisCard
+// Cache global pour les détails des rôles - RÉUTILISÉ depuis AnalysisCard
 const detailsGlobalCache = new Map<string, any>();
 
-// Cache pour les scores d'usage - RÉUTILISÉ depuis BusinessRoleAnalysisCard  
+// Cache pour les scores d'usage - RÉUTILISÉ depuis AnalysisCard  
 const usageScoreCache = new Map<string, number>();
 
-// Cache pour les scores de taille - RÉUTILISÉ depuis BusinessRoleAnalysisCard
+// Cache pour les scores de taille - RÉUTILISÉ depuis AnalysisCard
 const sizeScoreCache = new Map<string, number>();
 
 /**
  * Nettoyage automatique des caches pour éviter les fuites mémoire
- * RÉUTILISÉ depuis BusinessRoleAnalysisCard
+ * RÉUTILISÉ depuis AnalysisCard
  */
 const cleanupCaches = () => {
   const maxCacheSize = 1000;
@@ -257,7 +257,7 @@ export function calculateEnrichedRoles(
   const CHUNK_SIZE = 50;
   const processChunk = (startIdx: number, endIdx: number) => {
     return analysis.simpleRoles.slice(startIdx, endIdx).map(role => {
-      // 🚀 CACHE GLOBAL : Vérifier le cache des détails (EXACT depuis BusinessRoleAnalysisCard)
+      // 🚀 CACHE GLOBAL : Vérifier le cache des détails (EXACT depuis AnalysisCard)
       const globalCacheKey = `${analysis.businessRole}:${role.roleName}:${selectionHash}`;
       let details = detailsGlobalCache.get(globalCacheKey);
       
@@ -266,12 +266,12 @@ export function calculateEnrichedRoles(
         detailsGlobalCache.set(globalCacheKey, details);
       }
 
-      // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache (EXACT depuis BusinessRoleAnalysisCard)
+      // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache (EXACT depuis AnalysisCard)
       const dynamicCoveragePercentage = dynamicData.totalRemainingTransactions > 0 
         ? (details.covered.length / dynamicData.totalRemainingTransactions) * 100 
         : 0;
 
-      // 🚀 CACHE STATIQUE : Récupération rapide des scores pré-calculés (EXACT depuis BusinessRoleAnalysisCard)
+      // 🚀 CACHE STATIQUE : Récupération rapide des scores pré-calculés (EXACT depuis AnalysisCard)
       const staticCacheKey = `${analysis.businessRole}:${role.roleName}`;
       const cachedScores = config.staticScoresCache.get(staticCacheKey) || {
         usageFrequency: 0,
@@ -281,7 +281,7 @@ export function calculateEnrichedRoles(
         totalBusinessRoleExecutions: 0
       };
 
-      // 🚀 CALCUL DYNAMIQUE : Score Taille avec cache optimisé (EXACT depuis BusinessRoleAnalysisCard)
+      // 🚀 CALCUL DYNAMIQUE : Score Taille avec cache optimisé (EXACT depuis AnalysisCard)
       const sizeCacheKey = `${globalCacheKey}:size`;
       let dynamicSizeScore = sizeScoreCache.get(sizeCacheKey);
       
@@ -293,7 +293,7 @@ export function calculateEnrichedRoles(
         sizeScoreCache.set(sizeCacheKey, dynamicSizeScore);
       }
 
-      // 🚀 OPTIMISATION MAJEURE : Cache des remainingUsageScore (EXACT depuis BusinessRoleAnalysisCard)
+      // 🚀 OPTIMISATION MAJEURE : Cache des remainingUsageScore (EXACT depuis AnalysisCard)
       const usageCacheKey = `${globalCacheKey}:usage`;
       let remainingUsageScore = usageScoreCache.get(usageCacheKey);
       
@@ -315,7 +315,7 @@ export function calculateEnrichedRoles(
         ? (remainingUsageScore / dynamicData.totalRemainingExecutions) * 100
         : 0;
 
-      // 🚀 SCORE PONDÉRÉ OPTIMISÉ : Calcul rapide avec coefficients stables (EXACT depuis BusinessRoleAnalysisCard)
+      // 🚀 SCORE PONDÉRÉ OPTIMISÉ : Calcul rapide avec coefficients stables (EXACT depuis AnalysisCard)
       // Score Global = (wCR × CR) + (wST × ST) + (wUR × UR) / (wCR + wST + wUR)
       const numerator = config.includeFrequency
         ? (dynamicCoveragePercentage * config.coverageWeight) +
@@ -349,17 +349,17 @@ export function calculateEnrichedRoles(
     });
   };
 
-  // Traitement par chunks (EXACT depuis BusinessRoleAnalysisCard)
+  // Traitement par chunks (EXACT depuis AnalysisCard)
   let allProcessedRoles: EnrichedRole[] = [];
   for (let i = 0; i < analysis.simpleRoles.length; i += CHUNK_SIZE) {
     const endIdx = Math.min(i + CHUNK_SIZE, analysis.simpleRoles.length);
     allProcessedRoles = allProcessedRoles.concat(processChunk(i, endIdx));
   }
 
-  // 🚀 FILTRAGE OPTIMISÉ : Filtrer selon les paramètres (adapté depuis BusinessRoleAnalysisCard)
-  const filteredRoles = config.simpleRoleFilter 
+  // 🚀 FILTRAGE OPTIMISÉ : Filtrer selon les paramètres (adapté depuis AnalysisCard)
+  const filteredRoles = config.targetRoleFilter 
     ? allProcessedRoles.filter(role => 
-        role.roleName.toLowerCase().includes(config.simpleRoleFilter!.toLowerCase()) &&
+        role.roleName.toLowerCase().includes(config.targetRoleFilter!.toLowerCase()) &&
         (config.shouldShowZeroCoverage || role.coveragePercentage > 0)
       )
     : allProcessedRoles.filter(role => 

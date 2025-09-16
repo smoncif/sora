@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Composants communs réutilisables
  * 
  * Ce répertoire contient des composants réutilisables dans toute l'application.
@@ -27,10 +27,11 @@ export * from './ProgressIndicator';
 export { default as CurrentUserAvatar } from './CurrentUserAvatar';
 export * from './CurrentUserAvatar';
 
-export { default as RoleHistoryTimeline } from './RoleHistoryTimeline';
-export * from './RoleHistoryTimeline'; 
-
 export { Logo } from './Logo';
 export * from './Logo';
 
+export { StatsCard } from './StatsCard';
+export * from './StatsCard';
 
+export { ThemeToggle } from './ThemeToggle';
+export * from './ThemeToggle';

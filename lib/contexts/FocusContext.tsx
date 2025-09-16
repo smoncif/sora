@@ -1,40 +1,40 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 /**
- * Context pour gérer le focus des BusinessRole de manière isolée
+ * Context pour gérer le focus des éléments (rôles, utilisateurs, etc.) de manière isolée
  * Évite les re-renders en cascade quand on change de focus
  * Gère aussi la sauvegarde/restauration de la position de scroll
  */
 interface FocusContextValue {
-  focusedBusinessRole: string | null;
-  setFocusedBusinessRole: (businessRole: string | null) => void;
-  isBusinessRoleFocused: (businessRole: string) => boolean;
+  focusedItem: string | null;
+  setFocusedItem: (item: string | null) => void;
+  isItemFocused: (item: string) => boolean;
 }
 
 const FocusContext = createContext<FocusContextValue | undefined>(undefined);
 
 interface FocusProviderProps {
   children: ReactNode;
-  onFocusChange?: (businessRole: string | null) => void;
+  onFocusChange?: (item: string | null) => void;
 }
 
 export function FocusProvider({ children, onFocusChange }: FocusProviderProps) {
-  const [focusedBusinessRole, setFocusedBusinessRoleState] = useState<string | null>(null);
+  const [focusedItem, setFocusedItemState] = useState<string | null>(null);
   // 💾 Sauvegarde de la position de scroll avant le focus
   const [scrollPositionBeforeFocus, setScrollPositionBeforeFocus] = useState<number>(0);
 
   // ⚡ OPTIMISÉ : Handler stable pour changer le focus avec gestion du scroll
-  const setFocusedBusinessRole = useCallback((businessRole: string | null) => {
-    if (businessRole) {
+  const setFocusedItem = useCallback((item: string | null) => {
+    if (item) {
       // 💾 Sauvegarder la position actuelle avant d'entrer en focus
       setScrollPositionBeforeFocus(window.scrollY);
     }
     
-    setFocusedBusinessRoleState(businessRole);
+    setFocusedItemState(item);
     // ⚡ Notification immédiate sans délai
-    onFocusChange?.(businessRole);
+    onFocusChange?.(item);
     
-    if (!businessRole) {
+    if (!item) {
       // 🔄 Restaurer la position de scroll quand on quitte le focus
       requestAnimationFrame(() => {
         window.scrollTo({
@@ -45,17 +45,18 @@ export function FocusProvider({ children, onFocusChange }: FocusProviderProps) {
     }
   }, [onFocusChange, scrollPositionBeforeFocus]);
 
-  // Helper stable pour vérifier si un rôle est en focus
-  const isBusinessRoleFocused = useCallback((businessRole: string) => {
-    return focusedBusinessRole === businessRole;
-  }, [focusedBusinessRole]);
+  // Helper stable pour vérifier si un élément est en focus
+  const isItemFocused = useCallback((item: string) => {
+    return focusedItem === item;
+  }, [focusedItem]);
+
 
   // ⚡ OPTIMISÉ : Mémorisation de la valeur du contexte pour éviter les re-renders inutiles
   const value: FocusContextValue = React.useMemo(() => ({
-    focusedBusinessRole,
-    setFocusedBusinessRole,
-    isBusinessRoleFocused,
-  }), [focusedBusinessRole, setFocusedBusinessRole, isBusinessRoleFocused]);
+    focusedItem,
+    setFocusedItem,
+    isItemFocused,
+  }), [focusedItem, setFocusedItem, isItemFocused]);
 
   return (
     <FocusContext.Provider value={value}>
@@ -72,30 +73,30 @@ export function useFocus() {
   return context;
 }
 
-// Hook spécialisé pour un BusinessRole spécifique - OPTIMISÉ
-export function useBusinessRoleFocus(businessRole: string) {
-  const { focusedBusinessRole, setFocusedBusinessRole, isBusinessRoleFocused } = useFocus();
+// 🆕 Hook générique pour n'importe quel élément (utilisateur, rôle, etc.) - OPTIMISÉ
+export function useItemFocus(item: string) {
+  const { focusedItem, setFocusedItem, isItemFocused } = useFocus();
   
-  const isFocused = isBusinessRoleFocused(businessRole);
+  const isFocused = isItemFocused(item);
   
   // ⚡ OPTIMISÉ : Handlers immédiat avec scroll intégré pour meilleure réactivité
   const handleFocus = useCallback(() => {
-    setFocusedBusinessRole(businessRole);
+    setFocusedItem(item);
     // ⚡ Scroll immédiat vers le haut pour une UX fluide
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: 'auto' });
     });
-  }, [setFocusedBusinessRole, businessRole]);
+  }, [setFocusedItem, item]);
   
   const handleExitFocus = useCallback(() => {
-    setFocusedBusinessRole(null);
+    setFocusedItem(null);
     // 🔄 Scroll automatiquement restauré par le FocusContext vers la position sauvegardée
-  }, [setFocusedBusinessRole]);
+  }, [setFocusedItem]);
   
   return {
     isFocused,
     handleFocus,
     handleExitFocus,
-    focusedBusinessRole,
+    focusedItem,
   };
-} 
+}

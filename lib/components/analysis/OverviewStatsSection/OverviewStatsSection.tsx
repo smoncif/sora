@@ -30,24 +30,30 @@ import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import { StatsCard } from 'lib/components/common/StatsCard';
+import { AnalysisMode, getLabels } from 'lib/types/analysis';
 
 export interface OverviewStatsSectionProps {
   // États des données
   analysisResult: any;
-  totalBusinessRoles: number;
+  totalItems: number;
   uncoveredTransactionsData: {
     count: number;
     transactions: Array<{ transaction: string; executionCount: number; businessRole: string }>;
     totalExecutions: number;
   };
+  
+  // Mode d'analyse
+  mode?: AnalysisMode;
 }
 
 export function OverviewStatsSection({
   analysisResult,
-  totalBusinessRoles,
+  totalItems,
   uncoveredTransactionsData,
+  mode = 'roles',
 }: OverviewStatsSectionProps) {
   const theme = useTheme();
+  const labels = getLabels(mode);
 
   // Fonction pour obtenir les transactions uniques (sans doublon par nom de transaction)
   const getUniqueTransactionsCount = useCallback((rawTransactions: Array<{ transaction: string; executionCount: number; businessRole: string }>) => {
@@ -58,7 +64,7 @@ export function OverviewStatsSection({
     return uniqueTransactions.size;
   }, []);
 
-  // Fonction pour déduplicquer les transactions par combinaison unique (transaction + rôle métier) pour l'affichage détaillé
+  // Fonction pour déduplicquer les transactions par combinaison unique (transaction + élément) pour l'affichage détaillé
   const deduplicateTransactionsForDisplay = useCallback((rawTransactions: Array<{ transaction: string; executionCount: number; businessRole: string }>) => {
     const transactionMap = new Map<string, { transaction: string; executionCount: number; businessRole: string }>();
     
@@ -184,16 +190,16 @@ export function OverviewStatsSection({
         })
         .map((tx, index) => {
           // Calculer le total des exécutions pour ce rôle métier spécifique
-          const businessRoleTotalExecutions = analysisResult?.businessRoleTransactions
+          const itemTotalExecutions = analysisResult?.businessRoleTransactions
             .filter((brTx: any) => brTx.businessRole === tx.businessRole)
             .reduce((sum: number, brTx: any) => sum + (brTx.executionCount || 0), 0) || 1;
           
           return {
             'N°': index + 1,
             'Transaction': tx.transaction,
-            'Rôle Métier': tx.businessRole,
+            [labels?.item || 'Élément']: tx.businessRole,
             'Nb Exécutions': tx.executionCount,
-            '% du Rôle Métier': `${((tx.executionCount / businessRoleTotalExecutions) * 100).toFixed(1)}%`
+            [`% du ${labels?.item || 'Élément'}`]: `${((tx.executionCount / itemTotalExecutions) * 100).toFixed(1)}%`
           };
         });
 
@@ -201,9 +207,9 @@ export function OverviewStatsSection({
       const summaryData = [{
         'N°': '',
         'Transaction': 'RÉSUMÉ',
-        'Rôle Métier': `${uncoveredTransactionsDialog.transactions.length} transactions non couvertes`,
+        [labels?.item || 'Élément']: `${uncoveredTransactionsDialog.transactions.length} transactions non couvertes`,
         'Nb Exécutions': uncoveredTransactionsDialog.totalExecutions,
-        '% du Rôle Métier': 'Variable par rôle'
+        [`% du ${labels?.item || 'Élément'}`]: 'Variable par élément'
       }];
 
       // Combiner résumé + ligne vide + données
@@ -212,9 +218,9 @@ export function OverviewStatsSection({
         {
           'N°': '',
           'Transaction': '',
-          'Rôle Métier': '',
+          [labels?.item || 'Élément']: '',
           'Nb Exécutions': '',
-          '% du Rôle Métier': ''
+          [`% du ${labels?.item || 'Élément'}`]: ''
         },
         ...exportData
       ];
@@ -266,15 +272,15 @@ export function OverviewStatsSection({
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatsCard
-              title="Rôles Métier"
-              value={totalBusinessRoles}
+              title={labels?.itemPlural || 'Éléments'}
+              value={totalItems}
               icon={BusinessIcon}
               color="primary"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatsCard
-              title="Rôles Simples"
+              title={labels?.targetRolePlural || 'Rôles Cibles'}
               value={analysisResult.metadata?.totalSimpleRoles || 0}
               icon={RoleIcon}
               color="secondary"
@@ -289,23 +295,13 @@ export function OverviewStatsSection({
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box 
+            <StatsCard
+              title="Non couvertes"
+              value={uniqueTransactionsCount}
+              icon={WarningIcon}
+              color={uniqueTransactionsCount > 0 ? 'warning' : 'success'}
               onClick={uniqueTransactionsCount > 0 ? handleShowUncoveredTransactions : undefined}
-              sx={{ 
-                cursor: uniqueTransactionsCount > 0 ? 'pointer' : 'default',
-                '&:hover': uniqueTransactionsCount > 0 ? {
-                  transform: 'translateY(-2px)',
-                  transition: 'transform 0.2s ease-in-out',
-                } : {},
-              }}
-            >
-              <StatsCard
-                title="Non couvertes"
-                value={uniqueTransactionsCount}
-                icon={WarningIcon}
-                color={uniqueTransactionsCount > 0 ? 'warning' : 'success'}
-              />
-            </Box>
+            />
           </Grid>
         </Grid>
       </Box>
@@ -376,7 +372,7 @@ export function OverviewStatsSection({
                       onClick={() => handleSortUncoveredTransactions('businessRole')}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        Rôle Métier
+                        {labels?.item || 'Élément'}
                         {uncoveredTransactionsDialog.sortField === 'businessRole' && (
                           uncoveredTransactionsDialog.sortDirection === 'asc' 
                             ? <ArrowUpward fontSize="small" /> 
@@ -412,7 +408,7 @@ export function OverviewStatsSection({
                       onClick={() => handleSortUncoveredTransactions('percentage')}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
-                        % du Rôle Métier
+                        % du {labels?.item || 'Élément'}
                         {uncoveredTransactionsDialog.sortField === 'percentage' && (
                           uncoveredTransactionsDialog.sortDirection === 'asc' 
                             ? <ArrowUpward fontSize="small" /> 
