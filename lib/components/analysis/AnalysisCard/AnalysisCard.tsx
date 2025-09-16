@@ -876,7 +876,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             overflowY: 'auto',
             border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
             borderRadius: 1,
-            bgcolor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
+            bgcolor: theme.palette.mode === 'dark' ? alpha(theme.palette.neutral.main, 0.02) : '#f5f5f5',
             // Personnalisation de la scrollbar pour réduire sa largeur
             '&::-webkit-scrollbar': {
               width: '6px',
@@ -896,7 +896,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             <Box sx={{ 
               display: 'flex',
               bgcolor: theme.palette.mode === 'dark' 
-                ? alpha(theme.palette.common.white, 0.15)
+                ? alpha(theme.palette.neutral.main, 0.04)
                 : alpha(theme.palette.common.black, 0.08),
               borderBottom: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
               position: 'sticky',
