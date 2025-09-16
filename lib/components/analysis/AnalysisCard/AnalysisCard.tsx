@@ -958,11 +958,6 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                   key={idx} 
                   sx={{ 
                     display: 'flex',
-                    '&:nth-of-type(odd)': { 
-                      bgcolor: theme.palette.mode === 'dark' 
-                        ? alpha(theme.palette.common.white, 0.08)
-                        : alpha(theme.palette.common.black, 0.04)
-                    },
                     '&:hover': {
                       bgcolor: theme.palette.mode === 'dark'
                         ? alpha(theme.palette.primary.main, 0.08)
