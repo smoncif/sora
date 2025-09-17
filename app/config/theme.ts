@@ -414,46 +414,50 @@ const lightTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 16,
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-          border: `1px solid ${colors.neutral[200]}`,
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          border: `3px solid ${colors.neutral[400]}`,
           background: colors.gradients.subtle,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
             transform: 'translateY(-4px)',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.1)',
-            borderColor: colors.neutral[300],
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.1)',
+            borderColor: colors.neutral[500],
           },
           // Cartes avec thèmes colorés modernes
           '&.card-primary': {
             background: colors.gradients.primaryLight,
-            borderColor: colors.primary[200],
+            borderColor: colors.primary[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px ${alpha(colors.primary[500], 0.1)}`,
             '&:hover': {
-              borderColor: colors.primary[300],
-              boxShadow: `0 12px 40px ${alpha(colors.primary[500], 0.2)}`,
+              borderColor: colors.primary[500],
+              boxShadow: `0 12px 40px ${alpha(colors.primary[500], 0.2)}, 0 0 0 1px ${alpha(colors.primary[600], 0.2)}`,
             },
           },
           '&.card-secondary': {
             background: colors.gradients.secondaryLight,
-            borderColor: colors.secondary[200],
+            borderColor: colors.secondary[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px ${alpha(colors.secondary[500], 0.1)}`,
             '&:hover': {
-              borderColor: colors.secondary[300],
-              boxShadow: `0 12px 40px ${alpha(colors.secondary[500], 0.2)}`,
+              borderColor: colors.secondary[500],
+              boxShadow: `0 12px 40px ${alpha(colors.secondary[500], 0.2)}, 0 0 0 1px ${alpha(colors.secondary[600], 0.2)}`,
             },
           },
           '&.card-success': {
             background: `linear-gradient(135deg, ${colors.success[50]} 0%, ${colors.success[100]} 100%)`,
-            borderColor: colors.success[200],
+            borderColor: colors.success[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px ${alpha(colors.success[500], 0.1)}`,
             '&:hover': {
-              borderColor: colors.success[300],
-              boxShadow: `0 12px 40px ${alpha(colors.success[500], 0.2)}`,
+              borderColor: colors.success[500],
+              boxShadow: `0 12px 40px ${alpha(colors.success[500], 0.2)}, 0 0 0 1px ${alpha(colors.success[600], 0.2)}`,
             },
           },
           '&.card-warning': {
             background: `linear-gradient(135deg, ${colors.warning[50]} 0%, ${colors.warning[100]} 100%)`,
-            borderColor: colors.warning[200],
+            borderColor: colors.warning[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px ${alpha(colors.warning[500], 0.1)}`,
             '&:hover': {
-              borderColor: colors.warning[300],
-              boxShadow: `0 12px 40px ${alpha(colors.warning[500], 0.2)}`,
+              borderColor: colors.warning[500],
+              boxShadow: `0 12px 40px ${alpha(colors.warning[500], 0.2)}, 0 0 0 1px ${alpha(colors.warning[600], 0.2)}`,
             },
           },
           '&.card-error': {
@@ -837,45 +841,49 @@ const darkTheme = createTheme({
         root: {
           borderRadius: 16,
           backgroundColor: alpha(colors.neutral[800], 0.6),
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-          border: `1px solid ${colors.neutral[700]}`,
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+          border: `3px solid ${colors.neutral[500]}`,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
             transform: 'translateY(-4px)',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
-            borderColor: colors.neutral[600],
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.15)',
+            borderColor: colors.neutral[400],
           },
           // Cartes avec thèmes colorés pour le mode sombre
           '&.card-primary': {
             backgroundColor: alpha(colors.primary[800], 0.3),
-            borderColor: colors.primary[600],
+            borderColor: colors.primary[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px ${alpha(colors.primary[500], 0.2)}`,
             '&:hover': {
-              borderColor: colors.primary[500],
-              boxShadow: `0 12px 40px ${alpha(colors.primary[400], 0.2)}`,
+              borderColor: colors.primary[300],
+              boxShadow: `0 12px 40px ${alpha(colors.primary[400], 0.3)}, 0 0 0 1px ${alpha(colors.primary[400], 0.3)}`,
             },
           },
           '&.card-secondary': {
             backgroundColor: alpha(colors.secondary[800], 0.3),
-            borderColor: colors.secondary[600],
+            borderColor: colors.secondary[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px ${alpha(colors.secondary[500], 0.2)}`,
             '&:hover': {
-              borderColor: colors.secondary[500],
-              boxShadow: `0 12px 40px ${alpha(colors.secondary[400], 0.2)}`,
+              borderColor: colors.secondary[300],
+              boxShadow: `0 12px 40px ${alpha(colors.secondary[400], 0.3)}, 0 0 0 1px ${alpha(colors.secondary[400], 0.3)}`,
             },
           },
           '&.card-success': {
             backgroundColor: alpha(colors.success[800], 0.3),
-            borderColor: colors.success[600],
+            borderColor: colors.success[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px ${alpha(colors.success[500], 0.2)}`,
             '&:hover': {
-              borderColor: colors.success[500],
-              boxShadow: `0 12px 40px ${alpha(colors.success[400], 0.2)}`,
+              borderColor: colors.success[300],
+              boxShadow: `0 12px 40px ${alpha(colors.success[400], 0.3)}, 0 0 0 1px ${alpha(colors.success[400], 0.3)}`,
             },
           },
           '&.card-warning': {
             backgroundColor: alpha(colors.warning[800], 0.3),
-            borderColor: colors.warning[600],
+            borderColor: colors.warning[400],
+            boxShadow: `0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px ${alpha(colors.warning[500], 0.2)}`,
             '&:hover': {
-              borderColor: colors.warning[500],
-              boxShadow: `0 12px 40px ${alpha(colors.warning[400], 0.2)}`,
+              borderColor: colors.warning[300],
+              boxShadow: `0 12px 40px ${alpha(colors.warning[400], 0.3)}, 0 0 0 1px ${alpha(colors.warning[400], 0.3)}`,
             },
           },
         },

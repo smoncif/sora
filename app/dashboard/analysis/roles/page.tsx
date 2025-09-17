@@ -260,7 +260,7 @@ export default function RoleAnalysisPage() {
                   fontWeight: 400,
                 }}
               >
-                Architecture optimisée avec hooks spécialisés
+                Optimisation des couvertures de transactions
             </Typography>
             </Box>
             <ThemeToggle />

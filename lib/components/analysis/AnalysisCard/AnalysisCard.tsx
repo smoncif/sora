@@ -1097,8 +1097,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               mb: 2,
               p: 2,
               bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
-              borderRadius: 2,
-              border: `1px solid ${alpha(theme.palette.divider, theme.palette.mode === 'dark' ? 0.3 : 0.1)}`
+              borderRadius: 2
             }}>
               {/* Transactions du rôle métier */}
               <Tooltip
@@ -1115,7 +1114,13 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 enterDelay={300}
                 leaveDelay={100}
               >
-                <Box sx={{ cursor: 'help' }}>
+                <Box sx={{ 
+                  cursor: 'help',
+                  p: 1.5,
+                  borderRadius: 1,
+                  bgcolor: 'transparent',
+                  border: 'none'
+                }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary, display: 'block' }}>
                     📋 Transactions Métier
                 </Typography>
@@ -1130,7 +1135,12 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               </Tooltip>
               
               {/* Couverture actuelle vs maximum */}
-              <Box>
+              <Box sx={{ 
+                p: 1.5,
+                borderRadius: 1,
+                bgcolor: 'transparent',
+                border: 'none'
+              }}>
                 <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary, display: 'block' }}>
                   🎯 Couverture
                 </Typography>
@@ -1192,7 +1202,13 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 enterDelay={300}
                 leaveDelay={100}
               >
-                <Box sx={{ cursor: 'help' }}>
+                <Box sx={{ 
+                  cursor: 'help',
+                  p: 1.5,
+                  borderRadius: 1,
+                  bgcolor: 'transparent',
+                  border: 'none'
+                }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.warning.main, display: 'block' }}>
                     ⚠️ Orphelines
                   </Typography>
@@ -1243,7 +1259,13 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 enterDelay={300}
                 leaveDelay={100}
               >
-                <Box sx={{ cursor: 'help' }}>
+                <Box sx={{ 
+                  cursor: 'help',
+                  p: 1.5,
+                  borderRadius: 1,
+                  bgcolor: 'transparent',
+                  border: 'none'
+                }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.error.main, display: 'block' }}>
                     🚫 Non Utilisées
                   </Typography>
@@ -1291,8 +1313,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             mb: 3,
             p: 2,
             bgcolor: alpha(theme.palette.success.main, 0.05),
-            borderRadius: 2,
-            border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`
+            borderRadius: 2
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
               <Tooltip
@@ -1483,7 +1504,23 @@ export const AnalysisCard = React.memo(function AnalysisCard({
         </Box>
 
         {/* Tableau des rôles simples */}
-        <Table size="small">
+        <Table size="small" sx={{
+          border: `2px solid ${alpha(theme.palette.divider, theme.palette.mode === 'dark' ? 0.5 : 0.3)}`,
+          borderRadius: 2,
+          overflow: 'hidden',
+          '& .MuiTableCell-root': {
+            borderBottom: `1px solid ${alpha(theme.palette.divider, theme.palette.mode === 'dark' ? 0.3 : 0.2)}`,
+            borderRight: `1px solid ${alpha(theme.palette.divider, theme.palette.mode === 'dark' ? 0.2 : 0.1)}`,
+            '&:last-child': {
+              borderRight: 'none'
+            }
+          },
+          '& .MuiTableHead-root .MuiTableCell-root': {
+            backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.3 : 0.5),
+            borderBottom: `2px solid ${alpha(theme.palette.divider, theme.palette.mode === 'dark' ? 0.4 : 0.3)}`,
+            fontWeight: 600
+          }
+        }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Sélection</TableCell>

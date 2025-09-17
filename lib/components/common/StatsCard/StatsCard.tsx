@@ -58,7 +58,6 @@ export const StatsCard: React.FC<StatsCardProps> = ({
         cursor: onClick ? 'pointer' : 'default',
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         borderRadius: 3,
-        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
         bgcolor: alpha(theme.palette.background.paper, 0.6),
         backdropFilter: 'blur(10px)',
         p: 3,
@@ -66,10 +65,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({
         overflow: 'hidden',
         '&:hover': onClick ? {
           transform: 'translateY(-3px)',
-          boxShadow: `0 8px 32px ${alpha(mainColor, 0.12)}`,
-          border: `1px solid ${alpha(mainColor, 0.15)}`,
+          boxShadow: `0 8px 32px ${alpha(mainColor, 0.15)}`,
         } : {
-          boxShadow: `0 4px 16px ${alpha(theme.palette.common.black, 0.04)}`,
+          boxShadow: `0 4px 16px ${alpha(theme.palette.common.black, 0.08)}`,
         },
         '&::before': {
           content: '""',

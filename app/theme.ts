@@ -93,7 +93,12 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.05)',
+          boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          border: '3px solid rgba(0, 0, 0, 0.2)',
+          '&:hover': {
+            borderColor: 'rgba(0, 0, 0, 0.3)',
+            boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.1)',
+          },
         },
       },
     },
