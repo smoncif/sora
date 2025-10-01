@@ -164,7 +164,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = React.memo(({
                 return (
                   <TableCell key={roleName} align="center">
                     <Chip 
-                      label={`${metrics.usage} exec`}
+                      label={`${metrics.usage}`}
                       size="small"
                       color={isOptimal ? 'success' : 'default'}
                       variant={isOptimal ? 'filled' : 'outlined'}
