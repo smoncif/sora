@@ -49,7 +49,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = React.memo(({
     const details = roleData.details || {};
     
     const covered = details.covered?.length || 0;
-    const nonCouvertes = details.nonCouvertes?.length || 0;
+    const usage = roleData.remainingUsageScore || 0; // Nombre total d'exécutions
     const nonUtilisees = details.nonUtilisees?.length || 0;
 
     // Score d'efficacité : (couvertes / (couvertes + non utilisées)) * 100
@@ -58,14 +58,14 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = React.memo(({
 
     return {
       covered,
-      notCovered: nonCouvertes,
+      usage,
       notUsed: nonUtilisees,
       efficiency
     };
   }, []);
 
   // 🏆 Calcul du rôle optimal pour chaque métrique
-  const getOptimalRole = (metric: 'covered' | 'notCovered' | 'notUsed' | 'efficiency') => {
+  const getOptimalRole = (metric: 'covered' | 'usage' | 'notUsed' | 'efficiency') => {
     if (selectedRoles.length === 0) return '';
     
     const metricsData = selectedRoles.map(role => ({
@@ -81,9 +81,9 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = React.memo(({
           current.metrics.covered > max.metrics.covered ? current : max
         ).name;
         break;
-      case 'notCovered':
-        optimalRole = metricsData.reduce((min, current) => 
-          current.metrics.notCovered < min.metrics.notCovered ? current : min
+      case 'usage':
+        optimalRole = metricsData.reduce((max, current) => 
+          current.metrics.usage > max.metrics.usage ? current : max
         ).name;
         break;
       case 'notUsed':
@@ -155,16 +155,16 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = React.memo(({
             
             <TableRow>
               <TableCell sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                🔴 Non Couvertes
+                📊 Usage
               </TableCell>
               {selectedRoles.map(role => {
                 const metrics = calculateMetrics(role);
                 const roleName = (role as any).roleName || role.name;
-                const isOptimal = roleName === getOptimalRole('notCovered');
+                const isOptimal = roleName === getOptimalRole('usage');
                 return (
                   <TableCell key={roleName} align="center">
                     <Chip 
-                      label={metrics.notCovered}
+                      label={`${metrics.usage} exec`}
                       size="small"
                       color={isOptimal ? 'success' : 'default'}
                       variant={isOptimal ? 'filled' : 'outlined'}
@@ -173,8 +173,8 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = React.memo(({
                 );
               })}
               <TableCell align="center">
-                <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.warning.main }}>
-                  {getOptimalRole('notCovered')}
+                <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.info.main }}>
+                  {getOptimalRole('usage')}
                 </Typography>
               </TableCell>
             </TableRow>
