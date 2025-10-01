@@ -26,6 +26,8 @@ import {
   HelpOutline,
 } from '@mui/icons-material';
 import { TransactionBlock } from '../TransactionBlock';
+import { UserTransactionDisplay } from '../UserTransactionDisplay/UserTransactionDisplay';
+import { UserSelectedRoles } from '../UserSelectedRoles/UserSelectedRoles';
 import { ZeroCoverageToggle } from '../ZeroCoverageToggle';
 import { ComparisonIcon } from '../ComparisonIcon';
 import { ComparisonSlider } from '../ComparisonSlider';
@@ -1090,15 +1092,16 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             </Box>
             
             {/* Informations compactes du rôle métier */}
-            <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: 2, 
-              mb: 2,
-              p: 2,
-              bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
-              borderRadius: 2
-            }}>
+            {mode === 'roles' ? (
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                gap: 2, 
+                mb: 2,
+                p: 2,
+                bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
+                borderRadius: 2
+              }}>
               {/* Transactions du rôle métier */}
               <Tooltip
                 title={
@@ -1277,9 +1280,27 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                   </Typography>
             </Box>
               </Tooltip>
+              </Box>
+            ) : (
+              /* Mode utilisateur - Nouveau composant d'affichage unifié des transactions */
+              <Box sx={{ 
+                p: 0, 
+                borderRadius: 2, 
+                mb: 0,
+                bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+              }}>
 
-
-            </Box>
+                <UserTransactionDisplay
+                  userTransactions={analysis.uniqueTransactions}
+                  selectedTransactions={Array.from(dynamicData.selectedTransactions)}
+                  orphanTransactions={staticData.maxAchievableInfo.orphanTransactions}
+                  unusedTransactions={dynamicData.unusedTransactions}
+                  executionMap={staticData.txExecutionMap}
+                  mode="detailed"
+                />
+              </Box>
+            )}
 
           </Box>
           
@@ -1306,8 +1327,17 @@ export const AnalysisCard = React.memo(function AnalysisCard({
           </Box>
         </Box>
 
+        {/* Section des rôles sélectionnés pour le mode utilisateur */}
+        {selectedRoles.size > 0 && mode === 'users' && (
+          <UserSelectedRoles
+            selectedRoles={Array.from(selectedRoles)}
+            onRemoveRole={(roleName) => handleSelectionChange(roleName, false)}
+            onClearAll={() => onGlobalSelectionChange(itemId, new Set<string>())}
+          />
+        )}
+
         {/* Rôles sélectionnés avec distinction - Section pleine largeur */}
-        {selectedRoles.size > 0 && (
+        {selectedRoles.size > 0 && mode === 'roles' && (
           <Box sx={{ 
             width: '100%', 
             mb: 3,
