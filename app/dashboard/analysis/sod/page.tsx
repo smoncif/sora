@@ -75,6 +75,7 @@ export default function SodAnalysisPage() {
     isActionDeleted,
     isActionRestricted,
     isResourceRestricted,
+    resetState, // ✅ Ajouter resetState pour l'upload
     version // Pour forcer le re-calcul des useMemo
   } = useSodActionsContext();
   
@@ -179,7 +180,7 @@ export default function SodAnalysisPage() {
     const file = event.target.files?.[0];
     if (file) {
       // 🚀 Réinitialiser l'état global avant de charger un nouveau fichier
-      actionsContext.resetState();
+      resetState();
       
       // Sauvegarder la référence au fichier
       uploadedFileRef.current = file;
