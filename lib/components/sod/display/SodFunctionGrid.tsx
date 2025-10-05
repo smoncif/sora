@@ -44,7 +44,7 @@ export interface SodFunctionGridProps {
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
   
   /** Callback pour restreindre une action */
-  onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
@@ -62,7 +62,7 @@ const SodFunctionCard: React.FC<{
   functionIndex?: number;
   duplicateMap?: Map<string, { functionIndices: number[]; isDuplicate: boolean }>;
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
-  onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
 }> = ({ func, defaultExpanded = true, roleName, riskId, risk, functionIndex = 0, duplicateMap, onDeleteAction, onRestrictAction, onRestrictResource }) => {
   const theme = useTheme();
@@ -181,7 +181,7 @@ const SodFunctionCard: React.FC<{
                   defaultExpanded={false}
                   isDuplicate={isDuplicate}
                   onDelete={(code) => roleName && riskId && onDeleteAction?.(roleName, riskId, code)}
-                  onRestrict={(code) => roleName && riskId && onRestrictAction?.(roleName, riskId, code)}
+                  onRestrict={(code, resources) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
                   onRestrictResource={(actionCode, resourceCode, externalResourceCode, values) => 
                     roleName && riskId && onRestrictResource?.(roleName, riskId, actionCode, resourceCode, externalResourceCode, values)
                   }

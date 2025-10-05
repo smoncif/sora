@@ -72,7 +72,7 @@ export interface AnalysisWorkflow {
   
   // Actions de haut niveau
   startNewAnalysis: (file: File) => Promise<void>;
-  saveCurrentAnalysis: (customMetadata?: { name?: string; description?: string }) => Promise<void>;
+  saveCurrentAnalysis: (customMetadata?: { name?: string; description?: string; mode?: 'roles' | 'users' }) => Promise<void>;
   exportCurrentAnalysis: (format?: 'excel') => Promise<void>;
   resetWorkflow: () => void;
   loadSavedAnalysis: (analysisId: string) => Promise<void>;
@@ -491,7 +491,7 @@ export const useAnalysisWorkflow = (
   const isLoadedAnalysis = fileManager.state.importType === 'saved' && fileManager.state.loadedAnalysisId;
   
   // Action de haut niveau : Sauvegarder l'analyse actuelle
-  const saveCurrentAnalysis = useCallback(async (customMetadata?: { name?: string; description?: string }) => {
+  const saveCurrentAnalysis = useCallback(async (customMetadata?: { name?: string; description?: string; mode?: 'roles' | 'users' }) => {
     const actionType = isLoadedAnalysis ? 'mise à jour' : 'sauvegarde';
     
     const analysisResult = fileManager.state.analysisResult;

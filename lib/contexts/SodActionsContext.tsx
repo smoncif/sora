@@ -15,6 +15,7 @@
 'use client';
 
 import React, { createContext, useContext, useCallback, useRef, useMemo } from 'react';
+import { extractExternalResourceValues, normalizeValue } from 'lib/utils/sodResourceUtils';
 
 /**
  * Map globale des restrictions par valeurs
@@ -56,7 +57,7 @@ interface SodActionsContextValue extends SodActionsState {
   toggleDeleteAction: (roleName: string, actionCode: string) => void;
   
   /** Restreindre/dé-restreindre une action */
-  toggleRestrictAction: (roleName: string, actionCode: string) => void;
+  toggleRestrictAction: (roleName: string, actionCode: string, resources: any[]) => void;
   
   /** Restreindre/dé-restreindre une ressource avec ses valeurs */
   toggleRestrictResource: (
@@ -146,30 +147,155 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     incrementVersion();
   }, [getActionKey, incrementVersion]);
   
+  // ✅ Fonctions utilitaires importées depuis sodResourceUtils.ts
+  
   /**
-   * Toggle restriction d'une action
+   * Nettoie une action de restrictedActionsRef si elle n'a plus de ressources restreintes
+   * ✅ Maintient la cohérence entre l'état du contexte et l'état visuel
+   * ⚠️  Doit être déclaré AVANT toggleRestrictAction qui l'utilise
    */
-  const toggleRestrictAction = useCallback((roleName: string, actionCode: string) => {
+  const cleanupActionIfNeeded = useCallback((roleName: string, actionCode: string, resources: any[]) => {
     const key = getActionKey(roleName, actionCode);
-    const current = restrictedActionsRef.current.get(key);
+    const restriction = restrictedActionsRef.current.get(key);
     
-    if (current) {
-      restrictedActionsRef.current.delete(key);
-    } else {
-      restrictedActionsRef.current.set(key, { restrictedByAction: true });
-      // Si on restreint, on retire la suppression
-      deletedActionsRef.current.delete(key);
+    // Si l'action n'est pas marquée comme restreinte directement, pas besoin de nettoyer
+    if (!restriction || !restriction.restrictedByAction) {
+      return;
     }
     
-    console.log('🚫 [RESTRICT ACTION]', { 
-      roleName, 
-      actionCode, 
-      key,
-      newState: !current,
-      mapSize: restrictedActionsRef.current.size 
+    // Vérifier si l'action a encore des ressources non-S_TCODE réellement restreintes
+    const hasRestrictedResource = resources.some(resource => {
+      if (resource.code === 'S_TCODE') return false;
+      
+      return resource.externalResources?.some((extRes: any) => {
+        const values = extractExternalResourceValues(extRes);
+        const resKey = getResourceKey(roleName, resource.code, extRes.code);
+        const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+        
+        if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
+          return false;
+        }
+        
+        // Toutes les valeurs doivent être dans le set
+        return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+      });
     });
+    
+    // Si l'action n'a plus de ressources restreintes, la nettoyer
+    if (!hasRestrictedResource) {
+      console.log('🧹 [AUTO CLEANUP] Action sans ressources restreintes:', {
+        roleName,
+        actionCode,
+        key
+      });
+      restrictedActionsRef.current.delete(key);
+    }
+  }, [getActionKey, getResourceKey]);
+  
+  /**
+   * Toggle restriction d'une action
+   * ✅ PROPAGATION : Restreint automatiquement toutes les ressources non-S_TCODE
+   * ✅ FIX : Vérifie l'état visuel réel (action peut être restreinte via ses ressources)
+   * ✅ CLEANUP : Nettoie l'action si elle n'a plus de ressources restreintes AVANT de vérifier l'état
+   */
+  const toggleRestrictAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
+    const key = getActionKey(roleName, actionCode);
+    
+    // ✅ CLEANUP PRÉALABLE : Nettoyer l'action si elle n'a plus de ressources restreintes
+    cleanupActionIfNeeded(roleName, actionCode, resources);
+    
+    const actionDirectlyRestricted = restrictedActionsRef.current.get(key);
+    
+    // ✅ Vérifier si l'action est visuellement restreinte (via ses ressources)
+    const hasRestrictedResource = resources.some(resource => {
+      if (resource.code === 'S_TCODE') return false;
+      
+      return resource.externalResources?.some((extRes: any) => {
+        const values = extractExternalResourceValues(extRes);
+        const resKey = getResourceKey(roleName, resource.code, extRes.code);
+        const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+        
+        if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
+          return false;
+        }
+        
+        // Toutes les valeurs doivent être dans le set
+        return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+      });
+    });
+    
+    const isCurrentlyRestricted = !!actionDirectlyRestricted || hasRestrictedResource;
+    
+    console.log('🔍 [TOGGLE RESTRICT ACTION] État actuel:', {
+      roleName,
+      actionCode,
+      actionDirectlyRestricted: !!actionDirectlyRestricted,
+      hasRestrictedResource,
+      isCurrentlyRestricted
+    });
+    
+    if (isCurrentlyRestricted) {
+      // Dé-restreindre : retirer l'action ET les ressources
+      restrictedActionsRef.current.delete(key);
+      
+      // Retirer les valeurs des ressources non-S_TCODE
+      resources.forEach(resource => {
+        if (resource.code !== 'S_TCODE') {
+          resource.externalResources?.forEach((extRes: any) => {
+            const values = extractExternalResourceValues(extRes);
+            const resKey = getResourceKey(roleName, resource.code, extRes.code);
+            const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+            
+            if (restrictedValuesSet) {
+              // Retirer ces valeurs
+              values.forEach(v => restrictedValuesSet.delete(v));
+              if (restrictedValuesSet.size === 0) {
+                restrictedResourcesRef.current.delete(resKey);
+              }
+            }
+          });
+        }
+      });
+      
+      console.log('✅ [UNRESTRICT ACTION + RESOURCES]', { 
+        roleName, 
+        actionCode, 
+        key,
+        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length
+      });
+    } else {
+      // Restreindre : ajouter l'action ET les ressources
+      restrictedActionsRef.current.set(key, { restrictedByAction: true });
+      
+      // Si on restreint, on retire la suppression
+      deletedActionsRef.current.delete(key);
+      
+      // Ajouter les valeurs des ressources non-S_TCODE
+      resources.forEach(resource => {
+        if (resource.code !== 'S_TCODE') {
+          resource.externalResources?.forEach((extRes: any) => {
+            const values = extractExternalResourceValues(extRes);
+            const resKey = getResourceKey(roleName, resource.code, extRes.code);
+            const restrictedValuesSet = restrictedResourcesRef.current.get(resKey) || new Set<string>();
+            
+            // Ajouter ces valeurs
+            values.forEach(v => restrictedValuesSet.add(v));
+            restrictedResourcesRef.current.set(resKey, restrictedValuesSet);
+          });
+        }
+      });
+      
+      console.log('🚫 [RESTRICT ACTION + RESOURCES]', { 
+        roleName, 
+        actionCode, 
+        key,
+        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length,
+        totalRestrictedResources: restrictedResourcesRef.current.size
+      });
+    }
+    
     incrementVersion();
-  }, [getActionKey, incrementVersion]);
+  }, [getActionKey, getResourceKey, cleanupActionIfNeeded, incrementVersion]);
   
   /**
    * Toggle restriction d'une ressource avec ses valeurs
@@ -250,10 +376,17 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   
   /**
    * Vérifier si une action est restreinte
+   * 
+   * Note : Le lazy cleanup a été retiré car il n'était pas assez précis.
+   * La logique de restriction se base maintenant uniquement sur applyStateToAction
+   * qui vérifie correctement si les ressources de l'action sont restreintes.
+   * restrictedActionsRef sert uniquement à marquer qu'une action a été restreinte
+   * directement via son bouton (pour la propagation aux ressources).
    */
   const isActionRestricted = useCallback((roleName: string, actionCode: string) => {
     const key = getActionKey(roleName, actionCode);
     const restriction = restrictedActionsRef.current.get(key);
+    
     return {
       isRestricted: !!restriction,
       restrictedByAction: restriction?.restrictedByAction || false

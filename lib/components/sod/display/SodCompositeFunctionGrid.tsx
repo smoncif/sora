@@ -42,7 +42,7 @@ export interface SodCompositeFunctionGridProps {
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
   
   /** Callback pour restreindre une action */
-  onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
@@ -57,7 +57,7 @@ const SodCompositeFunctionCard: React.FC<{
   compositeRoleName?: string;
   riskId?: string;
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
-  onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
 }> = ({ func, defaultExpanded = true, compositeRoleName, riskId, onDeleteAction, onRestrictAction, onRestrictResource }) => {
   const theme = useTheme();

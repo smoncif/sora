@@ -40,7 +40,7 @@ export interface SodSimpleRoleInCompositeItemProps {
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
   
   /** Callback pour restreindre une action */
-  onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
@@ -152,7 +152,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
                 level={0}
                 defaultExpanded={false}
                 onDelete={(code) => compositeRoleName && riskId && onDeleteAction?.(compositeRoleName, riskId, code)}
-                onRestrict={(code) => compositeRoleName && riskId && onRestrictAction?.(compositeRoleName, riskId, code)}
+                onRestrict={(code, resources) => compositeRoleName && riskId && onRestrictAction?.(compositeRoleName, riskId, code, resources)}
                 onRestrictResource={(actionCode, resourceCode, externalResourceCode, values) => 
                   compositeRoleName && riskId && onRestrictResource?.(compositeRoleName, riskId, actionCode, resourceCode, externalResourceCode, values)
                 }

@@ -46,7 +46,7 @@ export interface SodActionItemProps {
   onDelete?: (actionCode: string) => void;
   
   /** Callback pour restreindre l'action */
-  onRestrict?: (actionCode: string) => void;
+  onRestrict?: (actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
@@ -295,7 +295,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             </IconButton>
             <IconButton
               size="small"
-              onClick={() => onRestrict?.(code)}
+              onClick={() => onRestrict?.(code, resources)}
               disabled={isDeleted || !hasOtherResources} // Désactivé si supprimée OU pas de ressources non-S_TCODE (Cas 1)
               sx={{
                 p: 0.5,
@@ -350,15 +350,14 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
           <Collapse in={expanded} timeout="auto">
             <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {resources.map((resource, index: number) => {
+                // ✅ La propagation Parent → Enfants se fait dans le CONTEXTE (toggleRestrictAction)
+                // Ici, on affiche simplement l'état réel calculé par applyStateToResource
                 // Si l'action est supprimée, toutes les ressources sont supprimées
-                // Si l'action est restreinte VIA SON BOUTON, seules les ressources non-S_TCODE sont restreintes
-                // Si l'action est restreinte VIA UNE RESSOURCE, les autres ressources gardent leur propre état
                 const enhancedResource = {
                   ...resource,
                   isDeleted: isDeleted,
-                  isRestricted: restrictedByAction 
-                    ? (isRestricted && resource.code !== 'S_TCODE')  // Cas 1 : Propagation Parent → Enfants
-                    : resource.isRestricted,  // Cas 2 : État propre de la ressource
+                  // ✅ Utiliser l'état calculé de la ressource (déjà correct via applyStateToResource)
+                  isRestricted: resource.isRestricted,
                 };
 
                 return (

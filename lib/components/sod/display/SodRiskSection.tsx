@@ -39,7 +39,7 @@ export interface SodRiskSectionProps {
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
   
   /** Callback pour restreindre une action */
-  onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;

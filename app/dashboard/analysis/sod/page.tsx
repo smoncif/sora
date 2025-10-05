@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Box, Container, Typography, Alert, Paper, Button, TablePagination } from '@mui/material';
+import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import BugReportIcon from '@mui/icons-material/BugReport';
 import { useAuth } from 'lib/hooks/useAuth';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
 import { useSodSession } from 'lib/hooks/sod/useSodSession';
@@ -11,6 +13,7 @@ import { SodParsingProgress } from 'lib/components/sod/upload/SodParsingProgress
 import { SodSimpleRoleCard, SodCompositeRoleCard } from 'lib/components/sod';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
+import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 
 
@@ -76,8 +79,93 @@ export default function SodAnalysisPage() {
     isActionRestricted,
     isResourceRestricted,
     resetState, // ✅ Ajouter resetState pour l'upload
-    version // Pour forcer le re-calcul des useMemo
+    version, // Pour forcer le re-calcul des useMemo
+    deletedActions,
+    restrictedActions,
+    restrictedResources
   } = useSodActionsContext();
+  
+  // 🐛 Calculer toutes les actions VISUELLEMENT restreintes (en utilisant la même logique que applyStateToAction)
+  const allRestrictedActions = useMemo(() => {
+    const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
+    
+    // Parcourir tous les rôles pour calculer l'état visuel réel de chaque action
+    [...simpleRoles, ...compositeRoles].forEach(role => {
+      role.risks.forEach(risk => {
+        risk.functions.forEach(func => {
+          // Pour les rôles simples
+          if ('actions' in func) {
+            func.actions.forEach(action => {
+              const key = `${role.roleName}|${action.code}`;
+              
+              // ✅ Utiliser la MÊME LOGIQUE que applyStateToAction
+              const actionRestriction = isActionRestricted(role.roleName, action.code);
+              const restrictedByAction = actionRestriction.restrictedByAction;
+              
+              // Vérifier si l'action a des ressources réellement restreintes
+              const hasRestrictedResource = action.resources.some(resource => {
+                if (resource.code === 'S_TCODE') return false;
+                
+                return resource.externalResources?.some(extRes => {
+                  const values = extractExternalResourceValues(extRes);
+                  return isResourceRestricted(role.roleName, resource.code, extRes.code, values);
+                });
+              });
+              
+              // ✅ Calculer l'état visuel final (même logique que applyStateToAction)
+              const finalIsRestricted = restrictedByAction 
+                ? hasRestrictedResource 
+                : (actionRestriction.isRestricted || hasRestrictedResource);
+              
+              // N'ajouter que si visuellement restreinte
+              if (finalIsRestricted) {
+                result.set(key, { 
+                  directlyRestricted: restrictedByAction, 
+                  viaResources: hasRestrictedResource 
+                });
+              }
+            });
+          }
+          // Pour les rôles composites
+          else if ('simpleRoles' in func) {
+            func.simpleRoles.forEach(simpleRole => {
+              simpleRole.actions.forEach(action => {
+                const key = `${role.roleName}|${action.code}`;
+                
+                // ✅ Utiliser la MÊME LOGIQUE que applyStateToAction
+                const actionRestriction = isActionRestricted(role.roleName, action.code);
+                const restrictedByAction = actionRestriction.restrictedByAction;
+                
+                const hasRestrictedResource = action.resources.some(resource => {
+                  if (resource.code === 'S_TCODE') return false;
+                  
+                  return resource.externalResources?.some(extRes => {
+                    const values = extractExternalResourceValues(extRes);
+                    return isResourceRestricted(role.roleName, resource.code, extRes.code, values);
+                  });
+                });
+                
+                // ✅ Calculer l'état visuel final
+                const finalIsRestricted = restrictedByAction 
+                  ? hasRestrictedResource 
+                  : (actionRestriction.isRestricted || hasRestrictedResource);
+                
+                // N'ajouter que si visuellement restreinte
+                if (finalIsRestricted) {
+                  result.set(key, { 
+                    directlyRestricted: restrictedByAction, 
+                    viaResources: hasRestrictedResource 
+                  });
+                }
+              });
+            });
+          }
+        });
+      });
+    });
+    
+    return result;
+  }, [simpleRoles, compositeRoles, restrictedActions, isResourceRestricted, version]);
   
   
   // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
@@ -117,8 +205,8 @@ export default function SodAnalysisPage() {
     toggleDeleteAction(roleName, actionCode);
   }, [toggleDeleteAction]); // ✅ Stable : toggleDeleteAction ne change jamais
 
-  const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string) => {
-    toggleRestrictAction(roleName, actionCode);
+  const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources: any[]) => {
+    toggleRestrictAction(roleName, actionCode, resources);
   }, [toggleRestrictAction]); // ✅ Stable : toggleRestrictAction ne change jamais
 
   const handleRestrictResourceWrapped = useCallback((
@@ -224,6 +312,146 @@ export default function SodAnalysisPage() {
         </Alert>
       )}
 
+      {/* 🐛 Section de Debug - État des restrictions */}
+      {session && (
+        <Accordion sx={{ mt: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <BugReportIcon color="info" />
+              <Typography variant="h6">
+                🐛 Debug - État des Restrictions
+              </Typography>
+              <Chip 
+                label={`${deletedActions.size} supprimées`} 
+                size="small" 
+                color="error" 
+              />
+              <Chip 
+                label={`${allRestrictedActions.size} actions restreintes`} 
+                size="small" 
+                color="warning" 
+              />
+              <Chip 
+                label={`${restrictedResources.size} ressources restreintes`} 
+                size="small" 
+                color="info" 
+              />
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              
+              {/* Actions supprimées */}
+              <Paper sx={{ p: 2, bgcolor: 'error.50' }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  🗑️ Actions Supprimées ({deletedActions.size})
+                </Typography>
+                {deletedActions.size === 0 ? (
+                  <Typography variant="body2" color="text.secondary">Aucune action supprimée</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    {Array.from(deletedActions.entries()).map(([key, _value]) => {
+                      const [roleName, actionCode] = key.split('|');
+                      return (
+                        <Chip 
+                          key={key} 
+                          label={`${roleName} → ${actionCode}`}
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                        />
+                      );
+                    })}
+                  </Box>
+                )}
+              </Paper>
+
+              {/* Actions restreintes */}
+              <Paper sx={{ p: 2, bgcolor: 'warning.50' }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  🚫 Actions Restreintes ({allRestrictedActions.size})
+                </Typography>
+                {allRestrictedActions.size === 0 ? (
+                  <Typography variant="body2" color="text.secondary">Aucune action restreinte</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                    {Array.from(allRestrictedActions.entries()).map(([key, value]) => {
+                      const [roleName, actionCode] = key.split('|');
+                      return (
+                        <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip 
+                            label={`${roleName} → ${actionCode}`}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                          />
+                          {value.directlyRestricted && (
+                            <Chip 
+                              label="🚫 Directe"
+                              size="small"
+                              color="warning"
+                            />
+                          )}
+                          {value.viaResources && (
+                            <Chip 
+                              label="🔗 Propagation"
+                              size="small"
+                              color="info"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Paper>
+
+              {/* Ressources restreintes */}
+              <Paper sx={{ p: 2, bgcolor: 'info.50' }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  🔒 Ressources Restreintes ({restrictedResources.size})
+                </Typography>
+                {restrictedResources.size === 0 ? (
+                  <Typography variant="body2" color="text.secondary">Aucune ressource restreinte</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                    {Array.from(restrictedResources.entries()).map(([key, valuesSet]) => {
+                      const [roleName, resourceCode, externalResourceCode] = key.split('|');
+                      // ✅ Afficher UNIQUEMENT les valeurs qui sont dans restrictedResourcesRef
+                      const restrictedValues = Array.from(valuesSet);
+                      
+                      // Ne pas afficher si aucune valeur restreinte
+                      if (restrictedValues.length === 0) return null;
+                      
+                      return (
+                        <Box key={key} sx={{ p: 1, border: '1px solid', borderColor: 'info.main', borderRadius: 1 }}>
+                          <Typography variant="body2" fontWeight="bold">
+                            {roleName} → {resourceCode} → {externalResourceCode === 'NULL' ? '(pas de code externe)' : externalResourceCode}
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                            {restrictedValues.map((value, idx) => (
+                              <Chip 
+                                key={idx}
+                                label={value}
+                                size="small"
+                                color="info"
+                                variant="filled"
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Paper>
+
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      )}
+
       {/* Barre de progression pendant le parsing */}
       {parsing && progress && (
         <Box sx={{ mt: 3 }}>
@@ -271,16 +499,16 @@ export default function SodAnalysisPage() {
             <TablePagination
               component="div"
               count={simpleRoles.length}
-              page={simpleRolePage}
+                page={simpleRolePage}
               onPageChange={handleSimplePageChange}
               rowsPerPage={simpleRolesPerPage}
               onRowsPerPageChange={handleSimpleRowsPerPageChange}
               rowsPerPageOptions={[5, 10, 25, 50]}
               labelRowsPerPage="Rôles par page:"
               labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
-              showFirstButton
-              showLastButton
-            />
+                showFirstButton
+                showLastButton
+              />
           </Box>
 
           {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}
@@ -350,16 +578,16 @@ export default function SodAnalysisPage() {
             <TablePagination
               component="div"
               count={compositeRoles.length}
-              page={compositeRolePage}
+                page={compositeRolePage}
               onPageChange={handleCompositePageChange}
               rowsPerPage={compositeRolesPerPage}
               onRowsPerPageChange={handleCompositeRowsPerPageChange}
               rowsPerPageOptions={[5, 10, 25, 50]}
               labelRowsPerPage="Rôles par page:"
               labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
-              showFirstButton
-              showLastButton
-            />
+                showFirstButton
+                showLastButton
+              />
           </Box>
 
           {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}

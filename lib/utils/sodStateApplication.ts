@@ -18,6 +18,7 @@ import type {
   SodSimpleRoleFunction,
   SodCompositeRoleFunction,
 } from 'lib/types/sodAnalysis';
+import { extractExternalResourceValues } from './sodResourceUtils';
 
 /**
  * Interface pour l'état des actions (depuis le contexte)
@@ -36,80 +37,7 @@ export interface SodActionsState {
   ) => boolean;
 }
 
-/**
- * Normalise une valeur (retire les zéros devant pour les nombres, uppercase pour les lettres)
- */
-function normalizeValue(value: string): string {
-  const trimmed = value.trim();
-  
-  if (/^\d+$/.test(trimmed)) {
-    return parseInt(trimmed, 10).toString();
-  }
-  
-  return trimmed.toUpperCase();
-}
-
-/**
- * Expand un intervalle en liste de valeurs
- */
-function expandInterval(from: string, to: string): string[] {
-  const normFrom = normalizeValue(from);
-  const normTo = normalizeValue(to);
-  
-  // Cas 1 : Intervalle numérique pur
-  if (/^\d+$/.test(normFrom) && /^\d+$/.test(normTo)) {
-    const start = parseInt(normFrom, 10);
-    const end = parseInt(normTo, 10);
-    
-    if (start > end) return [normFrom, normTo];
-    
-    const values: string[] = [];
-    for (let i = start; i <= end; i++) {
-      values.push(i.toString());
-    }
-    return values;
-  }
-  
-  // Cas 2 : Intervalle alphabétique pur
-  if (/^[A-Z]$/.test(normFrom) && /^[A-Z]$/.test(normTo)) {
-    const start = normFrom.charCodeAt(0);
-    const end = normTo.charCodeAt(0);
-    
-    if (start > end) return [normFrom, normTo];
-    
-    const values: string[] = [];
-    for (let i = start; i <= end; i++) {
-      values.push(String.fromCharCode(i));
-    }
-    return values;
-  }
-  
-  return [normFrom, normTo];
-}
-
-/**
- * Extrait toutes les valeurs d'une ressource
- */
-function extractResourceValues(resource: SodResource): string[] {
-  const allValues: string[] = [];
-  
-  for (const extRes of resource.externalResources || []) {
-    for (const value of extRes.values || []) {
-      if (value.valueFrom && value.valueTo && value.valueFrom !== value.valueTo) {
-        const expandedValues = expandInterval(value.valueFrom, value.valueTo);
-        allValues.push(...expandedValues);
-      } else if (value.valueFrom) {
-        const fromValues = value.valueFrom
-          .split(',')
-          .map(v => normalizeValue(v))
-          .filter(Boolean);
-        allValues.push(...fromValues);
-      }
-    }
-  }
-  
-  return allValues;
-}
+// ✅ Fonctions utilitaires déplacées vers sodResourceUtils.ts pour éviter la duplication
 
 /**
  * Applique l'état à une ressource
@@ -120,13 +48,18 @@ function applyStateToResource(
   roleName: string,
   state: SodActionsState
 ): SodResource {
-  const values = extractResourceValues(resource);
-  const isRestricted = state.isResourceRestricted(
-    roleName,
-    resource.code,
-    resource.code,
-    values
-  );
+  // ✅ Vérifier si au moins une externalResource est restreinte
+  let isRestricted = false;
+  
+  for (const extRes of resource.externalResources || []) {
+    const values = extractExternalResourceValues(extRes);
+    
+    // Vérifier si cette externalResource est restreinte
+    if (state.isResourceRestricted(roleName, resource.code, extRes.code, values)) {
+      isRestricted = true;
+      break;
+    }
+  }
   
   // ✅ Si l'état est identique, retourner l'objet original (même référence)
   if (resource.isRestricted === isRestricted && resource.isDeleted === false) {
@@ -166,7 +99,13 @@ function applyStateToAction(
     r => r.code !== 'S_TCODE' && r.isRestricted
   );
   
-  const finalIsRestricted = isRestricted || hasRestrictedResource;
+  // ✅ LOGIQUE CORRIGÉE :
+  // Si l'action a été restreinte directement (restrictedByAction = true),
+  // son état visuel dépend UNIQUEMENT de ses ressources (hasRestrictedResource)
+  // Sinon, elle peut être restreinte directement (isRestricted) OU via ses ressources
+  const finalIsRestricted = restrictedByAction 
+    ? hasRestrictedResource 
+    : (isRestricted || hasRestrictedResource);
   
   // ✅ Vérifier si les flags ont changé
   const flagsChanged = 
