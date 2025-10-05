@@ -110,69 +110,85 @@ async function parseExcelFile({ arrayBuffer, chunkSize = 5000 }) {
     message: '✅ Fichier chargé ! Analyse de la structure...' 
   });
 
-  // Étape 2 : Convertir en JSON avec header (15%)
-  const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-    header: 1,
-    defval: '',
-    raw: false,
-    blankrows: false
-  });
+  // Étape 2 : Lecture streaming ligne par ligne (10% -> 80%)
+  // ⚡ OPTIMISATION : Pas de sheet_to_json qui charge tout en mémoire
+  // On lit directement le worksheet ligne par ligne
   
-  if (jsonData.length === 0) {
+  // Déterminer la plage de données
+  const range = XLSX.utils.decode_range(worksheet['!ref']);
+  const totalRows = range.e.r - range.s.r; // Nombre total de lignes
+  
+  if (totalRows === 0) {
     throw new Error('La feuille Excel est vide');
   }
 
-  const headers = jsonData[0].map(h => String(h).trim());
-  const totalRows = jsonData.length - 1; // -1 pour exclure le header
-
   self.postMessage({ 
     type: 'PROGRESS', 
-    progress: 15, 
-    message: `📊 ${totalRows.toLocaleString()} lignes détectées. Mapping des colonnes...` 
+    progress: 12, 
+    message: `📊 ${totalRows.toLocaleString()} lignes détectées. Lecture streaming...` 
   });
 
-  // Étape 3 : Mapper les colonnes (20%)
+  // Lire la première ligne (headers)
+  const headers = [];
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+    const cell = worksheet[cellAddress];
+    headers.push(cell ? String(cell.v).trim() : '');
+  }
+
+  // Mapper les colonnes
   const columnIndexes = mapColumns(headers);
   
   self.postMessage({ 
     type: 'PROGRESS', 
-    progress: 20, 
-    message: '🔧 Colonnes mappées ! Début du traitement...' 
+    progress: 15, 
+    message: '🔧 Colonnes mappées ! Début du traitement streaming...' 
   });
 
-  // Étape 4 : Traiter par chunks (20% -> 80%)
+  // Étape 3 : Traiter ligne par ligne avec streaming (15% -> 80%)
   const processedRecords = [];
-  const numChunks = Math.ceil(totalRows / chunkSize);
   let filteredCount = 0;
+  const numChunks = Math.ceil(totalRows / chunkSize);
+  let currentChunk = 0;
 
-  for (let i = 0; i < numChunks; i++) {
-    const start = (i * chunkSize) + 1; // +1 pour skip header
-    const end = Math.min(((i + 1) * chunkSize) + 1, jsonData.length);
-    const chunk = jsonData.slice(start, end);
-
-    // Traiter le chunk
-    for (const row of chunk) {
+  // Traiter par chunks pour la progression
+  for (let chunkStart = 1; chunkStart <= totalRows; chunkStart += chunkSize) {
+    const chunkEnd = Math.min(chunkStart + chunkSize - 1, totalRows);
+    
+    // Lire les lignes du chunk
+    for (let rowIndex = chunkStart; rowIndex <= chunkEnd; rowIndex++) {
+      const row = [];
+      
+      // Lire chaque cellule de la ligne
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: col });
+        const cell = worksheet[cellAddress];
+        
+        // Valeur brute (pas de formatage)
+        row.push(cell ? (cell.v !== undefined ? cell.v : '') : '');
+      }
+      
+      // Normaliser et filtrer
       const record = normalizeRecord(row, columnIndexes);
       
-      // Filtrage inline pour économiser la mémoire
       if (shouldKeepRecord(record)) {
         processedRecords.push(record);
       } else {
         filteredCount++;
       }
     }
-
-    // Mettre à jour la progression (20% -> 80%)
-    const progress = 20 + Math.floor((i + 1) / numChunks * 60);
-    const processedCount = end - 1;
+    
+    // Mettre à jour la progression (15% -> 80%)
+    currentChunk++;
+    const progress = 15 + Math.floor((currentChunk / numChunks) * 65);
     self.postMessage({ 
       type: 'PROGRESS', 
       progress, 
-      message: `⚙️ Traitement : ${processedCount.toLocaleString()}/${totalRows.toLocaleString()} lignes (${filteredCount.toLocaleString()} filtrées)` 
+      message: `⚙️ Streaming : ${chunkEnd.toLocaleString()}/${totalRows.toLocaleString()} lignes (${filteredCount.toLocaleString()} filtrées)` 
     });
 
     // Yield pour ne pas bloquer
-    if (i % 10 === 0) {
+    if (currentChunk % 5 === 0) {
       await sleep(0);
     }
   }
