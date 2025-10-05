@@ -41,6 +41,15 @@ export default function SodAnalysisPage() {
   const [simpleRolePage, setSimpleRolePage] = useState(1);
   // Pagination pour rôles composites
   const [compositeRolePage, setCompositeRolePage] = useState(1);
+  
+  // ✅ Mémoriser les callbacks de pagination pour éviter les re-renders
+  const handleSimplePageChange = useCallback((_event: unknown, page: number) => {
+    setSimpleRolePage(page);
+  }, []);
+  
+  const handleCompositePageChange = useCallback((_event: unknown, page: number) => {
+    setCompositeRolePage(page);
+  }, []);
 
   // 🚀 NOUVELLE ARCHITECTURE : État global + Pagination pure
   const simpleRoles = (session?.simpleRoles?.roles || []) as SodSimpleRole[];
@@ -233,7 +242,7 @@ export default function SodAnalysisPage() {
               <Pagination
                 count={simpleRolesTotalPages}
                 page={simpleRolePage}
-                onChange={(_event: unknown, page: number) => setSimpleRolePage(page)}
+                onChange={handleSimplePageChange}
                 color="primary"
                 showFirstButton
                 showLastButton
@@ -278,7 +287,7 @@ export default function SodAnalysisPage() {
               <Pagination
                 count={simpleRolesTotalPages}
                 page={simpleRolePage}
-                onChange={(_event: unknown, page: number) => setSimpleRolePage(page)}
+                onChange={handleSimplePageChange}
                 color="primary"
                 showFirstButton
                 showLastButton
@@ -304,7 +313,7 @@ export default function SodAnalysisPage() {
               <Pagination
                 count={compositeRolesTotalPages}
                 page={compositeRolePage}
-                onChange={(_event: unknown, page: number) => setCompositeRolePage(page)}
+                onChange={handleCompositePageChange}
                 color="primary"
                 showFirstButton
                 showLastButton
@@ -349,7 +358,7 @@ export default function SodAnalysisPage() {
               <Pagination
                 count={compositeRolesTotalPages}
                 page={compositeRolePage}
-                onChange={(_event: unknown, page: number) => setCompositeRolePage(page)}
+                onChange={handleCompositePageChange}
                 color="primary"
                 showFirstButton
                 showLastButton
