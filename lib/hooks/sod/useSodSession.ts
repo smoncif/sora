@@ -52,6 +52,9 @@ export interface UseSodSessionReturn {
   /** Upload et parse du fichier */
   uploadFile: (file: File) => Promise<void>;
   
+  /** Créer une session à partir de données déjà parsées (depuis Web Worker) */
+  createSessionFromParsedData: (file: File, parsedRecords: any[]) => Promise<void>;
+  
   /** États de chargement */
   isLoading: boolean;
   isUploading: boolean;
@@ -97,7 +100,7 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
   const isLoading = isUploading || isParsing;
   
   /**
-   * Upload et parse du fichier
+   * Upload et parse du fichier (⚠️ DEPRECATED - utiliser createSessionFromParsedData à la place)
    */
   const uploadFile = useCallback(async (file: File) => {
     setIsUploading(true);
@@ -179,6 +182,95 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
   }, [userId, onUploadSuccess, onError]);
   
   /**
+   * Créer une session à partir de données déjà parsées (depuis Web Worker)
+   * ✅ OPTIMISÉ : Pas de re-parsing, utilise directement les données du Worker
+   */
+  const createSessionFromParsedData = useCallback(async (file: File, parsedRecords: any[]) => {
+    setIsUploading(true);
+    setError(null);
+    setWarnings([]);
+    
+    try {
+      const startTime = Date.now();
+      
+      // Séparer les rôles simples et composites
+      const simpleRoleRecords = parsedRecords.filter(r => !r.compositeBusinessRole || r.compositeBusinessRole.trim() === '');
+      const compositeRoleRecords = parsedRecords.filter(r => r.compositeBusinessRole && r.compositeBusinessRole.trim() !== '');
+      
+      // Construire les hiérarchies
+      const simpleRoles = buildSimpleRoleHierarchy(simpleRoleRecords);
+      const compositeRoles = buildCompositeRoleHierarchy(compositeRoleRecords);
+      
+      // Calculer les métriques
+      const simpleRolesMetrics = calculateSimpleRoleMetrics(simpleRoles);
+      const compositeRolesMetrics = calculateCompositeRoleMetrics(compositeRoles);
+      
+      // Statistiques de filtrage (approximatives)
+      const filteringStats: SodFilteringStats = {
+        originalRecordCount: parsedRecords.length,
+        afterControlFilter: parsedRecords.length,
+        afterRiskIdFilter: parsedRecords.length,
+        afterDeduplication: parsedRecords.length,
+        finalRecordCount: parsedRecords.length,
+        simpleRoleCount: simpleRoleRecords.length,
+        compositeRoleCount: compositeRoleRecords.length,
+      };
+      
+      // Créer la session
+      const processingTimeMs = Date.now() - startTime;
+      const newSession: SodAnalysisSession = {
+        id: `sod-${Date.now()}`,
+        name: `Analyse SoD - ${file.name}`,
+        timestamp: new Date(),
+        currentStep: 1,
+        
+        sourceFile: {
+          fileName: file.name,
+          fileSize: file.size,
+          uploadDate: new Date(),
+        },
+        
+        filteringStats,
+        
+        simpleRoles: {
+          roles: simpleRoles,
+          metrics: simpleRolesMetrics,
+        },
+        
+        compositeRoles: {
+          roles: compositeRoles,
+          metrics: compositeRolesMetrics,
+        },
+        
+        metadata: {
+          createdBy: userId,
+          createdAt: new Date(),
+          lastModified: new Date(),
+          processingTimeMs,
+          version: '1.0.0',
+        },
+      };
+      
+      setSession(newSession);
+      setCurrentStep(1);
+      
+      if (onUploadSuccess) {
+        onUploadSuccess(newSession);
+      }
+      
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error);
+      
+      if (onError) {
+        onError(error);
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  }, [userId, onUploadSuccess, onError]);
+  
+  /**
    * Réinitialiser la session
    */
   const resetSession = useCallback(() => {
@@ -219,6 +311,7 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
     currentStep,
     setCurrentStep: handleSetCurrentStep,
     uploadFile,
+    createSessionFromParsedData,
     isLoading,
     isUploading,
     isParsing,

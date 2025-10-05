@@ -23,7 +23,7 @@ export default function SodAnalysisPage() {
     isLoading,
     error,
     warnings,
-    uploadFile,
+    createSessionFromParsedData,
   } = useSodSession({ userId: user?.id || 'anonymous' });
 
   // Hook pour le parsing Excel asynchrone avec progression
@@ -148,13 +148,17 @@ export default function SodAnalysisPage() {
     previousCallbackRef.current = handleDeleteAction;
   }, [handleDeleteAction]);
 
-  // Quand le parsing est terminé, uploader le fichier pour créer la session
+  // Référence au fichier uploadé (pour créer la session après le parsing)
+  const uploadedFileRef = useRef<File | null>(null);
+
+  // Quand le parsing est terminé, créer la session avec les données parsées
   useEffect(() => {
-    if (parsedData && !parsing && !session) {
-      // Le parsing est terminé, maintenant on peut créer la session
-      // (Note: uploadFile gère déjà le parsing en interne, donc on peut juste attendre)
+    if (parsedData && !parsing && !session && uploadedFileRef.current) {
+      // ✅ Créer la session directement avec les données déjà parsées par le Worker
+      createSessionFromParsedData(uploadedFileRef.current, parsedData);
+      uploadedFileRef.current = null;
     }
-  }, [parsedData, parsing, session]);
+  }, [parsedData, parsing, session, createSessionFromParsedData]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -162,10 +166,12 @@ export default function SodAnalysisPage() {
       // 🚀 Réinitialiser l'état global avant de charger un nouveau fichier
       actionsContext.resetState();
       
-      // D'abord, parser avec le Web Worker pour montrer la progression
+      // Sauvegarder la référence au fichier
+      uploadedFileRef.current = file;
+      
+      // ✅ Parser avec le Web Worker (ne bloque pas l'UI)
       await parseFile(file);
-      // Ensuite, uploader pour créer la session
-      await uploadFile(file);
+      // La session sera créée automatiquement dans le useEffect ci-dessus
     }
   };
 
