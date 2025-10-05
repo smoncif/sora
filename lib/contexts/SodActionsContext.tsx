@@ -180,11 +180,25 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     externalResourceCode: string,
     values: string[]
   ) => {
+    console.log('🔍 [toggleRestrictResource] Called with:', {
+      roleName,
+      resourceCode,
+      externalResourceCode,
+      values,
+      isArray: Array.isArray(values),
+      valuesLength: values?.length
+    });
+    
     const key = getResourceKey(roleName, resourceCode, externalResourceCode);
     const restrictedValuesSet = restrictedResourcesRef.current.get(key) || new Set<string>();
     
+    console.log('  Generated key:', key);
+    console.log('  Current restrictedValuesSet:', Array.from(restrictedValuesSet));
+    
     // Vérifier si ces valeurs sont déjà restreintes
     const alreadyRestricted = values.every(v => restrictedValuesSet.has(v));
+    
+    console.log('  alreadyRestricted:', alreadyRestricted);
     
     if (alreadyRestricted) {
       // Retirer les valeurs
@@ -192,12 +206,24 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (restrictedValuesSet.size === 0) {
         restrictedResourcesRef.current.delete(key);
       }
-      console.log('✅ [UNRESTRICT RESOURCE]', { roleName, resourceCode, values });
+      console.log('✅ [UNRESTRICT RESOURCE]', { 
+        roleName, 
+        resourceCode, 
+        externalResourceCode,
+        values,
+        mapSize: restrictedResourcesRef.current.size 
+      });
     } else {
       // Ajouter les valeurs
       values.forEach(v => restrictedValuesSet.add(v));
       restrictedResourcesRef.current.set(key, restrictedValuesSet);
-      console.log('🚫 [RESTRICT RESOURCE]', { roleName, resourceCode, values });
+      console.log('🚫 [RESTRICT RESOURCE]', { 
+        roleName, 
+        resourceCode, 
+        externalResourceCode,
+        values,
+        mapSize: restrictedResourcesRef.current.size 
+      });
     }
     
     incrementVersion();
