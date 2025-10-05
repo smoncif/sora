@@ -255,7 +255,9 @@ export default function SodAnalysisPage() {
               onRowsPerPageChange={handleSimpleRowsPerPageChange}
               rowsPerPageOptions={[5, 10, 25, 50]}
               labelRowsPerPage="Rôles par page:"
-              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
+              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
+              showFirstButton
+              showLastButton
             />
           </Box>
 
@@ -302,7 +304,9 @@ export default function SodAnalysisPage() {
                 onRowsPerPageChange={handleSimpleRowsPerPageChange}
                 rowsPerPageOptions={[5, 10, 25, 50]}
                 labelRowsPerPage="Rôles par page:"
-                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
+                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
+                showFirstButton
+                showLastButton
               />
             </Box>
           )}
@@ -330,7 +334,9 @@ export default function SodAnalysisPage() {
               onRowsPerPageChange={handleCompositeRowsPerPageChange}
               rowsPerPageOptions={[5, 10, 25, 50]}
               labelRowsPerPage="Rôles par page:"
-              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
+              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
+              showFirstButton
+              showLastButton
             />
           </Box>
 
@@ -377,7 +383,9 @@ export default function SodAnalysisPage() {
                 onRowsPerPageChange={handleCompositeRowsPerPageChange}
                 rowsPerPageOptions={[5, 10, 25, 50]}
                 labelRowsPerPage="Rôles par page:"
-                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
+                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
+                showFirstButton
+                showLastButton
               />
             </Box>
           )}
