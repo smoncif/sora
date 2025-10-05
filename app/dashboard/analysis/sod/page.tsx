@@ -67,8 +67,16 @@ export default function SodAnalysisPage() {
   const simpleRoles = (session?.simpleRoles?.roles || []) as SodSimpleRole[];
   const compositeRoles = (session?.compositeRoles?.roles || []) as SodCompositeRole[];
   
-  // Contexte global pour l'état des actions
-  const actionsContext = useSodActionsContext();
+  // ✅ Déstructurer le contexte pour avoir des références stables
+  const { 
+    toggleDeleteAction, 
+    toggleRestrictAction, 
+    toggleRestrictResource,
+    isActionDeleted,
+    isActionRestricted,
+    isResourceRestricted,
+    version // Pour forcer le re-calcul des useMemo
+  } = useSodActionsContext();
   
   
   // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
@@ -87,23 +95,30 @@ export default function SodAnalysisPage() {
   
   // 🚀 OPTIMISATION 2 : Appliquer l'état UNIQUEMENT aux rôles de la page actuelle
   // Seulement 5 rôles au lieu de 1000 !
+  // ✅ Créer l'objet state avec les fonctions nécessaires
+  const actionsState = useMemo(() => ({
+    isActionDeleted,
+    isActionRestricted,
+    isResourceRestricted,
+  }), [isActionDeleted, isActionRestricted, isResourceRestricted]);
+  
   const paginatedSimpleRoles = useMemo(() => {
-    return applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsContext);
-  }, [paginatedSimpleRolesRaw, actionsContext]);
+    return applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsState);
+  }, [paginatedSimpleRolesRaw, actionsState, version]); // ✅ Dépend de version pour se recalculer
 
   const paginatedCompositeRoles = useMemo(() => {
-    return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsContext);
-  }, [paginatedCompositeRolesRaw, actionsContext]);
+    return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsState);
+  }, [paginatedCompositeRolesRaw, actionsState, version]); // ✅ Dépend de version pour se recalculer
   
   
-  // 🚀 OPTIMISATION 3 : Callbacks stables depuis le contexte
+  // 🚀 OPTIMISATION 3 : Callbacks stables (ne dépendent que des fonctions, pas du contexte entier)
   const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string) => {
-    actionsContext.toggleDeleteAction(roleName, actionCode);
-  }, [actionsContext]);
+    toggleDeleteAction(roleName, actionCode);
+  }, [toggleDeleteAction]); // ✅ Stable : toggleDeleteAction ne change jamais
 
   const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string) => {
-    actionsContext.toggleRestrictAction(roleName, actionCode);
-  }, [actionsContext]);
+    toggleRestrictAction(roleName, actionCode);
+  }, [toggleRestrictAction]); // ✅ Stable : toggleRestrictAction ne change jamais
 
   const handleRestrictResourceWrapped = useCallback((
     roleName: string,
@@ -113,8 +128,8 @@ export default function SodAnalysisPage() {
     externalResourceCode: string,
     values: string[]
   ) => {
-    actionsContext.toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
-  }, [actionsContext]);
+    toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
+  }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
 
   const handleCompositeRestrictResourceWrapped = useCallback((
     roleName: string,
@@ -124,8 +139,8 @@ export default function SodAnalysisPage() {
     externalResourceCode: string,
     values: string[]
   ) => {
-    actionsContext.toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
-  }, [actionsContext]);
+    toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
+  }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
   
   // 🔍 DEBUG 4 : Détecter les changements de callbacks
   const callbackRefId = useRef(0);
