@@ -198,6 +198,8 @@ import {
                 code: resourceCode,
                 description: resourceDescription,
                 externalResources,
+                isRestricted: false,  // ✅ Initialiser pour l'optimisation
+                isDeleted: false,     // ✅ Initialiser pour l'optimisation
               });
             }
             
@@ -205,6 +207,9 @@ import {
               code: actionCode,
               description: actionDescription,
               resources,
+              isDeleted: false,           // ✅ Initialiser pour l'optimisation
+              isRestricted: false,        // ✅ Initialiser pour l'optimisation
+              restrictedByAction: false,  // ✅ Initialiser pour l'optimisation
             });
           }
           
@@ -407,6 +412,8 @@ import {
                   code: resourceCode,
                   description: resourceDescription,
                   externalResources,
+                  isRestricted: false,  // ✅ Initialiser pour l'optimisation
+                  isDeleted: false,     // ✅ Initialiser pour l'optimisation
                 });
               }
               
@@ -414,6 +421,9 @@ import {
                 code: actionCode,
                 description: actionDescription,
                 resources,
+                isDeleted: false,           // ✅ Initialiser pour l'optimisation
+                isRestricted: false,        // ✅ Initialiser pour l'optimisation
+                restrictedByAction: false,  // ✅ Initialiser pour l'optimisation
               });
             }
             

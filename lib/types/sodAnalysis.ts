@@ -157,8 +157,8 @@ export interface SodResource {
   code: string;
   description?: string;
   externalResources: SodExternalResource[];
-  isDeleted?: boolean;
-  isRestricted?: boolean;
+  isDeleted: boolean;      // ✅ Obligatoire pour l'optimisation
+  isRestricted: boolean;   // ✅ Obligatoire pour l'optimisation
 }
 
 /**
@@ -169,9 +169,9 @@ export interface SodAction {
   code: string;
   description?: string;
   resources: SodResource[];
-  isDeleted?: boolean;
-  isRestricted?: boolean;
-  restrictedByAction?: boolean; // True si restreinte via le bouton de l'action (Parent → Enfants)
+  isDeleted: boolean;              // ✅ Obligatoire pour l'optimisation
+  isRestricted: boolean;           // ✅ Obligatoire pour l'optimisation
+  restrictedByAction: boolean;     // ✅ Obligatoire - True si restreinte via le bouton de l'action (Parent → Enfants)
 }
 
 /**
@@ -182,6 +182,9 @@ export interface SodSimpleRoleAction {
   code: string;
   description?: string;
   resources: SodResource[];
+  isDeleted: boolean;              // ✅ Obligatoire pour l'optimisation
+  isRestricted: boolean;           // ✅ Obligatoire pour l'optimisation
+  restrictedByAction: boolean;     // ✅ Obligatoire pour l'optimisation
 }
 
 /**

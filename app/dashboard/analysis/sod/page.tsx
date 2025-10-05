@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Box, Container, Typography, Alert, Paper, Button, Pagination } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useAuth } from 'lib/hooks/useAuth';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
 import { useSodSession } from 'lib/hooks/sod/useSodSession';
-import { useSodActionState } from 'lib/hooks/sod/useSodActionState';
 import { useSodExcelParser } from 'lib/hooks/sod/useSodExcelParser';
 import { SodParsingProgress } from 'lib/components/sod/upload/SodParsingProgress';
 import { SodSimpleRoleCard, SodCompositeRoleCard } from 'lib/components/sod';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
+import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 
 const ROLES_PER_PAGE = 5;
@@ -41,22 +42,52 @@ export default function SodAnalysisPage() {
   // Pagination pour rôles composites
   const [compositeRolePage, setCompositeRolePage] = useState(1);
 
+  // 🚀 NOUVELLE ARCHITECTURE : État global + Pagination pure
   const simpleRoles = (session?.simpleRoles?.roles || []) as SodSimpleRole[];
   const compositeRoles = (session?.compositeRoles?.roles || []) as SodCompositeRole[];
   
-  const { 
-    roles: simpleRolesWithState, 
-    handleDeleteAction, 
-    handleRestrictAction,
-    handleRestrictResource: handleRestrictResourceBase
-  } = useSodActionState(simpleRoles);
-  const {
-    roles: compositeRolesWithState,
-    handleDeleteAction: handleCompositeDeleteAction,
-    handleRestrictAction: handleCompositeRestrictAction,
-    handleRestrictResource: handleCompositeRestrictResourceBase
-  } = useSodActionState(compositeRoles);
-  // Wrappers pour adapter les signatures des callbacks
+  // Contexte global pour l'état des actions
+  const actionsContext = useSodActionsContext();
+  
+  
+  // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
+  // Slice ultra-rapide (< 1ms) sur les données brutes
+  const paginatedSimpleRolesRaw = useMemo(() => {
+    const start = (simpleRolePage - 1) * ROLES_PER_PAGE;
+    const end = start + ROLES_PER_PAGE;
+    const sliced = simpleRoles.slice(start, end);
+    
+    return sliced;
+  }, [simpleRoles, simpleRolePage]);
+
+  const paginatedCompositeRolesRaw = useMemo(() => {
+    const start = (compositeRolePage - 1) * ROLES_PER_PAGE;
+    const end = start + ROLES_PER_PAGE;
+    return compositeRoles.slice(start, end);
+  }, [compositeRoles, compositeRolePage]);
+  
+  // 🚀 OPTIMISATION 2 : Appliquer l'état UNIQUEMENT aux rôles de la page actuelle
+  // Seulement 5 rôles au lieu de 1000 !
+  const paginatedSimpleRoles = useMemo(() => {
+    return applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsContext);
+  }, [paginatedSimpleRolesRaw, actionsContext]);
+
+  const paginatedCompositeRoles = useMemo(() => {
+    return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsContext);
+  }, [paginatedCompositeRolesRaw, actionsContext]);
+  
+  const simpleRolesTotalPages = Math.ceil(simpleRoles.length / ROLES_PER_PAGE);
+  const compositeRolesTotalPages = Math.ceil(compositeRoles.length / ROLES_PER_PAGE);
+  
+  // 🚀 OPTIMISATION 3 : Callbacks stables depuis le contexte
+  const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string) => {
+    actionsContext.toggleDeleteAction(roleName, actionCode);
+  }, [actionsContext]);
+
+  const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string) => {
+    actionsContext.toggleRestrictAction(roleName, actionCode);
+  }, [actionsContext]);
+
   const handleRestrictResourceWrapped = useCallback((
     roleName: string,
     _riskId: string,
@@ -65,8 +96,8 @@ export default function SodAnalysisPage() {
     externalResourceCode: string,
     values: string[]
   ) => {
-    handleRestrictResourceBase(roleName, resourceCode, externalResourceCode, values);
-}, [handleRestrictResourceBase]);
+    actionsContext.toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
+  }, [actionsContext]);
 
   const handleCompositeRestrictResourceWrapped = useCallback((
     roleName: string,
@@ -76,25 +107,29 @@ export default function SodAnalysisPage() {
     externalResourceCode: string,
     values: string[]
   ) => {
-    handleCompositeRestrictResourceBase(roleName, resourceCode, externalResourceCode, values);
-}, [handleCompositeRestrictResourceBase]);
-  // Pagination pour rôles simples
-  const paginatedSimpleRoles = useMemo(() => {
-    const start = (simpleRolePage - 1) * ROLES_PER_PAGE;
-    const end = start + ROLES_PER_PAGE;
-    return (simpleRolesWithState as SodSimpleRole[]).slice(start, end);
-  }, [simpleRolesWithState, simpleRolePage]);
-
-  const simpleRolesTotalPages = Math.ceil(simpleRolesWithState.length / ROLES_PER_PAGE);
-
-  // Pagination pour rôles composites
-  const paginatedCompositeRoles = useMemo(() => {
-    const start = (compositeRolePage - 1) * ROLES_PER_PAGE;
-    const end = start + ROLES_PER_PAGE;
-    return (compositeRolesWithState as SodCompositeRole[]).slice(start, end);
-  }, [compositeRolesWithState, compositeRolePage]);
-
-  const compositeRolesTotalPages = Math.ceil(compositeRolesWithState.length / ROLES_PER_PAGE);
+    actionsContext.toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
+  }, [actionsContext]);
+  
+  // 🔍 DEBUG 4 : Détecter les changements de callbacks
+  const callbackRefId = useRef(0);
+  const previousCallbackRef = useRef(handleDeleteAction);
+  
+  useEffect(() => {
+    if (previousCallbackRef.current !== handleDeleteAction) {
+      callbackRefId.current++;
+      console.error(`
+╔════════════════════════════════════════════════════════════════
+║ ❌ CALLBACK A CHANGÉ : handleDeleteAction
+╠════════════════════════════════════════════════════════════════
+║ Callback ID: ${callbackRefId.current}
+║ 
+║ CAUSE: Le contexte a changé → useCallback se recalcule
+║ IMPACT: React.memo échoue → Tous les composants se re-rendent
+╚════════════════════════════════════════════════════════════════
+      `);
+    }
+    previousCallbackRef.current = handleDeleteAction;
+  }, [handleDeleteAction]);
 
   // Quand le parsing est terminé, uploader le fichier pour créer la session
   useEffect(() => {
@@ -107,6 +142,9 @@ export default function SodAnalysisPage() {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // 🚀 Réinitialiser l'état global avant de charger un nouveau fichier
+      actionsContext.resetState();
+      
       // D'abord, parser avec le Web Worker pour montrer la progression
       await parseFile(file);
       // Ensuite, uploader pour créer la session
@@ -188,7 +226,7 @@ export default function SodAnalysisPage() {
                 Étape 1: Rôles Simples
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {simpleRolesWithState.length} rôle(s) simple(s) • Affichage de {paginatedSimpleRoles.length} rôle(s) par page
+                {simpleRoles.length} rôle(s) simple(s) • Affichage de {paginatedSimpleRoles.length} rôle(s) par page
               </Typography>
             </Box>
             {simpleRolesTotalPages > 1 && (
@@ -203,15 +241,34 @@ export default function SodAnalysisPage() {
             )}
           </Box>
 
+          {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {paginatedSimpleRoles.map((role, index) => (
-              <SodSimpleRoleCard
+              <React.Suspense 
                 key={`${simpleRolePage}-${index}`}
+                fallback={
+                  <Box sx={{ 
+                    p: 4, 
+                    textAlign: 'center', 
+                    border: '1px solid rgba(0,0,0,0.1)', 
+                    borderRadius: 3 
+                  }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Chargement du rôle...
+                    </Typography>
+                  </Box>
+                }
+              >
+                <SodSimpleRoleCard
                 role={role}
                 onDeleteAction={handleDeleteAction}
                 onRestrictAction={handleRestrictAction}
                 onRestrictResource={handleRestrictResourceWrapped}
+                  onDeleteRisk={undefined}
+                  onNextStep={undefined}
+                  showNextStepButton={false}
               />
+              </React.Suspense>
             ))}
           </Box>
 
@@ -240,7 +297,7 @@ export default function SodAnalysisPage() {
                 Étape 2: Rôles Composites
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {compositeRolesWithState.length} rôle(s) composite(s) • Affichage de {paginatedCompositeRoles.length} rôle(s) par page
+                {compositeRoles.length} rôle(s) composite(s) • Affichage de {paginatedCompositeRoles.length} rôle(s) par page
               </Typography>
             </Box>
             {compositeRolesTotalPages > 1 && (
@@ -255,15 +312,34 @@ export default function SodAnalysisPage() {
             )}
           </Box>
 
+          {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {paginatedCompositeRoles.map((role, index) => (
-              <SodCompositeRoleCard
+              <React.Suspense 
                 key={`${compositeRolePage}-${index}`}
+                fallback={
+                  <Box sx={{ 
+                    p: 4, 
+                    textAlign: 'center', 
+                    border: '1px solid rgba(0,0,0,0.1)', 
+                    borderRadius: 3 
+                  }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Chargement du rôle...
+                    </Typography>
+                  </Box>
+                }
+              >
+                <SodCompositeRoleCard
                 role={role}
-                onDeleteAction={handleCompositeDeleteAction}
-                onRestrictAction={handleCompositeRestrictAction}
+                  onDeleteAction={handleDeleteAction}
+                  onRestrictAction={handleRestrictAction}
                 onRestrictResource={handleCompositeRestrictResourceWrapped}
+                  onDeleteRisk={undefined}
+                  onNextStep={undefined}
+                  showNextStepButton={false}
               />
+              </React.Suspense>
             ))}
           </Box>
 

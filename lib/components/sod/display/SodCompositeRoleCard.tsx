@@ -51,8 +51,9 @@ export interface SodCompositeRoleCardProps {
 
 /**
  * Carte pour afficher un rôle composite avec ses risques
+ * 🚀 OPTIMISÉ : Mémoïsé pour éviter les re-rendus inutiles
  */
-export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = ({
+export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.memo(({
   role,
   defaultExpanded = true,
   onDeleteRisk,
@@ -207,5 +208,18 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = ({
       </Collapse>
     </Paper>
   );
-};
+}, (prevProps, nextProps) => {
+  // 🚀 Comparaison personnalisée : ne re-rendre que si le rôle ou les callbacks changent vraiment
+  return (
+    prevProps.role.roleName === nextProps.role.roleName &&
+    prevProps.role.compositeRoleName === nextProps.role.compositeRoleName &&
+    prevProps.role.risks === nextProps.role.risks &&
+    prevProps.defaultExpanded === nextProps.defaultExpanded &&
+    prevProps.onDeleteAction === nextProps.onDeleteAction &&
+    prevProps.onRestrictAction === nextProps.onRestrictAction &&
+    prevProps.onRestrictResource === nextProps.onRestrictResource
+  );
+});
+
+SodCompositeRoleCard.displayName = 'SodCompositeRoleCard';
 

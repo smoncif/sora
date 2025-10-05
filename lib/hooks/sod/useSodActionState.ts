@@ -10,7 +10,7 @@
  * Optimisé avec Immer pour des performances maximales sur de gros datasets
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useImmer } from 'use-immer';
 import { 
   SodSimpleRole, 
@@ -29,44 +29,60 @@ import {
  */
 type RestrictionMap = Map<string, Set<string>>;
 
+/**
+ * Cache pour les valeurs extraites des ressources
+ * Évite de recalculer expandInterval et normalizeValue à chaque fois
+ */
+type ValuesCache = Map<string, string[]>;
+
 export function useSodActionState(initialRoles: SodSimpleRole[] | SodCompositeRole[]) {
   const [roles, updateRoles] = useImmer(initialRoles);
   
   // Map des restrictions par valeurs (persistante entre renders)
   const restrictionsMapRef = useRef<RestrictionMap>(new Map());
+  
+  // 🚀 OPTIMISATION : Cache des valeurs extraites pour éviter les recalculs
+  const valuesCacheRef = useRef<ValuesCache>(new Map());
 
   // Réinitialiser l'état UNIQUEMENT lors du premier chargement ou changement de fichier
   const previousLengthRef = useRef(initialRoles.length);
   
+  // 🚀 OPTIMISATION : Mémoïser le hash des rôles pour détecter les vrais changements
+  const rolesHash = useMemo(() => {
+    return initialRoles.map(r => r.roleName).join('|');
+  }, [initialRoles]);
+  
+  const previousHashRef = useRef(rolesHash);
+  
   useEffect(() => {
     const currentLength = initialRoles.length;
     const previousLength = previousLengthRef.current;
+    const currentHash = rolesHash;
+    const previousHash = previousHashRef.current;
     
     // Réinitialiser UNIQUEMENT si :
     // 1. Nouveau fichier uploadé (passage de 0 à N rôles)
     // 2. Changement drastique du nombre de rôles (fichier différent)
+    // 3. Hash différent (rôles différents)
     const isNewFileUpload = previousLength === 0 && currentLength > 0;
     const isDifferentFile = Math.abs(currentLength - previousLength) > 10;
+    const isDifferentHash = currentHash !== previousHash;
     
-    if (isNewFileUpload || isDifferentFile) {
+    if (isNewFileUpload || isDifferentFile || isDifferentHash) {
       console.log('🔄 [RESET] Nouveau fichier détecté - Réinitialisation complète', { 
         previousLength, 
         currentLength,
-        raison: isNewFileUpload ? 'Nouveau fichier' : 'Fichier différent'
+        raison: isNewFileUpload ? 'Nouveau fichier' : isDifferentFile ? 'Fichier différent' : 'Hash différent'
       });
       updateRoles(initialRoles);
       restrictionsMapRef.current.clear();
-    } else if (currentLength !== previousLength) {
-      // Mise à jour légère (pagination, etc.) - SANS vider la Map
-      console.log('♻️ [UPDATE] Mise à jour des rôles (Map préservée)', { 
-        previousLength, 
-        currentLength 
-      });
-      updateRoles(initialRoles);
+      valuesCacheRef.current.clear();
     }
+    // 🚀 SUPPRIMÉ : La mise à jour légère qui causait des re-rendus inutiles
     
     previousLengthRef.current = currentLength;
-  }, [initialRoles.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    previousHashRef.current = currentHash;
+  }, [rolesHash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Type guard pour vérifier si une fonction est simple (avec actions directes)
@@ -147,8 +163,18 @@ export function useSodActionState(initialRoles: SodSimpleRole[] | SodCompositeRo
 
   /**
    * Extrait toutes les valeurs d'une ressource (normalisées + expansion des intervalles)
+   * 🚀 OPTIMISÉ : Utilise un cache pour éviter les recalculs
    */
-  const extractValues = (resource: SodResource): string[] => {
+  const extractValues = useCallback((resource: SodResource): string[] => {
+    // Créer une clé de cache unique pour cette ressource
+    const cacheKey = `${resource.code}:${JSON.stringify(resource.externalResources?.map(er => er.values) || [])}`;
+    
+    // Vérifier le cache
+    const cached = valuesCacheRef.current.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    
     const allValues: string[] = [];
     
     for (const extRes of resource.externalResources || []) {
@@ -169,8 +195,11 @@ export function useSodActionState(initialRoles: SodSimpleRole[] | SodCompositeRo
       }
     }
     
+    // Mettre en cache
+    valuesCacheRef.current.set(cacheKey, allValues);
+    
     return allValues;
-  };
+  }, []); // Pas de dépendances car utilise des refs
 
   /**
    * Vérifie si un ensemble de valeurs est un sous-ensemble des valeurs restreintes

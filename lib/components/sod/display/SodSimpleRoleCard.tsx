@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -50,8 +50,9 @@ export interface SodSimpleRoleCardProps {
 
 /**
  * Carte pour afficher un rôle simple avec ses risques
+ * 🚀 OPTIMISÉ : Mémoïsé pour éviter les re-rendus inutiles
  */
-export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = ({
+export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
   role,
   defaultExpanded = true,
   onDeleteRisk,
@@ -65,6 +66,7 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = ({
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { roleName, roleDescription, risks, highestRiskLevel } = role;
+  
   
   return (
     <Paper
@@ -195,5 +197,48 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = ({
       </Collapse>
     </Paper>
   );
-};
+}, (prevProps, nextProps) => {
+  // 🚀 Comparaison personnalisée : ne re-rendre que si le rôle ou les callbacks changent vraiment
+  const roleNameSame = prevProps.role.roleName === nextProps.role.roleName;
+  const risksSame = prevProps.role.risks === nextProps.role.risks;
+  const expandedSame = prevProps.defaultExpanded === nextProps.defaultExpanded;
+  const deleteActionSame = prevProps.onDeleteAction === nextProps.onDeleteAction;
+  const restrictActionSame = prevProps.onRestrictAction === nextProps.onRestrictAction;
+  const restrictResourceSame = prevProps.onRestrictResource === nextProps.onRestrictResource;
+  
+  const shouldNotRerender = (
+    roleNameSame &&
+    risksSame &&
+    expandedSame &&
+    deleteActionSame &&
+    restrictActionSame &&
+    restrictResourceSame
+  );
+  
+  // 🔍 DEBUG 6 : Log de la comparaison React.memo
+  if (!shouldNotRerender) {
+    const changedProps = [];
+    if (!roleNameSame) changedProps.push('roleName');
+    if (!risksSame) changedProps.push('risks (référence)');
+    if (!expandedSame) changedProps.push('defaultExpanded');
+    if (!deleteActionSame) changedProps.push('onDeleteAction (callback)');
+    if (!restrictActionSame) changedProps.push('onRestrictAction (callback)');
+    if (!restrictResourceSame) changedProps.push('onRestrictResource (callback)');
+    
+    console.error(`
+╔════════════════════════════════════════════════════════════════
+║ ❌ REACT.MEMO ÉCHOUE : ${nextProps.role.roleName}
+╠════════════════════════════════════════════════════════════════
+║ Props qui ont changé: ${changedProps.join(', ')}
+║ 
+║ ${!deleteActionSame || !restrictActionSame || !restrictResourceSame ? '⚠️  LES CALLBACKS ONT CHANGÉ → Contexte instable !' : ''}
+║ ${!risksSame ? '⚠️  RISKS A CHANGÉ → applyState crée de nouveaux objets !' : ''}
+╚════════════════════════════════════════════════════════════════
+    `);
+  }
+  
+  return shouldNotRerender;
+});
+
+SodSimpleRoleCard.displayName = 'SodSimpleRoleCard';
 

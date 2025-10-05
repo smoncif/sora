@@ -6,7 +6,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useCallback, memo } from 'react';
 import {
   Box,
   Typography,
@@ -70,8 +70,9 @@ export interface SodStepperNavigationProps {
 
 /**
  * Stepper minimaliste pour l'analyse SoD
+ * ✅ OPTIMISÉ : Utilise React.memo et useCallback pour éviter les re-renders inutiles
  */
-export const SodStepperNavigation: React.FC<SodStepperNavigationProps> = ({
+export const SodStepperNavigation: React.FC<SodStepperNavigationProps> = memo(({
   currentStep,
   onStepChange,
   completedSteps = [],
@@ -79,11 +80,12 @@ export const SodStepperNavigation: React.FC<SodStepperNavigationProps> = ({
 }) => {
   const theme = useTheme();
   
-  const handleStepClick = (stepId: number) => {
+  // ✅ Mémoriser le callback pour éviter de recréer la fonction
+  const handleStepClick = useCallback((stepId: number) => {
     if (!disabledSteps.includes(stepId) && onStepChange) {
       onStepChange(stepId as 1 | 2 | 3 | 4);
     }
-  };
+  }, [disabledSteps, onStepChange]);
   
   return (
     <Box
@@ -229,5 +231,14 @@ export const SodStepperNavigation: React.FC<SodStepperNavigationProps> = ({
       })}
     </Box>
   );
-};
+}, (prevProps, nextProps) => {
+  // ✅ Comparaison personnalisée pour React.memo
+  // Ne re-render que si ces props changent vraiment
+  return (
+    prevProps.currentStep === nextProps.currentStep &&
+    prevProps.onStepChange === nextProps.onStepChange &&
+    JSON.stringify(prevProps.completedSteps) === JSON.stringify(nextProps.completedSteps) &&
+    JSON.stringify(prevProps.disabledSteps) === JSON.stringify(nextProps.disabledSteps)
+  );
+});
 

@@ -54,8 +54,9 @@ export interface SodActionItemProps {
 
 /**
  * Affiche une action avec ses ressources
+ * 🚀 OPTIMISÉ : Mémoïsé pour éviter les re-rendus inutiles
  */
-export const SodActionItem: React.FC<SodActionItemProps> = ({
+export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
   action,
   level = 0,
   defaultExpanded = false,
@@ -377,5 +378,21 @@ export const SodActionItem: React.FC<SodActionItemProps> = ({
       )}
     </Box>
   );
-};
+}, (prevProps, nextProps) => {
+  // 🚀 Comparaison personnalisée : ne re-rendre que si l'action change vraiment
+  const prevAction = prevProps.action as SodAction & { restrictedByAction?: boolean };
+  const nextAction = nextProps.action as SodAction & { restrictedByAction?: boolean };
+  
+  return (
+    prevAction.code === nextAction.code &&
+    prevAction.isDeleted === nextAction.isDeleted &&
+    prevAction.isRestricted === nextAction.isRestricted &&
+    prevAction.restrictedByAction === nextAction.restrictedByAction &&
+    prevAction.resources === nextAction.resources &&
+    prevProps.isDuplicate === nextProps.isDuplicate &&
+    prevProps.defaultExpanded === nextProps.defaultExpanded
+  );
+});
+
+SodActionItem.displayName = 'SodActionItem';
 

@@ -4,11 +4,12 @@
  * Détermine automatiquement si un fichier Excel est destiné à :
  * - Analyse des rôles (2 feuilles)
  * - Analyse des utilisateurs (3 feuilles)
+ * - Analyse SoD (1 feuille avec colonnes spécifiques)
  */
 
 import * as XLSX from 'xlsx';
 
-export type ExcelFileType = 'roles' | 'users' | 'unknown';
+export type ExcelFileType = 'roles' | 'users' | 'sod' | 'unknown';
 
 export interface ExcelFileInfo {
   type: ExcelFileType;
@@ -33,9 +34,13 @@ export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
     // Critères de détection
     let rolesScore = 0;
     let usersScore = 0;
+    let sodScore = 0;
     
     // 1. Nombre de feuilles
-    if (sheetCount === 2) {
+    if (sheetCount === 1) {
+      sodScore += 50;
+      reasoning.push(`1 feuille détectée (typique pour analyse SoD)`);
+    } else if (sheetCount === 2) {
       rolesScore += 50;
       reasoning.push(`2 feuilles détectées (typique pour analyse rôles)`);
     } else if (sheetCount === 3) {
@@ -51,9 +56,11 @@ export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
     // Mots-clés pour rôles
     const roleKeywords = ['role', 'rôle', 'business', 'simple', 'metier', 'métier'];
     const userKeywords = ['user', 'utilisateur', 'utilis', 'mapping', 'map'];
+    const sodKeywords = ['sod', 'segregation', 'séparation', 'risk', 'risque', 'conflict'];
     
     let roleKeywordMatches = 0;
     let userKeywordMatches = 0;
+    let sodKeywordMatches = 0;
     
     sheetNamesLower.forEach(sheetName => {
       roleKeywords.forEach(keyword => {
@@ -69,6 +76,13 @@ export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
           usersScore += 10;
         }
       });
+      
+      sodKeywords.forEach(keyword => {
+        if (sheetName.includes(keyword)) {
+          sodKeywordMatches++;
+          sodScore += 10;
+        }
+      });
     });
     
     if (roleKeywordMatches > 0) {
@@ -77,10 +91,35 @@ export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
     if (userKeywordMatches > 0) {
       reasoning.push(`${userKeywordMatches} nom(s) de feuille suggèrent analyse utilisateurs`);
     }
+    if (sodKeywordMatches > 0) {
+      reasoning.push(`${sodKeywordMatches} nom(s) de feuille suggèrent analyse SoD`);
+    }
     
     // 3. Analyse du contenu des feuilles (headers)
+    const firstSheetHeaders = getSheetHeaders(workbook.Sheets[sheetsFound[0]]);
+    
+    // Patterns typiques pour SoD (1 feuille)
+    const sodHeaders = ['access risk', 'risque d\'accès', 'risk level', 'niveau du risque', 
+                        'composite', 'business role', 'segregation', 'control', 'contrôle'];
+    
+    let sodHeaderMatches = 0;
+    
+    firstSheetHeaders.forEach(header => {
+      const headerLower = header.toLowerCase();
+      
+      sodHeaders.forEach(sodHeader => {
+        if (headerLower.includes(sodHeader)) {
+          sodHeaderMatches++;
+          sodScore += 15;
+        }
+      });
+    });
+    
+    if (sodHeaderMatches > 0) {
+      reasoning.push(`${sodHeaderMatches} en-tête(s) typiques analyse SoD`);
+    }
+    
     if (sheetCount >= 2) {
-      const firstSheetHeaders = getSheetHeaders(workbook.Sheets[sheetsFound[0]]);
       const secondSheetHeaders = getSheetHeaders(workbook.Sheets[sheetsFound[1]]);
       
       // Patterns typiques pour rôles
@@ -154,20 +193,33 @@ export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
     let finalType: ExcelFileType;
     let confidence: number;
     
-    if (rolesScore > usersScore) {
-      finalType = 'roles';
-      confidence = Math.min(95, Math.round((rolesScore / (rolesScore + usersScore)) * 100));
-    } else if (usersScore > rolesScore) {
-      finalType = 'users';
-      confidence = Math.min(95, Math.round((usersScore / (rolesScore + usersScore)) * 100));
-    } else {
+    const scores = [
+      { type: 'sod' as ExcelFileType, score: sodScore },
+      { type: 'roles' as ExcelFileType, score: rolesScore },
+      { type: 'users' as ExcelFileType, score: usersScore }
+    ];
+    
+    // Trier par score décroissant
+    scores.sort((a, b) => b.score - a.score);
+    
+    if (scores[0].score === 0) {
       finalType = 'unknown';
       confidence = 0;
-      reasoning.push(`Scores égaux (rôles: ${rolesScore}, utilisateurs: ${usersScore})`);
+      reasoning.push(`Aucun type détecté (SoD: ${sodScore}, Rôles: ${rolesScore}, Utilisateurs: ${usersScore})`);
+    } else if (scores[0].score === scores[1].score) {
+      finalType = 'unknown';
+      confidence = 0;
+      reasoning.push(`Scores égaux entre plusieurs types (SoD: ${sodScore}, Rôles: ${rolesScore}, Utilisateurs: ${usersScore})`);
+    } else {
+      finalType = scores[0].type;
+      const totalScore = sodScore + rolesScore + usersScore;
+      confidence = Math.min(95, Math.round((scores[0].score / totalScore) * 100));
     }
     
     // Assurer un minimum de confiance basé sur des critères stricts
-    if (sheetCount === 2 && finalType === 'roles') {
+    if (sheetCount === 1 && finalType === 'sod') {
+      confidence = Math.max(confidence, 70);
+    } else if (sheetCount === 2 && finalType === 'roles') {
       confidence = Math.max(confidence, 70);
     } else if (sheetCount === 3 && finalType === 'users') {
       confidence = Math.max(confidence, 70);
@@ -233,7 +285,10 @@ export async function validateExcelFileForType(
   }
   
   if (detection.type !== expectedType) {
-    const expectedSheets = expectedType === 'roles' ? '2 feuilles' : '3 feuilles';
+    const expectedSheets = 
+      expectedType === 'sod' ? '1 feuille' :
+      expectedType === 'roles' ? '2 feuilles' : 
+      '3 feuilles';
     const detectedSheets = `${detection.sheetCount} feuille(s)`;
     
     errors.push(`Type de fichier non compatible`);

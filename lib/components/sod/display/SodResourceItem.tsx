@@ -38,8 +38,9 @@ export interface SodResourceItemProps {
 
 /**
  * Affiche une ressource avec ses ressources externes et valeurs
+ * 🚀 OPTIMISÉ : Mémoïsé pour éviter les re-rendus inutiles
  */
-export const SodResourceItem: React.FC<SodResourceItemProps> = ({
+export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
   resource,
   level = 0,
   defaultExpanded = false,
@@ -334,5 +335,16 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = ({
       </Box>
     </Box>
   );
-};
+}, (prevProps, nextProps) => {
+  // 🚀 Comparaison personnalisée : ne re-rendre que si la ressource change vraiment
+  return (
+    prevProps.resource.code === nextProps.resource.code &&
+    prevProps.resource.isDeleted === nextProps.resource.isDeleted &&
+    prevProps.resource.isRestricted === nextProps.resource.isRestricted &&
+    prevProps.resource.externalResources === nextProps.resource.externalResources &&
+    prevProps.defaultExpanded === nextProps.defaultExpanded
+  );
+});
+
+SodResourceItem.displayName = 'SodResourceItem';
 
