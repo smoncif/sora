@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Box, Container, Typography, Alert, Paper, Button, Pagination } from '@mui/material';
+import { Box, Container, Typography, Alert, Paper, Button, TablePagination } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useAuth } from 'lib/hooks/useAuth';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
@@ -13,7 +13,6 @@ import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 
-const ROLES_PER_PAGE = 5;
 
 export default function SodAnalysisPage() {
   const { user } = useAuth();
@@ -37,18 +36,31 @@ export default function SodAnalysisPage() {
     cancelParsing,
   } = useSodExcelParser();
 
-  // Pagination pour rôles simples
-  const [simpleRolePage, setSimpleRolePage] = useState(1);
-  // Pagination pour rôles composites
-  const [compositeRolePage, setCompositeRolePage] = useState(1);
+  // Pagination pour rôles simples (index 0-based pour TablePagination)
+  const [simpleRolePage, setSimpleRolePage] = useState(0);
+  const [simpleRolesPerPage, setSimpleRolesPerPage] = useState(5);
   
-  // ✅ Mémoriser les callbacks de pagination pour éviter les re-renders
-  const handleSimplePageChange = useCallback((_event: unknown, page: number) => {
-    setSimpleRolePage(page);
+  // Pagination pour rôles composites (index 0-based pour TablePagination)
+  const [compositeRolePage, setCompositeRolePage] = useState(0);
+  const [compositeRolesPerPage, setCompositeRolesPerPage] = useState(5);
+  
+  // ✅ Callbacks de pagination mémorisés
+  const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
+    setSimpleRolePage(newPage);
   }, []);
   
-  const handleCompositePageChange = useCallback((_event: unknown, page: number) => {
-    setCompositeRolePage(page);
+  const handleSimpleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setSimpleRolesPerPage(parseInt(event.target.value, 10));
+    setSimpleRolePage(0);
+  }, []);
+  
+  const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
+    setCompositeRolePage(newPage);
+  }, []);
+  
+  const handleCompositeRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setCompositeRolesPerPage(parseInt(event.target.value, 10));
+    setCompositeRolePage(0);
   }, []);
 
   // 🚀 NOUVELLE ARCHITECTURE : État global + Pagination pure
@@ -62,18 +74,16 @@ export default function SodAnalysisPage() {
   // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
   // Slice ultra-rapide (< 1ms) sur les données brutes
   const paginatedSimpleRolesRaw = useMemo(() => {
-    const start = (simpleRolePage - 1) * ROLES_PER_PAGE;
-    const end = start + ROLES_PER_PAGE;
-    const sliced = simpleRoles.slice(start, end);
-    
-    return sliced;
-  }, [simpleRoles, simpleRolePage]);
+    const start = simpleRolePage * simpleRolesPerPage;
+    const end = start + simpleRolesPerPage;
+    return simpleRoles.slice(start, end);
+  }, [simpleRoles, simpleRolePage, simpleRolesPerPage]);
 
   const paginatedCompositeRolesRaw = useMemo(() => {
-    const start = (compositeRolePage - 1) * ROLES_PER_PAGE;
-    const end = start + ROLES_PER_PAGE;
+    const start = compositeRolePage * compositeRolesPerPage;
+    const end = start + compositeRolesPerPage;
     return compositeRoles.slice(start, end);
-  }, [compositeRoles, compositeRolePage]);
+  }, [compositeRoles, compositeRolePage, compositeRolesPerPage]);
   
   // 🚀 OPTIMISATION 2 : Appliquer l'état UNIQUEMENT aux rôles de la page actuelle
   // Seulement 5 rôles au lieu de 1000 !
@@ -85,8 +95,6 @@ export default function SodAnalysisPage() {
     return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsContext);
   }, [paginatedCompositeRolesRaw, actionsContext]);
   
-  const simpleRolesTotalPages = Math.ceil(simpleRoles.length / ROLES_PER_PAGE);
-  const compositeRolesTotalPages = Math.ceil(compositeRoles.length / ROLES_PER_PAGE);
   
   // 🚀 OPTIMISATION 3 : Callbacks stables depuis le contexte
   const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string) => {
@@ -238,16 +246,17 @@ export default function SodAnalysisPage() {
                 {simpleRoles.length} rôle(s) simple(s) • Affichage de {paginatedSimpleRoles.length} rôle(s) par page
               </Typography>
             </Box>
-            {simpleRolesTotalPages > 1 && (
-              <Pagination
-                count={simpleRolesTotalPages}
-                page={simpleRolePage}
-                onChange={handleSimplePageChange}
-                color="primary"
-                showFirstButton
-                showLastButton
-              />
-            )}
+            <TablePagination
+              component="div"
+              count={simpleRoles.length}
+              page={simpleRolePage}
+              onPageChange={handleSimplePageChange}
+              rowsPerPage={simpleRolesPerPage}
+              onRowsPerPageChange={handleSimpleRowsPerPageChange}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Rôles par page:"
+              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
+            />
           </Box>
 
           {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}
@@ -282,15 +291,18 @@ export default function SodAnalysisPage() {
           </Box>
 
           {/* Pagination en bas aussi */}
-          {simpleRolesTotalPages > 1 && (
+          {simpleRoles.length > 5 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Pagination
-                count={simpleRolesTotalPages}
+              <TablePagination
+                component="div"
+                count={simpleRoles.length}
                 page={simpleRolePage}
-                onChange={handleSimplePageChange}
-                color="primary"
-                showFirstButton
-                showLastButton
+                onPageChange={handleSimplePageChange}
+                rowsPerPage={simpleRolesPerPage}
+                onRowsPerPageChange={handleSimpleRowsPerPageChange}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                labelRowsPerPage="Rôles par page:"
+                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
               />
             </Box>
           )}
@@ -309,16 +321,17 @@ export default function SodAnalysisPage() {
                 {compositeRoles.length} rôle(s) composite(s) • Affichage de {paginatedCompositeRoles.length} rôle(s) par page
               </Typography>
             </Box>
-            {compositeRolesTotalPages > 1 && (
-              <Pagination
-                count={compositeRolesTotalPages}
-                page={compositeRolePage}
-                onChange={handleCompositePageChange}
-                color="primary"
-                showFirstButton
-                showLastButton
-              />
-            )}
+            <TablePagination
+              component="div"
+              count={compositeRoles.length}
+              page={compositeRolePage}
+              onPageChange={handleCompositePageChange}
+              rowsPerPage={compositeRolesPerPage}
+              onRowsPerPageChange={handleCompositeRowsPerPageChange}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Rôles par page:"
+              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
+            />
           </Box>
 
           {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}
@@ -353,15 +366,18 @@ export default function SodAnalysisPage() {
           </Box>
 
           {/* Pagination en bas aussi */}
-          {compositeRolesTotalPages > 1 && (
+          {compositeRoles.length > 5 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Pagination
-                count={compositeRolesTotalPages}
+              <TablePagination
+                component="div"
+                count={compositeRoles.length}
                 page={compositeRolePage}
-                onChange={handleCompositePageChange}
-                color="primary"
-                showFirstButton
-                showLastButton
+                onPageChange={handleCompositePageChange}
+                rowsPerPage={compositeRolesPerPage}
+                onRowsPerPageChange={handleCompositeRowsPerPageChange}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                labelRowsPerPage="Rôles par page:"
+                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
               />
             </Box>
           )}
