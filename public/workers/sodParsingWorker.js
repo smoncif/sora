@@ -139,59 +139,69 @@ async function parseExcelFile({ arrayBuffer, chunkSize = 5000 }) {
   // Mapper les colonnes
   const columnIndexes = mapColumns(headers);
   
+  // ⚡ OPTIMISATION 1 : Pré-calculer les adresses de colonnes (évite 14M d'appels à encode_cell)
+  const colAddresses = [];
+  const numCols = range.e.c - range.s.c + 1;
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    colAddresses.push(XLSX.utils.encode_col(col));
+  }
+  
   self.postMessage({ 
     type: 'PROGRESS', 
     progress: 15, 
-    message: '🔧 Colonnes mappées ! Début du traitement streaming...' 
+    message: `🔧 Colonnes mappées (${numCols} colonnes) ! Début du traitement streaming optimisé...` 
   });
 
   // Étape 3 : Traiter ligne par ligne avec streaming (15% -> 80%)
   const processedRecords = [];
   let filteredCount = 0;
-  const numChunks = Math.ceil(totalRows / chunkSize);
-  let currentChunk = 0;
+  let processedCount = 0;
 
-  // Traiter par chunks pour la progression
-  for (let chunkStart = 1; chunkStart <= totalRows; chunkStart += chunkSize) {
-    const chunkEnd = Math.min(chunkStart + chunkSize - 1, totalRows);
+  // Traiter ligne par ligne
+  for (let rowIndex = 1; rowIndex <= totalRows; rowIndex++) {
+    const row = [];
     
-    // Lire les lignes du chunk
-    for (let rowIndex = chunkStart; rowIndex <= chunkEnd; rowIndex++) {
-      const row = [];
+    // ⚡ OPTIMISATION : Utiliser les adresses pré-calculées
+    for (let colIdx = 0; colIdx < colAddresses.length; colIdx++) {
+      const cellAddress = colAddresses[colIdx] + (rowIndex + 1); // +1 car Excel est 1-indexed
+      const cell = worksheet[cellAddress];
       
-      // Lire chaque cellule de la ligne
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: col });
-        const cell = worksheet[cellAddress];
-        
-        // Valeur brute (pas de formatage)
-        row.push(cell ? (cell.v !== undefined ? cell.v : '') : '');
-      }
-      
-      // Normaliser et filtrer
-      const record = normalizeRecord(row, columnIndexes);
-      
-      if (shouldKeepRecord(record)) {
-        processedRecords.push(record);
-      } else {
-        filteredCount++;
-      }
+      // Valeur brute (pas de formatage)
+      row.push(cell ? (cell.v !== undefined ? cell.v : '') : '');
     }
     
-    // Mettre à jour la progression (15% -> 80%)
-    currentChunk++;
-    const progress = 15 + Math.floor((currentChunk / numChunks) * 65);
-    self.postMessage({ 
-      type: 'PROGRESS', 
-      progress, 
-      message: `⚙️ Streaming : ${chunkEnd.toLocaleString()}/${totalRows.toLocaleString()} lignes (${filteredCount.toLocaleString()} filtrées)` 
-    });
-
-    // Yield pour ne pas bloquer
-    if (currentChunk % 5 === 0) {
+    // Normaliser et filtrer
+    const record = normalizeRecord(row, columnIndexes);
+    
+    if (shouldKeepRecord(record)) {
+      processedRecords.push(record);
+    } else {
+      filteredCount++;
+    }
+    
+    processedCount++;
+    
+    // ⚡ OPTIMISATION 2 : Yield tous les 1000 lignes (au lieu de 25,000)
+    if (rowIndex % 1000 === 0) {
+      // Mettre à jour la progression (15% -> 80%)
+      const progress = 15 + Math.floor((rowIndex / totalRows) * 65);
+      self.postMessage({ 
+        type: 'PROGRESS', 
+        progress, 
+        message: `⚙️ Streaming : ${rowIndex.toLocaleString()}/${totalRows.toLocaleString()} lignes (${filteredCount.toLocaleString()} filtrées, ${processedRecords.length.toLocaleString()} valides)` 
+      });
+      
+      // Yield au navigateur pour garder l'UI responsive
       await sleep(0);
     }
   }
+  
+  // Message final de la phase de streaming
+  self.postMessage({ 
+    type: 'PROGRESS', 
+    progress: 80, 
+    message: `✅ Streaming terminé ! ${processedRecords.length.toLocaleString()} enregistrements valides sur ${totalRows.toLocaleString()} lignes` 
+  });
 
   // Étape 5 : Dédoublonnage (80% -> 95%)
   self.postMessage({ 
