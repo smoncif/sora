@@ -49,6 +49,9 @@ interface SodActionsState {
 }
 
 interface SodActionsContextValue extends SodActionsState {
+  /** Compteur de version pour forcer le re-calcul des useMemo */
+  version: number;
+  
   /** Supprimer/restaurer une action */
   toggleDeleteAction: (roleName: string, actionCode: string) => void;
   
@@ -92,8 +95,13 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const restrictedActionsRef = useRef<RestrictedActionsMap>(new Map());
   const restrictedResourcesRef = useRef<RestrictionMap>(new Map());
   
-  // Forcer le re-render quand nécessaire (rarement)
-  const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  // ✅ Compteur de version pour forcer le re-calcul des useMemo
+  const [version, setVersion] = React.useState(0);
+  
+  // Incrémenter la version au lieu de forceUpdate
+  const incrementVersion = React.useCallback(() => {
+    setVersion(v => v + 1);
+  }, []);
   
   /**
    * Génère une clé unique pour une action
@@ -135,8 +143,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       newState: !isDeleted,
       mapSize: deletedActionsRef.current.size 
     });
-    forceUpdate();
-  }, [getActionKey]);
+    incrementVersion();
+  }, [getActionKey, incrementVersion]);
   
   /**
    * Toggle restriction d'une action
@@ -160,8 +168,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       newState: !current,
       mapSize: restrictedActionsRef.current.size 
     });
-    forceUpdate();
-  }, [getActionKey]);
+    incrementVersion();
+  }, [getActionKey, incrementVersion]);
   
   /**
    * Toggle restriction d'une ressource avec ses valeurs
@@ -192,8 +200,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.log('🚫 [RESTRICT RESOURCE]', { roleName, resourceCode, values });
     }
     
-    forceUpdate();
-  }, [getResourceKey]);
+    incrementVersion();
+  }, [getResourceKey, incrementVersion]);
   
   /**
    * Réinitialiser tout l'état
@@ -203,8 +211,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     restrictedActionsRef.current.clear();
     restrictedResourcesRef.current.clear();
     console.log('🔄 [RESET STATE] État SoD réinitialisé');
-    forceUpdate();
-  }, []);
+    incrementVersion();
+  }, [incrementVersion]);
   
   /**
    * Vérifier si une action est supprimée
@@ -247,11 +255,12 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [getResourceKey]);
   
   // ✅ useMemo pour stabiliser la référence du contexte
-  // Sans cela, l'objet value est recréé à chaque render → tous les composants se re-rendent
+  // La version change à chaque modification → force le re-calcul des useMemo dépendants
   const value: SodActionsContextValue = useMemo(() => ({
     deletedActions: deletedActionsRef.current,
     restrictedActions: restrictedActionsRef.current,
     restrictedResources: restrictedResourcesRef.current,
+    version, // ✅ Inclure la version pour forcer le re-calcul
     toggleDeleteAction,
     toggleRestrictAction,
     toggleRestrictResource,
@@ -260,6 +269,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     isActionRestricted,
     isResourceRestricted,
   }), [
+    version, // ✅ Dépendre de la version
     toggleDeleteAction,
     toggleRestrictAction,
     toggleRestrictResource,
