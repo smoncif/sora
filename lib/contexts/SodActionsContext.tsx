@@ -128,7 +128,13 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       restrictedActionsRef.current.delete(key);
     }
     
-    console.log('🗑️ [DELETE ACTION]', { roleName, actionCode, newState: !isDeleted });
+    console.log('🗑️ [DELETE ACTION]', { 
+      roleName, 
+      actionCode, 
+      key,
+      newState: !isDeleted,
+      mapSize: deletedActionsRef.current.size 
+    });
     forceUpdate();
   }, [getActionKey]);
   
@@ -147,7 +153,13 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       deletedActionsRef.current.delete(key);
     }
     
-    console.log('🚫 [RESTRICT ACTION]', { roleName, actionCode, newState: !current });
+    console.log('🚫 [RESTRICT ACTION]', { 
+      roleName, 
+      actionCode, 
+      key,
+      newState: !current,
+      mapSize: restrictedActionsRef.current.size 
+    });
     forceUpdate();
   }, [getActionKey]);
   
