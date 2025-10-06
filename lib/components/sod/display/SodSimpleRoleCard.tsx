@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -14,13 +14,16 @@ import {
   useTheme,
   Paper,
   Divider,
+  Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodSimpleRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodRiskSection } from './SodRiskSection';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodSimpleRoleCardProps {
   /** Rôle simple */
@@ -33,7 +36,7 @@ export interface SodSimpleRoleCardProps {
   onDeleteRisk?: (roleId: string, riskId: string) => void;
   
   /** Callback pour supprimer une action */
-  onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une action */
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
@@ -63,9 +66,16 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
   showNextStepButton = false,
 }) => {
   const theme = useTheme();
+  const actionsContext = useSodActionsContext();
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { roleName, roleDescription, risks, highestRiskLevel } = role;
+  
+  // ✅ Calculer le statut de remédiation du rôle
+  const remediationStatus = useMemo(
+    () => actionsContext.calculateRoleRemediation(roleName, risks),
+    [roleName, risks, actionsContext.version, actionsContext.calculateRoleRemediation]
+  );
   
   
   return (
@@ -76,11 +86,16 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
         overflow: 'hidden',
         mb: 4,
         backgroundColor: theme.palette.background.paper,
-        border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+        // ✅ Bordure verte épaisse si 100% remedié
+        border: remediationStatus.isRemediated
+          ? `2px solid ${theme.palette.success.main}`
+          : `1px solid ${alpha(theme.palette.divider, 0.6)}`,
         boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.08)}`,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+          border: remediationStatus.isRemediated
+            ? `2px solid ${theme.palette.success.dark}`
+            : `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
           transform: 'translateY(-2px)',
           boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.12)}`,
         },
@@ -93,12 +108,26 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
           alignItems: 'center',
           gap: 3,
           p: 3,
-          backgroundColor: alpha(theme.palette.primary.main, 0.04),
+          // ✅ GRADIENT PROGRESSIF : 0% bleu → X% vert
+          background: remediationStatus.remediationPercentage > 0
+            ? `linear-gradient(to right, 
+                ${alpha(theme.palette.success.main, 0.15)} 0%, 
+                ${alpha(theme.palette.success.main, 0.15)} ${remediationStatus.remediationPercentage}%, 
+                ${alpha(theme.palette.primary.main, 0.04)} ${remediationStatus.remediationPercentage}%, 
+                ${alpha(theme.palette.primary.main, 0.04)} 100%
+              )`
+            : alpha(theme.palette.primary.main, 0.04),
+          // ✅ Bordure gauche épaisse verte si 100%
+          borderLeft: remediationStatus.isRemediated
+            ? `6px solid ${theme.palette.success.main}`
+            : 'none',
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
           cursor: 'pointer',
-          transition: 'background-color 0.2s ease',
+          transition: 'all 0.2s ease',
           '&:hover': {
-            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+            backgroundColor: remediationStatus.remediationPercentage > 0
+              ? alpha(theme.palette.success.main, 0.08)
+              : alpha(theme.palette.primary.main, 0.08),
           },
         }}
         onClick={() => setExpanded(!expanded)}
@@ -158,6 +187,23 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
             </Typography>
           )}
         </Box>
+        
+        {/* ✅ Badge de progression de remédiation */}
+        {remediationStatus.remediationPercentage > 0 && (
+          <Chip
+            label={`${remediationStatus.remediationPercentage}% Remedié`}
+            size="small"
+            icon={remediationStatus.isRemediated ? <CheckCircleIcon /> : undefined}
+            sx={{
+              backgroundColor: remediationStatus.isRemediated
+                ? alpha(theme.palette.success.main, 0.25)
+                : alpha(theme.palette.success.main, 0.15),
+              color: theme.palette.success.dark,
+              fontWeight: 600,
+              fontSize: '0.75rem',
+            }}
+          />
+        )}
         
         {/* Supprimé : Badge du niveau de risque (affiché uniquement au niveau du risque) */}
       </Box>

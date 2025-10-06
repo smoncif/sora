@@ -99,13 +99,16 @@ function applyStateToAction(
     r => r.code !== 'S_TCODE' && r.isRestricted
   );
   
-  // ✅ LOGIQUE CORRIGÉE :
-  // Si l'action a été restreinte directement (restrictedByAction = true),
-  // son état visuel dépend UNIQUEMENT de ses ressources (hasRestrictedResource)
-  // Sinon, elle peut être restreinte directement (isRestricted) OU via ses ressources
-  const finalIsRestricted = restrictedByAction 
-    ? hasRestrictedResource 
-    : (isRestricted || hasRestrictedResource);
+  // ✅ RÈGLE PRIORITAIRE : Une action SUPPRIMÉE ne peut JAMAIS être RESTREINTE
+  // Si isDeleted = true → isRestricted doit être false (peu importe l'état des ressources)
+  // Sinon, appliquer la logique normale de restriction
+  const finalIsRestricted = isDeleted 
+    ? false 
+    : (
+        restrictedByAction 
+          ? hasRestrictedResource 
+          : (isRestricted || hasRestrictedResource)
+      );
   
   // ✅ Vérifier si les flags ont changé
   const flagsChanged = 

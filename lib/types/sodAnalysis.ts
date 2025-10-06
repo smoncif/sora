@@ -484,3 +484,35 @@ export interface SodHierarchyBuildOptions {
   sortByRiskLevel?: boolean;
 }
 
+/**
+ * Statut de remédiation d'une fonction
+ * Une fonction est remediée si TOUTES ses actions sont supprimées OU restreintes
+ */
+export interface FunctionRemediationStatus {
+  isRemediated: boolean;
+  totalActions: number;
+  remediatedActions: number;
+}
+
+/**
+ * Statut de remédiation d'un risque
+ * Un risque est remedié si AU MOINS une de ses fonctions est remediée
+ */
+export interface RiskRemediationStatus {
+  isRemediated: boolean;
+  totalFunctions: number;
+  remediatedFunctions: number;
+  remediationPercentage: number; // 0-100
+}
+
+/**
+ * Statut de remédiation d'un rôle simple
+ * Un rôle est remedié si TOUS ses risques sont remediés
+ */
+export interface RoleRemediationStatus {
+  isRemediated: boolean;
+  totalRisks: number;
+  remediatedRisks: number;
+  remediationPercentage: number; // 0-100 pour le gradient visuel
+}
+

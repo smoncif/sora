@@ -98,6 +98,10 @@ export default function SodAnalysisPage() {
             func.actions.forEach(action => {
               const key = `${role.roleName}|${action.code}`;
               
+              // ✅ RÈGLE PRIORITAIRE : Ne pas lister les actions SUPPRIMÉES
+              const isDeleted = isActionDeleted(role.roleName, action.code);
+              if (isDeleted) return; // Ignorer les actions supprimées
+              
               // ✅ Utiliser la MÊME LOGIQUE que applyStateToAction
               const actionRestriction = isActionRestricted(role.roleName, action.code);
               const restrictedByAction = actionRestriction.restrictedByAction;
@@ -131,6 +135,10 @@ export default function SodAnalysisPage() {
             func.simpleRoles.forEach(simpleRole => {
               simpleRole.actions.forEach(action => {
                 const key = `${role.roleName}|${action.code}`;
+                
+                // ✅ RÈGLE PRIORITAIRE : Ne pas lister les actions SUPPRIMÉES
+                const isDeleted = isActionDeleted(role.roleName, action.code);
+                if (isDeleted) return; // Ignorer les actions supprimées
                 
                 // ✅ Utiliser la MÊME LOGIQUE que applyStateToAction
                 const actionRestriction = isActionRestricted(role.roleName, action.code);
@@ -201,8 +209,8 @@ export default function SodAnalysisPage() {
   
   
   // 🚀 OPTIMISATION 3 : Callbacks stables (ne dépendent que des fonctions, pas du contexte entier)
-  const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string) => {
-    toggleDeleteAction(roleName, actionCode);
+  const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources: any[]) => {
+    toggleDeleteAction(roleName, actionCode, resources);
   }, [toggleDeleteAction]); // ✅ Stable : toggleDeleteAction ne change jamais
 
   const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources: any[]) => {

@@ -54,7 +54,7 @@ interface SodActionsContextValue extends SodActionsState {
   version: number;
   
   /** Supprimer/restaurer une action */
-  toggleDeleteAction: (roleName: string, actionCode: string) => void;
+  toggleDeleteAction: (roleName: string, actionCode: string, resources: any[]) => void;
   
   /** Restreindre/dé-restreindre une action */
   toggleRestrictAction: (roleName: string, actionCode: string, resources: any[]) => void;
@@ -83,6 +83,29 @@ interface SodActionsContextValue extends SodActionsState {
     externalResourceCode: string,
     values: string[]
   ) => boolean;
+  
+  /** Calculer le statut de remédiation d'une fonction */
+  calculateFunctionRemediation: (roleName: string, actions: any[]) => {
+    isRemediated: boolean;
+    totalActions: number;
+    remediatedActions: number;
+  };
+  
+  /** Calculer le statut de remédiation d'un risque */
+  calculateRiskRemediation: (roleName: string, functions: any[]) => {
+    isRemediated: boolean;
+    totalFunctions: number;
+    remediatedFunctions: number;
+    remediationPercentage: number;
+  };
+  
+  /** Calculer le statut de remédiation d'un rôle */
+  calculateRoleRemediation: (roleName: string, risks: any[]) => {
+    isRemediated: boolean;
+    totalRisks: number;
+    remediatedRisks: number;
+    remediationPercentage: number;
+  };
 }
 
 const SodActionsContext = createContext<SodActionsContextValue | undefined>(undefined);
@@ -124,28 +147,73 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   
   /**
    * Toggle suppression d'une action
+   * ✅ PROPAGATION AUTOMATIQUE : Restreindre les ressources non-S_TCODE lors de la suppression
    */
-  const toggleDeleteAction = useCallback((roleName: string, actionCode: string) => {
+  const toggleDeleteAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
     const key = getActionKey(roleName, actionCode);
     const isDeleted = deletedActionsRef.current.get(key);
     
     if (isDeleted) {
+      // ♻️ RESTAURER l'action
       deletedActionsRef.current.delete(key);
+      
+      // ✅ Retirer les restrictions automatiques des ressources non-S_TCODE
+      resources.forEach(resource => {
+        if (resource.code !== 'S_TCODE') {
+          resource.externalResources?.forEach((extRes: any) => {
+            const values = extractExternalResourceValues(extRes);
+            const resKey = getResourceKey(roleName, resource.code, extRes.code);
+            const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+            
+            if (restrictedValuesSet) {
+              // Retirer ces valeurs
+              values.forEach(v => restrictedValuesSet.delete(v));
+              if (restrictedValuesSet.size === 0) {
+                restrictedResourcesRef.current.delete(resKey);
+              }
+            }
+          });
+        }
+      });
+      
+      console.log('♻️ [RESTORE ACTION + UNRESTRICT RESOURCES]', { 
+        roleName, 
+        actionCode, 
+        key,
+        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length
+      });
     } else {
+      // 🗑️ SUPPRIMER l'action
       deletedActionsRef.current.set(key, true);
-      // Si on supprime, on retire aussi la restriction
+      // Si on supprime, on retire aussi la restriction de l'action
       restrictedActionsRef.current.delete(key);
+      
+      // ✅ PROPAGATION AUTOMATIQUE : Restreindre automatiquement toutes les ressources non-S_TCODE
+      resources.forEach(resource => {
+        if (resource.code !== 'S_TCODE') {
+          resource.externalResources?.forEach((extRes: any) => {
+            const values = extractExternalResourceValues(extRes);
+            const resKey = getResourceKey(roleName, resource.code, extRes.code);
+            const restrictedValuesSet = restrictedResourcesRef.current.get(resKey) || new Set<string>();
+            
+            // Ajouter ces valeurs
+            values.forEach(v => restrictedValuesSet.add(v));
+            restrictedResourcesRef.current.set(resKey, restrictedValuesSet);
+          });
+        }
+      });
+      
+      console.log('🗑️ [DELETE ACTION + AUTO-RESTRICT RESOURCES]', { 
+        roleName, 
+        actionCode, 
+        key,
+        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length,
+        totalRestrictedResources: restrictedResourcesRef.current.size
+      });
     }
     
-    console.log('🗑️ [DELETE ACTION]', { 
-      roleName, 
-      actionCode, 
-      key,
-      newState: !isDeleted,
-      mapSize: deletedActionsRef.current.size 
-    });
     incrementVersion();
-  }, [getActionKey, incrementVersion]);
+  }, [getActionKey, getResourceKey, incrementVersion]);
   
   // ✅ Fonctions utilitaires importées depuis sodResourceUtils.ts
   
@@ -413,6 +481,172 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
   }, [getResourceKey]);
   
+  // ============================================
+  // FONCTIONS DE CALCUL DE REMÉDIATION
+  // ============================================
+  
+  /**
+   * Calcule si une fonction est remediée
+   * 
+   * ✅ Une fonction est REMEDIEE si AU MOINS UNE de ces conditions est vraie :
+   *    1. Toutes les actions SUPPRIMABLES (avec S_TCODE) sont supprimées
+   *    2. Toutes les actions RESTRAINABLES (avec ressources non-S_TCODE) sont restreintes
+   * 
+   * ✅ Une action est REMEDIABLE si elle a au moins :
+   *    - Une ressource S_TCODE (peut être supprimée) OU
+   *    - Une ressource non-S_TCODE (peut être restreinte)
+   */
+  const calculateFunctionRemediation = useCallback((
+    roleName: string, 
+    actions: any[] // SodAction[]
+  ) => {
+    let suppressableCount = 0;   // Actions avec S_TCODE
+    let suppressedCount = 0;     // Actions supprimées
+    let restrainableCount = 0;   // Actions avec ressources non-S_TCODE
+    let restrictedCount = 0;     // Actions restreintes
+    
+    actions.forEach(action => {
+      const hasTCode = action.resources?.some((r: any) => r.code === 'S_TCODE') || false;
+      const hasOtherResources = action.resources?.some((r: any) => r.code !== 'S_TCODE') || false;
+      
+      // ❌ Si l'action n'a NI S_TCODE NI autres ressources → NON remediable
+      if (!hasTCode && !hasOtherResources) {
+        return; // Ignorer cette action
+      }
+      
+      const actionKey = getActionKey(roleName, action.code);
+      const isDeleted = deletedActionsRef.current.get(actionKey) || false;
+      const restriction = restrictedActionsRef.current.get(actionKey);
+      const isActionDirectlyRestricted = !!restriction;
+      
+      // ✅ Vérifier si au moins une ressource non-S_TCODE est restreinte
+      let hasRestrictedResource = false;
+      if (hasOtherResources && action.resources && Array.isArray(action.resources)) {
+        for (const resource of action.resources) {
+          // Ignorer S_TCODE
+          if (resource.code === 'S_TCODE') continue;
+          
+          // Vérifier si cette ressource a des externalResources restreintes
+          if (resource.externalResources && Array.isArray(resource.externalResources)) {
+            for (const extRes of resource.externalResources) {
+              // Extraire les valeurs de cette externalResource
+              const values = extractExternalResourceValues(extRes);
+              
+              // Vérifier si cette externalResource est restreinte
+              const resKey = getResourceKey(roleName, resource.code, extRes.code);
+              const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+              
+              if (restrictedValuesSet && restrictedValuesSet.size > 0) {
+                // Toutes les valeurs doivent être dans le set
+                const allValuesRestricted = values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+                if (allValuesRestricted) {
+                  hasRestrictedResource = true;
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (hasRestrictedResource) break;
+        }
+      }
+      
+      const isRestricted = isActionDirectlyRestricted || hasRestrictedResource;
+      
+      // Compter les actions supprimables et restrainables
+      if (hasTCode) {
+        suppressableCount++;
+        if (isDeleted) {
+          suppressedCount++;
+        }
+      }
+      
+      if (hasOtherResources) {
+        restrainableCount++;
+        if (isRestricted) {
+          restrictedCount++;
+        }
+      }
+    });
+    
+    // ✅ Fonction remediée si AU MOINS UNE condition est vraie :
+    // 1. Toutes les actions supprimables sont supprimées
+    const allSuppressablesSuppressed = suppressableCount > 0 && suppressedCount === suppressableCount;
+    
+    // 2. Toutes les actions restrainables sont restreintes
+    const allRestrainablesRestricted = restrainableCount > 0 && restrictedCount === restrainableCount;
+    
+    const isRemediated = allSuppressablesSuppressed || allRestrainablesRestricted;
+    
+    // Pour l'affichage : compter le nombre total d'actions remediables
+    const totalRemediable = Math.max(suppressableCount, restrainableCount);
+    const totalRemediated = Math.max(suppressedCount, restrictedCount);
+    
+    return {
+      isRemediated,
+      totalActions: totalRemediable,
+      remediatedActions: totalRemediated
+    };
+  }, [getActionKey, getResourceKey]);
+  
+  /**
+   * Calcule si un risque est remedié
+   * Un risque est remedié si AU MOINS une de ses fonctions est remediée
+   */
+  const calculateRiskRemediation = useCallback((
+    roleName: string,
+    functions: any[] // SodSimpleRoleFunction[]
+  ) => {
+    let remediatedFunctions = 0;
+    
+    functions.forEach(func => {
+      const funcStatus = calculateFunctionRemediation(roleName, func.actions);
+      if (funcStatus.isRemediated) {
+        remediatedFunctions++;
+      }
+    });
+    
+    const totalFunctions = functions.length;
+    
+    return {
+      isRemediated: remediatedFunctions > 0, // AU MOINS UNE fonction remediée
+      totalFunctions,
+      remediatedFunctions,
+      remediationPercentage: totalFunctions > 0 
+        ? Math.round((remediatedFunctions / totalFunctions) * 100) 
+        : 0
+    };
+  }, [calculateFunctionRemediation]);
+  
+  /**
+   * Calcule si un rôle simple est remedié
+   * Un rôle est remedié si TOUS ses risques sont remediés
+   */
+  const calculateRoleRemediation = useCallback((
+    roleName: string,
+    risks: any[] // SodSimpleRoleRiskItem[]
+  ) => {
+    let remediatedRisks = 0;
+    
+    risks.forEach(risk => {
+      const riskStatus = calculateRiskRemediation(roleName, risk.functions);
+      if (riskStatus.isRemediated) {
+        remediatedRisks++;
+      }
+    });
+    
+    const totalRisks = risks.length;
+    
+    return {
+      isRemediated: remediatedRisks === totalRisks && totalRisks > 0,
+      totalRisks,
+      remediatedRisks,
+      remediationPercentage: totalRisks > 0 
+        ? Math.round((remediatedRisks / totalRisks) * 100) 
+        : 0
+    };
+  }, [calculateRiskRemediation]);
+  
   // ✅ useMemo pour stabiliser la référence du contexte
   // La version change à chaque modification → force le re-calcul des useMemo dépendants
   const value: SodActionsContextValue = useMemo(() => ({
@@ -427,6 +661,9 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     isActionDeleted,
     isActionRestricted,
     isResourceRestricted,
+    calculateFunctionRemediation,
+    calculateRiskRemediation,
+    calculateRoleRemediation,
   }), [
     version, // ✅ Dépendre de la version
     toggleDeleteAction,
@@ -436,6 +673,9 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     isActionDeleted,
     isActionRestricted,
     isResourceRestricted,
+    calculateFunctionRemediation,
+    calculateRiskRemediation,
+    calculateRoleRemediation,
   ]);
   
   return (

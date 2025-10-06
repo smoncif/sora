@@ -43,7 +43,7 @@ export interface SodActionItemProps {
   isDuplicate?: boolean;
   
   /** Callback pour supprimer l'action */
-  onDelete?: (actionCode: string) => void;
+  onDelete?: (actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre l'action */
   onRestrict?: (actionCode: string, resources: any[]) => void;
@@ -270,7 +270,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <IconButton
               size="small"
-              onClick={() => onDelete?.(code)}
+              onClick={() => onDelete?.(code, resources)}
               disabled={isRestricted || !hasTCode} // Désactivé si restreinte OU si pas de S_TCODE (Cas 2)
               sx={{
                 p: 0.5,
@@ -350,12 +350,13 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
           <Collapse in={expanded} timeout="auto">
             <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {resources.map((resource, index: number) => {
-                // ✅ La propagation Parent → Enfants se fait dans le CONTEXTE (toggleRestrictAction)
-                // Ici, on affiche simplement l'état réel calculé par applyStateToResource
-                // Si l'action est supprimée, toutes les ressources sont supprimées
+                // ✅ RÈGLE VISUELLE : 
+                // - Si action supprimée : SEUL S_TCODE est marqué comme supprimé (fond rose)
+                // - Les autres ressources sont restreintes automatiquement (fond beige/orange)
                 const enhancedResource = {
                   ...resource,
-                  isDeleted: isDeleted,
+                  // ✅ Seul S_TCODE hérite de isDeleted, les autres sont restreintes
+                  isDeleted: isDeleted && resource.code === 'S_TCODE',
                   // ✅ Utiliser l'état calculé de la ressource (déjà correct via applyStateToResource)
                   isRestricted: resource.isRestricted,
                 };

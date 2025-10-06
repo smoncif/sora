@@ -41,7 +41,7 @@ export interface SodFunctionGridProps {
   risk?: SodSimpleRoleRiskItem;
   
   /** Callback pour supprimer une action */
-  onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une action */
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
@@ -61,7 +61,7 @@ const SodFunctionCard: React.FC<{
   risk?: SodSimpleRoleRiskItem;
   functionIndex?: number;
   duplicateMap?: Map<string, { functionIndices: number[]; isDuplicate: boolean }>;
-  onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
 }> = ({ func, defaultExpanded = true, roleName, riskId, risk, functionIndex = 0, duplicateMap, onDeleteAction, onRestrictAction, onRestrictResource }) => {
@@ -180,7 +180,7 @@ const SodFunctionCard: React.FC<{
                   level={0}
                   defaultExpanded={false}
                   isDuplicate={isDuplicate}
-                  onDelete={(code) => roleName && riskId && onDeleteAction?.(roleName, riskId, code)}
+                  onDelete={(code, resources) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
                   onRestrict={(code, resources) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
                   onRestrictResource={(actionCode, resourceCode, externalResourceCode, values) => 
                     roleName && riskId && onRestrictResource?.(roleName, riskId, actionCode, resourceCode, externalResourceCode, values)
