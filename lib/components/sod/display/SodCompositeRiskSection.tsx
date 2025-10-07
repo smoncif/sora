@@ -36,7 +36,7 @@ export interface SodCompositeRiskSectionProps {
   compositeRoleName?: string;
   
   /** Callback pour supprimer une action */
-  onDeleteAction?: (roleName: string, riskId: string, actionCode: string) => void;
+  onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une action */
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;

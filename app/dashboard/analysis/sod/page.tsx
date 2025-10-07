@@ -71,19 +71,30 @@ export default function SodAnalysisPage() {
   const compositeRoles = (session?.compositeRoles?.roles || []) as SodCompositeRole[];
   
   // ✅ Déstructurer le contexte pour avoir des références stables
+  const actionsContext = useSodActionsContext();
   const { 
+    buildActionResourcesMap,
     toggleDeleteAction, 
     toggleRestrictAction, 
     toggleRestrictResource,
     isActionDeleted,
     isActionRestricted,
     isResourceRestricted,
+    isSimpleRoleExcluded,
     resetState, // ✅ Ajouter resetState pour l'upload
     version, // Pour forcer le re-calcul des useMemo
     deletedActions,
     restrictedActions,
     restrictedResources
-  } = useSodActionsContext();
+  } = actionsContext;
+  
+  // 🗺️ Construire la Map globale des ressources par action (UNE SEULE FOIS)
+  // ✅ OPTIMISÉ : Construction de la Map globale des ressources au chargement
+  useEffect(() => {
+    if (simpleRoles.length > 0 || compositeRoles.length > 0) {
+      buildActionResourcesMap(simpleRoles, compositeRoles);
+    }
+  }, [simpleRoles, compositeRoles, buildActionResourcesMap]);
   
   // 🐛 Calculer toutes les actions VISUELLEMENT restreintes (en utilisant la même logique que applyStateToAction)
   const allRestrictedActions = useMemo(() => {
@@ -133,6 +144,10 @@ export default function SodAnalysisPage() {
           // Pour les rôles composites
           else if ('simpleRoles' in func) {
             func.simpleRoles.forEach(simpleRole => {
+              // ✅ RÈGLE PRIORITAIRE : Ignorer les rôles simples exclus
+              const isExcluded = isSimpleRoleExcluded(role.roleName, simpleRole.roleName);
+              if (isExcluded) return;
+              
               simpleRole.actions.forEach(action => {
                 const key = `${role.roleName}|${action.code}`;
                 
@@ -206,7 +221,6 @@ export default function SodAnalysisPage() {
   const paginatedCompositeRoles = useMemo(() => {
     return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsState);
   }, [paginatedCompositeRolesRaw, actionsState, version]); // ✅ Dépend de version pour se recalculer
-  
   
   // 🚀 OPTIMISATION 3 : Callbacks stables (ne dépendent que des fonctions, pas du contexte entier)
   const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources: any[]) => {

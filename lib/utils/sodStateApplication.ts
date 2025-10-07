@@ -42,13 +42,15 @@ export interface SodActionsState {
 /**
  * Applique l'état à une ressource
  * ✅ OPTIMISATION : Retourne l'objet original si rien n'a changé
+ * ✅ Vérifie si au moins une externalResource est restreinte (niveau VALEURS)
  */
 function applyStateToResource(
   resource: SodResource,
   roleName: string,
+  actionCode: string,
   state: SodActionsState
 ): SodResource {
-  // ✅ Vérifier si au moins une externalResource est restreinte
+  // ✅ Vérifier si au moins une externalResource est restreinte (niveau VALEURS)
   let isRestricted = false;
   
   for (const extRes of resource.externalResources || []) {
@@ -86,9 +88,9 @@ function applyStateToAction(
   const isDeleted = state.isActionDeleted(roleName, action.code);
   const { isRestricted, restrictedByAction } = state.isActionRestricted(roleName, action.code);
   
-  // Appliquer l'état aux ressources
+  // Appliquer l'état aux ressources (avec actionCode pour vérifier les restrictions au niveau action)
   const resourcesWithState = action.resources.map(resource =>
-    applyStateToResource(resource, roleName, state)
+    applyStateToResource(resource, roleName, action.code, state)
   );
   
   // ✅ Vérifier si les ressources ont changé (comparaison de référence)

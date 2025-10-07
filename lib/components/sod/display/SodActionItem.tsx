@@ -42,6 +42,9 @@ export interface SodActionItemProps {
   /** Action dupliquée dans le risque */
   isDuplicate?: boolean;
   
+  /** Désactiver tous les boutons (si le rôle parent est exclu) */
+  disableButtons?: boolean;
+  
   /** Callback pour supprimer l'action */
   onDelete?: (actionCode: string, resources: any[]) => void;
   
@@ -62,6 +65,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
   defaultExpanded = false,
   variant = 'default',
   isDuplicate = false,
+  disableButtons = false,
   onDelete,
   onRestrict,
   onRestrictResource,
@@ -85,7 +89,8 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
     const badges = [];
     
     if (hasTCode) {
-      const isActionGrayed = isDeleted;
+      // ✅ Désactiver si rôle exclu OU action supprimée
+      const isActionGrayed = disableButtons || isDeleted;
       badges.push(
         <Box
           key="tcode"
@@ -98,7 +103,10 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             borderRadius: '50%',
             backgroundColor: isActionGrayed ? theme.palette.grey[400] : theme.palette.primary.main,
             color: theme.palette.common.white,
-            boxShadow: `0 1px 2px ${alpha(isActionGrayed ? theme.palette.grey[400] : theme.palette.primary.main, 0.3)}`,
+            boxShadow: isActionGrayed 
+              ? 'none'
+              : `0 1px 2px ${alpha(theme.palette.primary.main, 0.3)}`,
+            opacity: isActionGrayed ? 0.5 : 1,
           }}
         >
           <CodeIcon sx={{ fontSize: 11 }} />
@@ -107,7 +115,8 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
     }
     
     if (hasOtherResources) {
-      const isPermissionGrayed = allNonTCodeResourcesRestricted;
+      // ✅ Désactiver si rôle exclu OU toutes les permissions restreintes
+      const isPermissionGrayed = disableButtons || allNonTCodeResourcesRestricted;
       badges.push(
         <Box
           key="permission"
@@ -120,7 +129,10 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             borderRadius: '50%',
             backgroundColor: isPermissionGrayed ? theme.palette.grey[400] : theme.palette.warning.main,
             color: theme.palette.common.white,
-            boxShadow: `0 1px 2px ${alpha(isPermissionGrayed ? theme.palette.grey[400] : theme.palette.warning.main, 0.3)}`,
+            boxShadow: isPermissionGrayed 
+              ? 'none'
+              : `0 1px 2px ${alpha(theme.palette.warning.main, 0.3)}`,
+            opacity: isPermissionGrayed ? 0.5 : 1,
           }}
         >
           <SecurityIcon sx={{ fontSize: 11 }} />
@@ -271,7 +283,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             <IconButton
               size="small"
               onClick={() => onDelete?.(code, resources)}
-              disabled={isRestricted || !hasTCode} // Désactivé si restreinte OU si pas de S_TCODE (Cas 2)
+              disabled={disableButtons || isRestricted || !hasTCode} // Désactivé si rôle exclu, restreinte, ou pas de S_TCODE
               sx={{
                 p: 0.5,
                 color: theme.palette.error.main,
@@ -284,7 +296,9 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
                 },
               }}
               title={
-                !hasTCode
+                disableButtons
+                  ? "Rôle exclu de l'analyse"
+                  : !hasTCode
                   ? "Impossible de supprimer (action sans S_TCODE)"
                   : isDeleted 
                   ? "Annuler suppression" 
@@ -296,7 +310,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             <IconButton
               size="small"
               onClick={() => onRestrict?.(code, resources)}
-              disabled={isDeleted || !hasOtherResources} // Désactivé si supprimée OU pas de ressources non-S_TCODE (Cas 1)
+              disabled={disableButtons || isDeleted || !hasOtherResources} // Désactivé si rôle exclu, supprimée, ou pas de ressources non-S_TCODE
               sx={{
                 p: 0.5,
                 color: theme.palette.warning.dark,
@@ -309,7 +323,9 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
                 },
               }}
               title={
-                !hasOtherResources 
+                disableButtons
+                  ? "Rôle exclu de l'analyse"
+                  : !hasOtherResources 
                   ? "Aucune ressource à restreindre (seulement S_TCODE)"
                   : isRestricted 
                   ? "Annuler restriction" 
@@ -367,6 +383,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
                     resource={enhancedResource}
                     level={1}
                     defaultExpanded={true}
+                    disableButtons={disableButtons}
                     onRestrict={(resourceCode, externalResourceCode, values) => 
                       onRestrictResource?.(code, resourceCode, externalResourceCode, values)
                     }
@@ -390,6 +407,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
     prevAction.restrictedByAction === nextAction.restrictedByAction &&
     prevAction.resources === nextAction.resources &&
     prevProps.isDuplicate === nextProps.isDuplicate &&
+    prevProps.disableButtons === nextProps.disableButtons &&
     prevProps.defaultExpanded === nextProps.defaultExpanded
   );
 });

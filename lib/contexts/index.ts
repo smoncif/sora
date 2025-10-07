@@ -17,7 +17,10 @@ export {
 export {
   ComparisonProvider,
   useComparisonContext
-} from './ComparisonContext'; 
+} from './ComparisonContext';
 
-
+export {
+  SodActionsProvider,
+  useSodActionsContext
+} from './SodActionsContext';
 

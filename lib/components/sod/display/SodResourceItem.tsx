@@ -32,6 +32,9 @@ export interface SodResourceItemProps {
   /** Déplié par défaut */
   defaultExpanded?: boolean;
   
+  /** Désactiver les boutons d'action (ex: rôle exclu) */
+  disableButtons?: boolean;
+  
   /** Callback pour restreindre la ressource */
   onRestrict?: (resourceCode: string, externalResourceCode: string, values: string[]) => void;
 }
@@ -44,6 +47,7 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
   resource,
   level = 0,
   defaultExpanded = false,
+  disableButtons = false,
   onRestrict,
 }) => {
   const theme = useTheme();
@@ -161,24 +165,13 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
   const handleRestrict = () => {
     if (!onRestrict) return;
     
-    // Debug : Voir la structure de la ressource
-    console.log('🔍 SodResourceItem - handleRestrict called for:', code);
-    console.log('  externalResources:', externalResources);
-    
     const { externalResourceCode, values } = extractAllValues();
-    
-    // Debug : Voir ce qui a été extrait
-    console.log('  Extracted externalResourceCode:', externalResourceCode);
-    console.log('  Extracted values:', values);
-    console.log('  Is values an array?', Array.isArray(values));
     
     // Sécurité : S'assurer que values est bien un tableau
     if (!Array.isArray(values)) {
-      console.error('extractAllValues returned non-array values:', values);
       return;
     }
     
-    console.log('✅ Calling onRestrict with:', { code, externalResourceCode, values });
     onRestrict(code, externalResourceCode, values);
   };
   
@@ -265,21 +258,37 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
 
           {/* Partie droite : Bouton Restreindre (sauf pour S_TCODE) */}
           {!isTCode && onRestrict && (
-            <Tooltip title={isRestricted ? "Annuler la restriction" : "Restreindre cette ressource"} arrow>
-              <IconButton
-                size="small"
-                onClick={handleRestrict}
-                sx={{
-                  p: 0.5,
-                  color: theme.palette.warning.main,
-                  backgroundColor: isRestricted ? alpha(theme.palette.warning.main, 0.15) : 'transparent',
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.warning.main, 0.1),
-                  },
-                }}
-              >
-                <BlockIcon fontSize="small" />
-              </IconButton>
+            <Tooltip 
+              title={
+                disableButtons 
+                  ? "Rôle exclu de l'analyse"
+                  : isRestricted 
+                    ? "Annuler la restriction" 
+                    : "Restreindre cette ressource"
+              } 
+              arrow
+            >
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={handleRestrict}
+                  disabled={disableButtons}
+                  sx={{
+                    p: 0.5,
+                    color: theme.palette.warning.main,
+                    backgroundColor: isRestricted ? alpha(theme.palette.warning.main, 0.15) : 'transparent',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                    },
+                    '&:disabled': {
+                      color: theme.palette.grey[400],
+                      backgroundColor: 'transparent',
+                    },
+                  }}
+                >
+                  <BlockIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
           )}
         </Box>
@@ -342,6 +351,7 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
     prevProps.resource.isDeleted === nextProps.resource.isDeleted &&
     prevProps.resource.isRestricted === nextProps.resource.isRestricted &&
     prevProps.resource.externalResources === nextProps.resource.externalResources &&
+    prevProps.disableButtons === nextProps.disableButtons &&
     prevProps.defaultExpanded === nextProps.defaultExpanded
   );
 });

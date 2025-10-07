@@ -53,8 +53,14 @@ interface SodActionsContextValue extends SodActionsState {
   /** Compteur de version pour forcer le re-calcul des useMemo */
   version: number;
   
+  /** Construire la Map globale des ressources par action */
+  buildActionResourcesMap: (simpleRoles: any[], compositeRoles: any[]) => void;
+  
   /** Supprimer/restaurer une action */
   toggleDeleteAction: (roleName: string, actionCode: string, resources: any[]) => void;
+  
+  /** Restreindre une action directement (sans toggle) */
+  restrictAction: (roleName: string, actionCode: string, resources: any[]) => void;
   
   /** Restreindre/dé-restreindre une action */
   toggleRestrictAction: (roleName: string, actionCode: string, resources: any[]) => void;
@@ -83,6 +89,12 @@ interface SodActionsContextValue extends SodActionsState {
     externalResourceCode: string,
     values: string[]
   ) => boolean;
+  
+  /** Exclure/restaurer un rôle simple dans un rôle composite (toutes fonctions) */
+  toggleExcludeSimpleRole: (compositeRoleName: string, simpleRoleName: string) => void;
+  
+  /** Vérifier si un rôle simple est exclu dans un rôle composite */
+  isSimpleRoleExcluded: (compositeRoleName: string, simpleRoleName: string) => boolean;
   
   /** Calculer le statut de remédiation d'une fonction */
   calculateFunctionRemediation: (roleName: string, actions: any[]) => {
@@ -119,6 +131,32 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const restrictedActionsRef = useRef<RestrictedActionsMap>(new Map());
   const restrictedResourcesRef = useRef<RestrictionMap>(new Map());
   
+  // 🆕 Map globale : toutes les ressources d'une action dans un rôle (avec leurs données complètes)
+  // Clé : "roleName|actionCode|resourceCode", Valeur : resource complète avec externalResources
+  const actionResourcesMapRef = useRef<Map<string, any>>(new Map());
+  
+  // 🆕 Map des rôles simples exclus dans les rôles composites
+  // Clé : "compositeRoleName|functionCode|simpleRoleName"
+  const excludedSimpleRolesRef = useRef<Map<string, boolean>>(new Map());
+  
+  // ✅ Fonction utilitaire pour créer une clé de ressource d'action
+  const getActionResourceKey = useCallback((
+    roleName: string,
+    actionCode: string,
+    resourceCode: string
+  ): string => {
+    return `${roleName}|${actionCode}|${resourceCode}`;
+  }, []);
+  
+  // ✅ Fonction utilitaire pour créer une clé de rôle simple exclu
+  // Clé : compositeRoleName|simpleRoleName (sans functionCode pour propager dans tout le composite)
+  const getExcludedRoleKey = useCallback((
+    compositeRoleName: string,
+    simpleRoleName: string
+  ): string => {
+    return `${compositeRoleName}|${simpleRoleName}`;
+  }, []);
+  
   // ✅ Compteur de version pour forcer le re-calcul des useMemo
   const [version, setVersion] = React.useState(0);
   
@@ -145,9 +183,67 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return `${roleName}|${resourceCode}|${externalResourceCode || 'NULL'}`;
   }, []);
   
+  
+  /**
+   * Construit la Map globale de toutes les ressources par action (avec données complètes)
+   * ✅ Appelé UNE SEULE FOIS au chargement des données
+   * ✅ Performance : O(n) où n = nombre total d'actions × ressources
+   * ✅ Stocke les ressources COMPLÈTES avec leurs externalResources pour extraire les valeurs plus tard
+   */
+  const buildActionResourcesMap = useCallback((simpleRoles: any[], compositeRoles: any[]) => {
+    const map = new Map<string, any>();
+    
+    // Parcourir les rôles simples (Étape 1)
+    simpleRoles.forEach((role: any) => {
+      role.risks?.forEach((risk: any) => {
+        risk.functions?.forEach((func: any) => {
+          func.actions?.forEach((action: any) => {
+            action.resources?.forEach((resource: any) => {
+              if (resource.code !== 'S_TCODE') {
+                const key = getActionResourceKey(role.roleName, action.code, resource.code);
+                // Stocker la ressource complète (avec externalResources)
+                map.set(key, resource);
+              }
+            });
+          });
+        });
+      });
+    });
+    
+    // Parcourir les rôles composites (Étape 2)
+    compositeRoles.forEach((compositeRole: any) => {
+      compositeRole.risks?.forEach((risk: any) => {
+        risk.functions?.forEach((func: any) => {
+          func.simpleRoles?.forEach((simpleRole: any) => {
+            simpleRole.actions?.forEach((action: any) => {
+              action.resources?.forEach((resource: any) => {
+                if (resource.code !== 'S_TCODE') {
+                  const key = getActionResourceKey(simpleRole.roleName, action.code, resource.code);
+                  // Stocker la ressource complète (avec externalResources)
+                  map.set(key, resource);
+                }
+              });
+            });
+          });
+        });
+      });
+    });
+    
+    actionResourcesMapRef.current = map;
+    
+    console.log('🗺️ [BUILD ACTION RESOURCES MAP]', {
+      totalEntries: map.size,
+      sample: Array.from(map.entries()).slice(0, 3).map(([k, v]) => ({ 
+        key: k, 
+        resourceCode: v.code,
+        externalResourcesCount: v.externalResources?.length || 0
+      }))
+    });
+  }, [getActionResourceKey]);
+  
   /**
    * Toggle suppression d'une action
-   * ✅ PROPAGATION AUTOMATIQUE : Restreindre les ressources non-S_TCODE lors de la suppression
+   * ✅ PROPAGATION GLOBALE : Restreindre TOUTES les ressources de l'action (toutes fonctions) au niveau VALEURS
    */
   const toggleDeleteAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
     const key = getActionKey(roleName, actionCode);
@@ -157,58 +253,49 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // ♻️ RESTAURER l'action
       deletedActionsRef.current.delete(key);
       
-      // ✅ Retirer les restrictions automatiques des ressources non-S_TCODE
-      resources.forEach(resource => {
-        if (resource.code !== 'S_TCODE') {
+      // ✅ Parcourir TOUTES les ressources de cette action dans la Map globale
+      let restoredCount = 0;
+      actionResourcesMapRef.current.forEach((resource, mapKey) => {
+        const [mapRoleName, mapActionCode, ] = mapKey.split('|');
+        if (mapRoleName === roleName && mapActionCode === actionCode) {
+          // Retirer les restrictions de cette ressource (toutes ses valeurs)
           resource.externalResources?.forEach((extRes: any) => {
             const values = extractExternalResourceValues(extRes);
             const resKey = getResourceKey(roleName, resource.code, extRes.code);
             const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
             
             if (restrictedValuesSet) {
-              // Retirer ces valeurs
               values.forEach(v => restrictedValuesSet.delete(v));
               if (restrictedValuesSet.size === 0) {
                 restrictedResourcesRef.current.delete(resKey);
               }
+              restoredCount++;
             }
           });
         }
       });
-      
-      console.log('♻️ [RESTORE ACTION + UNRESTRICT RESOURCES]', { 
-        roleName, 
-        actionCode, 
-        key,
-        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length
-      });
     } else {
       // 🗑️ SUPPRIMER l'action
       deletedActionsRef.current.set(key, true);
-      // Si on supprime, on retire aussi la restriction de l'action
       restrictedActionsRef.current.delete(key);
       
-      // ✅ PROPAGATION AUTOMATIQUE : Restreindre automatiquement toutes les ressources non-S_TCODE
-      resources.forEach(resource => {
-        if (resource.code !== 'S_TCODE') {
+      // ✅ Parcourir TOUTES les ressources de cette action dans la Map globale
+      const restrictedResources: string[] = [];
+      actionResourcesMapRef.current.forEach((resource, mapKey) => {
+        const [mapRoleName, mapActionCode, ] = mapKey.split('|');
+        if (mapRoleName === roleName && mapActionCode === actionCode) {
+          // Restreindre TOUTES les valeurs de cette ressource
           resource.externalResources?.forEach((extRes: any) => {
             const values = extractExternalResourceValues(extRes);
             const resKey = getResourceKey(roleName, resource.code, extRes.code);
             const restrictedValuesSet = restrictedResourcesRef.current.get(resKey) || new Set<string>();
             
-            // Ajouter ces valeurs
             values.forEach(v => restrictedValuesSet.add(v));
             restrictedResourcesRef.current.set(resKey, restrictedValuesSet);
+            
+            restrictedResources.push(`${resource.code} (${values.length} valeurs)`);
           });
         }
-      });
-      
-      console.log('🗑️ [DELETE ACTION + AUTO-RESTRICT RESOURCES]', { 
-        roleName, 
-        actionCode, 
-        key,
-        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length,
-        totalRestrictedResources: restrictedResourcesRef.current.size
       });
     }
     
@@ -249,17 +336,44 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     });
     
-    // Si l'action n'a plus de ressources restreintes, la nettoyer
-    if (!hasRestrictedResource) {
-      console.log('🧹 [AUTO CLEANUP] Action sans ressources restreintes:', {
-        roleName,
-        actionCode,
-        key
-      });
-      restrictedActionsRef.current.delete(key);
-    }
+      // Si l'action n'a plus de ressources restreintes, la nettoyer
+      if (!hasRestrictedResource) {
+        restrictedActionsRef.current.delete(key);
+      }
   }, [getActionKey, getResourceKey]);
   
+  /**
+   * Restreindre une action directement (sans toggle)
+   * ✅ Utilisé pour "Restreindre tout" - force la restriction sans vérifier l'état
+   * ✅ PROPAGATION : Restreint automatiquement toutes les ressources non-S_TCODE
+   */
+  const restrictAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
+    const key = getActionKey(roleName, actionCode);
+    
+    // ✅ Restreindre directement (pas de toggle)
+    restrictedActionsRef.current.set(key, { restrictedByAction: true });
+    
+    // Si on restreint, on retire la suppression
+    deletedActionsRef.current.delete(key);
+    
+    // Restreindre toutes les ressources non-S_TCODE
+    resources.forEach(resource => {
+      if (resource.code !== 'S_TCODE') {
+        resource.externalResources?.forEach((extRes: any) => {
+          const values = extractExternalResourceValues(extRes);
+          const resKey = getResourceKey(roleName, resource.code, extRes.code);
+          const restrictedValuesSet = restrictedResourcesRef.current.get(resKey) || new Set<string>();
+          
+          // Ajouter ces valeurs
+          values.forEach(v => restrictedValuesSet.add(v));
+          restrictedResourcesRef.current.set(resKey, restrictedValuesSet);
+        });
+      }
+    });
+    
+    incrementVersion();
+  }, [getActionKey, getResourceKey, incrementVersion]);
+
   /**
    * Toggle restriction d'une action
    * ✅ PROPAGATION : Restreint automatiquement toutes les ressources non-S_TCODE
@@ -294,14 +408,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     const isCurrentlyRestricted = !!actionDirectlyRestricted || hasRestrictedResource;
     
-    console.log('🔍 [TOGGLE RESTRICT ACTION] État actuel:', {
-      roleName,
-      actionCode,
-      actionDirectlyRestricted: !!actionDirectlyRestricted,
-      hasRestrictedResource,
-      isCurrentlyRestricted
-    });
-    
     if (isCurrentlyRestricted) {
       // Dé-restreindre : retirer l'action ET les ressources
       restrictedActionsRef.current.delete(key);
@@ -324,13 +430,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           });
         }
       });
-      
-      console.log('✅ [UNRESTRICT ACTION + RESOURCES]', { 
-        roleName, 
-        actionCode, 
-        key,
-        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length
-      });
     } else {
       // Restreindre : ajouter l'action ET les ressources
       restrictedActionsRef.current.set(key, { restrictedByAction: true });
@@ -352,14 +451,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           });
         }
       });
-      
-      console.log('🚫 [RESTRICT ACTION + RESOURCES]', { 
-        roleName, 
-        actionCode, 
-        key,
-        resourcesProcessed: resources.filter(r => r.code !== 'S_TCODE').length,
-        totalRestrictedResources: restrictedResourcesRef.current.size
-      });
     }
     
     incrementVersion();
@@ -374,54 +465,61 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     externalResourceCode: string,
     values: string[]
   ) => {
-    console.log('🔍 [toggleRestrictResource] Called with:', {
-      roleName,
-      resourceCode,
-      externalResourceCode,
-      values,
-      isArray: Array.isArray(values),
-      valuesLength: values?.length
-    });
-    
     const key = getResourceKey(roleName, resourceCode, externalResourceCode);
     const restrictedValuesSet = restrictedResourcesRef.current.get(key) || new Set<string>();
-    
-    console.log('  Generated key:', key);
-    console.log('  Current restrictedValuesSet:', Array.from(restrictedValuesSet));
     
     // Vérifier si ces valeurs sont déjà restreintes
     const alreadyRestricted = values.every(v => restrictedValuesSet.has(v));
     
-    console.log('  alreadyRestricted:', alreadyRestricted);
-    
     if (alreadyRestricted) {
-      // Retirer les valeurs
+      // ✅ DÉ-RESTREINDRE : Retirer les valeurs
       values.forEach(v => restrictedValuesSet.delete(v));
       if (restrictedValuesSet.size === 0) {
         restrictedResourcesRef.current.delete(key);
       }
-      console.log('✅ [UNRESTRICT RESOURCE]', { 
-        roleName, 
-        resourceCode, 
-        externalResourceCode,
-        values,
-        mapSize: restrictedResourcesRef.current.size 
-      });
     } else {
-      // Ajouter les valeurs
+      // ✅ RESTREINDRE : Ajouter les valeurs
       values.forEach(v => restrictedValuesSet.add(v));
       restrictedResourcesRef.current.set(key, restrictedValuesSet);
-      console.log('🚫 [RESTRICT RESOURCE]', { 
-        roleName, 
-        resourceCode, 
-        externalResourceCode,
-        values,
-        mapSize: restrictedResourcesRef.current.size 
-      });
     }
     
     incrementVersion();
   }, [getResourceKey, incrementVersion]);
+  
+  
+  /**
+   * Toggle l'exclusion d'un rôle simple dans un rôle composite
+   * L'exclusion est propagée à toutes les fonctions du composite
+   * ✅ OPTIMISÉ : Utilisation de Map pour O(1) lookup et modification
+   */
+  const toggleExcludeSimpleRole = useCallback((
+    compositeRoleName: string,
+    simpleRoleName: string
+  ) => {
+    const key = getExcludedRoleKey(compositeRoleName, simpleRoleName);
+    const isExcluded = excludedSimpleRolesRef.current.get(key);
+    
+    if (isExcluded) {
+      excludedSimpleRolesRef.current.delete(key);
+    } else {
+      excludedSimpleRolesRef.current.set(key, true);
+    }
+    
+    incrementVersion();
+  }, [getExcludedRoleKey, incrementVersion]);
+  
+  /**
+   * Vérifier si un rôle simple est exclu
+   * Vérifie au niveau du composite (toutes fonctions confondues)
+   * ✅ OPTIMISÉ : O(1) lookup dans Map, pas d'itération
+   */
+  const isSimpleRoleExcluded = useCallback((
+    compositeRoleName: string,
+    simpleRoleName: string
+  ): boolean => {
+    const key = getExcludedRoleKey(compositeRoleName, simpleRoleName);
+    return excludedSimpleRolesRef.current.get(key) || false;
+  }, [getExcludedRoleKey]);
   
   /**
    * Réinitialiser tout l'état
@@ -430,6 +528,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     deletedActionsRef.current.clear();
     restrictedActionsRef.current.clear();
     restrictedResourcesRef.current.clear();
+    actionResourcesMapRef.current.clear();
+    excludedSimpleRolesRef.current.clear();
     console.log('🔄 [RESET STATE] État SoD réinitialisé');
     incrementVersion();
   }, [incrementVersion]);
@@ -654,25 +754,33 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     restrictedActions: restrictedActionsRef.current,
     restrictedResources: restrictedResourcesRef.current,
     version, // ✅ Inclure la version pour forcer le re-calcul
+    buildActionResourcesMap,
     toggleDeleteAction,
+    restrictAction,
     toggleRestrictAction,
     toggleRestrictResource,
+    toggleExcludeSimpleRole,
     resetState,
     isActionDeleted,
     isActionRestricted,
     isResourceRestricted,
+    isSimpleRoleExcluded,
     calculateFunctionRemediation,
     calculateRiskRemediation,
     calculateRoleRemediation,
   }), [
     version, // ✅ Dépendre de la version
+    buildActionResourcesMap,
     toggleDeleteAction,
+    restrictAction,
     toggleRestrictAction,
     toggleRestrictResource,
+    toggleExcludeSimpleRole,
     resetState,
     isActionDeleted,
     isActionRestricted,
     isResourceRestricted,
+    isSimpleRoleExcluded,
     calculateFunctionRemediation,
     calculateRiskRemediation,
     calculateRoleRemediation,
