@@ -24,8 +24,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import WarningIcon from '@mui/icons-material/Warning';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { SodSimpleRoleInComposite } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
@@ -388,44 +386,6 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
             {roleName}
           </Typography>
           
-          {/* Icône d'état visuel du rôle */}
-          {roleVisualState.type !== 'normal' && (
-            <Tooltip 
-              title={
-                roleVisualState.type === 'excluded' 
-                  ? "Rôle exclu de l'analyse"
-                  : roleVisualState.type === 'all-deleted'
-                    ? "Toutes les actions supprimables ont été supprimées"
-                    : roleVisualState.type === 'all-restricted'
-                      ? "Toutes les actions restreignables ont été restreintes"
-                      : ""
-              }
-              arrow
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  backgroundColor: roleVisualState.type === 'excluded' || roleVisualState.type === 'all-deleted'
-                    ? theme.palette.error.main
-                    : theme.palette.warning.main,
-                  color: theme.palette.common.white,
-                }}
-              >
-                {roleVisualState.type === 'excluded' ? (
-                  <RemoveCircleOutlineIcon sx={{ fontSize: 10 }} />
-                ) : roleVisualState.type === 'all-deleted' ? (
-                  <DeleteOutlineIcon sx={{ fontSize: 10 }} />
-                ) : roleVisualState.type === 'all-restricted' ? (
-                  <WarningIcon sx={{ fontSize: 10 }} />
-                ) : null}
-              </Box>
-            </Tooltip>
-          )}
           
           {/* Badges T-Code et/ou Permissions */}
           {roleBadges}
