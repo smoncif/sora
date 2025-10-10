@@ -334,6 +334,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   /**
    * Nettoie une action de restrictedActionsRef si elle n'a plus de ressources restreintes
    * ✅ Maintient la cohérence entre l'état du contexte et l'état visuel
+   * ✅ RÈGLE : Si au moins une valeur d'une ressource n'est plus restreinte → la ressource n'est plus restreinte → l'action n'est plus restreinte
    * ⚠️  Doit être déclaré AVANT toggleRestrictAction qui l'utilise
    */
   const cleanupActionIfNeeded = useCallback((roleName: string, actionCode: string, resources: any[]) => {
@@ -500,6 +501,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   
   /**
    * Toggle restriction d'une ressource avec ses valeurs
+   * ✅ NOUVELLE RÈGLE : Si au moins une valeur n'est plus restreinte → TOUTES les valeurs de la ressource deviennent non restreintes
    */
   const toggleRestrictResource = useCallback((
     roleName: string,
@@ -514,11 +516,9 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const alreadyRestricted = values.every(v => restrictedValuesSet.has(v));
     
     if (alreadyRestricted) {
-      // ✅ DÉ-RESTREINDRE : Retirer les valeurs
-      values.forEach(v => restrictedValuesSet.delete(v));
-      if (restrictedValuesSet.size === 0) {
-        restrictedResourcesRef.current.delete(key);
-      }
+      // ✅ DÉ-RESTREINDRE : Retirer TOUTES les valeurs de cette ressource (nouvelle règle)
+      // Si au moins une valeur n'est plus restreinte → toute la ressource n'est plus restreinte
+      restrictedResourcesRef.current.delete(key);
     } else {
       // ✅ RESTREINDRE : Ajouter les valeurs
       values.forEach(v => restrictedValuesSet.add(v));
