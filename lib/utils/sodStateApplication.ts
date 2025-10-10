@@ -86,7 +86,7 @@ function applyStateToAction(
   state: SodActionsState
 ): SodAction {
   const isDeleted = state.isActionDeleted(roleName, action.code);
-  const { isRestricted, restrictedByAction } = state.isActionRestricted(roleName, action.code);
+  const { isRestricted, restrictedByAction } = state.isActionRestricted(roleName, action.code, action.resources);
   
   // Appliquer l'état aux ressources (avec actionCode pour vérifier les restrictions au niveau action)
   const resourcesWithState = action.resources.map(resource =>

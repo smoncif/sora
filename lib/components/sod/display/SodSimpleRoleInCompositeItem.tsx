@@ -23,6 +23,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { SodSimpleRoleInComposite } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
@@ -204,20 +205,56 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     });
   }, [roleName, riskId, actions, onDeleteAction]);
   
+  // ✅ GESTIONNAIRE POUR LE BOUTON "RESTREINDRE/DÉRESTREINDRE TOUT"
   const handleRestrictAllActions = useCallback(() => {
     if (!actions) return;
     
-    // ✅ RÈGLE SIMPLE : Restreindre toutes les actions qui ne sont PAS déjà restreintes
-    // ✅ Utilise restrictAction (sans toggle) pour éviter les conflits
-    actions.forEach(action => {
-      const hasOtherResources = action.resources?.some(r => r.code !== 'S_TCODE');
+    // ✅ Filtrer les actions restrainable (non-S_TCODE)
+    const restrainableActions = actions.filter(action => 
+      action.resources?.some(r => r.code !== 'S_TCODE')
+    );
+    
+    if (restrainableActions.length === 0) return;
+    
+    // ✅ ÉTAPE 1: DÉTECTER LE MODE GLOBAL
+    const hasAnyRestricted = restrainableActions.some(action => 
+      actionsContext.isActionRestricted(roleName, action.code, action.resources).isRestricted
+    );
+    
+    const mode = hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE";
+    
+    // ✅ SIMULER LES CLIQUES SUR LES BOUTONS INDIVIDUELS
+    restrainableActions.forEach((action) => {
+      const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
       
-      // Si l'action a des permissions ET n'est PAS déjà restreinte → Restreindre
-      if (hasOtherResources && !action.isRestricted) {
+      if (mode === "RESTREINDRE" && !isRestricted) {
+        // Mode RESTREINDRE : Utiliser restrictAction (force la restriction sans toggle)
         actionsContext.restrictAction(roleName, action.code, action.resources);
+      } else if (mode === "DÉRESTREINDRE" && isRestricted) {
+        // Mode DÉRESTREINDRE : Utiliser toggleRestrictAction (toggle pour dérestreindre)
+        actionsContext.toggleRestrictAction(roleName, action.code, action.resources);
       }
+      // Sinon ignorer l'action (déjà dans le bon état)
     });
-  }, [roleName, actions, actionsContext]);
+  }, [roleName, riskId, actions, actionsContext, onRestrictAction]);
+  
+  // ✅ CALCULER LE MODE GLOBAL POUR L'INTERFACE DYNAMIQUE
+  const buttonMode = useMemo(() => {
+    if (!actions) return { mode: "RESTREINDRE", hasAnyRestricted: false };
+    
+    const restrainableActions = actions.filter(action => 
+      action.resources?.some(r => r.code !== 'S_TCODE')
+    );
+    
+    const hasAnyRestricted = restrainableActions.some(action => 
+      actionsContext.isActionRestricted(roleName, action.code, action.resources).isRestricted
+    );
+    
+    return {
+      mode: hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE",
+      hasAnyRestricted
+    };
+  }, [actions, actionsContext, roleName]);
   
   return (
     <Box sx={{ ml: level * 2 }}>
@@ -363,8 +400,8 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
             </span>
           </Tooltip>
           
-          {/* Bouton Restreindre Actions */}
-          <Tooltip 
+          {/* Bouton Restreindre/Dérestreindre Actions */}
+          <Tooltip
             title={
               isRoleExcluded
                 ? "Rôle exclu de l'analyse"
@@ -372,7 +409,9 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
                   ? "Toutes les actions sont déjà supprimées"
                   : !hasPermissions 
                     ? "Aucune permission à restreindre" 
-                    : "Restreindre toutes les actions (Permissions)"
+                    : buttonMode.hasAnyRestricted
+                      ? "Dérestreindre toutes les actions (Permissions)"
+                      : "Restreindre toutes les actions (Permissions)"
             } 
             arrow
           >
@@ -392,7 +431,11 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
                   },
                 }}
               >
-                <BlockIcon sx={{ fontSize: 18 }} />
+                {buttonMode.hasAnyRestricted ? (
+                  <LockOpenIcon sx={{ fontSize: 18 }} />
+                ) : (
+                  <BlockIcon sx={{ fontSize: 18 }} />
+                )}
               </IconButton>
             </span>
           </Tooltip>

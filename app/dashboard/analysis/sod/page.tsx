@@ -149,14 +149,14 @@ export default function SodAnalysisPage() {
               if (isExcluded) return;
               
               simpleRole.actions.forEach(action => {
-                const key = `${role.roleName}|${action.code}`;
+                const key = `${simpleRole.roleName}|${action.code}`;
                 
                 // ✅ RÈGLE PRIORITAIRE : Ne pas lister les actions SUPPRIMÉES
-                const isDeleted = isActionDeleted(role.roleName, action.code);
+                const isDeleted = isActionDeleted(simpleRole.roleName, action.code);
                 if (isDeleted) return; // Ignorer les actions supprimées
                 
                 // ✅ Utiliser la MÊME LOGIQUE que applyStateToAction
-                const actionRestriction = isActionRestricted(role.roleName, action.code);
+                const actionRestriction = isActionRestricted(simpleRole.roleName, action.code);
                 const restrictedByAction = actionRestriction.restrictedByAction;
                 
                 const hasRestrictedResource = action.resources.some(resource => {
@@ -164,7 +164,7 @@ export default function SodAnalysisPage() {
                   
                   return resource.externalResources?.some(extRes => {
                     const values = extractExternalResourceValues(extRes);
-                    return isResourceRestricted(role.roleName, resource.code, extRes.code, values);
+                    return isResourceRestricted(simpleRole.roleName, resource.code, extRes.code, values);
                   });
                 });
                 

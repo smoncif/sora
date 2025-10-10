@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -19,9 +19,11 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodCompositeRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodCompositeRiskSection } from './SodCompositeRiskSection';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodCompositeRoleCardProps {
   /** Rôle composite */
@@ -65,6 +67,7 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const actionsContext = useSodActionsContext();
   
   const { 
     roleName, 
@@ -76,6 +79,15 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
     involvedSimpleRoleCount 
   } = role;
   
+  // ✅ OPTIMISATION : Calculer le statut de remédiation avec useMemo
+  const remediationStatus = useMemo(
+    () => actionsContext.calculateCompositeRoleRemediation(
+      compositeRoleName,
+      risks
+    ),
+    [compositeRoleName, risks, actionsContext.version, actionsContext.calculateCompositeRoleRemediation]
+  );
+  
   return (
     <Paper
       elevation={0}
@@ -84,11 +96,16 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
         overflow: 'hidden',
         mb: 4,
         backgroundColor: theme.palette.background.paper,
-        border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+        // ✅ Bordure verte épaisse si 100% remedié
+        border: remediationStatus.isRemediated
+          ? `2px solid ${alpha(theme.palette.success.main, 0.4)}`
+          : `1px solid ${alpha(theme.palette.divider, 0.6)}`,
         boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.08)}`,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+          border: remediationStatus.isRemediated
+            ? `2px solid ${alpha(theme.palette.success.main, 0.6)}`
+            : `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
           transform: 'translateY(-2px)',
           boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.12)}`,
         },
@@ -101,12 +118,25 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
           alignItems: 'center',
           gap: 3,
           p: 3,
-          backgroundColor: alpha(theme.palette.primary.main, 0.04),
+          // ✅ Gradient progressif vert (remedié) → bleu (non remedié)
+          background: remediationStatus.remediationPercentage > 0
+            ? `linear-gradient(to right, 
+                ${alpha(theme.palette.success.main, 0.12)} 0%, 
+                ${alpha(theme.palette.success.main, 0.12)} ${remediationStatus.remediationPercentage}%, 
+                ${alpha(theme.palette.primary.main, 0.04)} ${remediationStatus.remediationPercentage}%, 
+                ${alpha(theme.palette.primary.main, 0.04)} 100%)`
+            : alpha(theme.palette.primary.main, 0.04),
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
           cursor: 'pointer',
-          transition: 'background-color 0.2s ease',
+          transition: 'background 0.3s ease',
           '&:hover': {
-            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+            background: remediationStatus.remediationPercentage > 0
+              ? `linear-gradient(to right, 
+                  ${alpha(theme.palette.success.main, 0.18)} 0%, 
+                  ${alpha(theme.palette.success.main, 0.18)} ${remediationStatus.remediationPercentage}%, 
+                  ${alpha(theme.palette.primary.main, 0.08)} ${remediationStatus.remediationPercentage}%, 
+                  ${alpha(theme.palette.primary.main, 0.08)} 100%)`
+              : alpha(theme.palette.primary.main, 0.08),
           },
         }}
         onClick={() => setExpanded(!expanded)}
@@ -168,7 +198,58 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
           )}
         </Box>
         
-        {/* Supprimé : Badge du niveau de risque (affiché uniquement au niveau du risque) */}
+        {/* ✅ Badge de remédiation */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {remediationStatus.isRemediated ? (
+            <Chip
+              icon={<CheckCircleIcon />}
+              label="100% Remedié"
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.success.main, 0.15),
+                color: theme.palette.success.dark,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                '& .MuiChip-icon': {
+                  color: theme.palette.success.main,
+                },
+              }}
+            />
+          ) : remediationStatus.remediationPercentage > 0 ? (
+            <Chip
+              label={`${remediationStatus.remediationPercentage}% Remedié`}
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.warning.main, 0.15),
+                color: theme.palette.warning.dark,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+              }}
+            />
+          ) : (
+            <Chip
+              label="0% Remedié"
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.grey[400], 0.15),
+                color: theme.palette.text.secondary,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+              }}
+            />
+          )}
+          
+          {/* Info complémentaire */}
+          <Typography
+            variant="caption"
+            sx={{
+              color: theme.palette.text.secondary,
+              fontWeight: 500,
+            }}
+          >
+            {remediationStatus.remediatedRisks}/{remediationStatus.totalRisks} risques
+          </Typography>
+        </Box>
       </Box>
       
       {/* Section bleue supprimée - doublon avec l'en-tête orange */}

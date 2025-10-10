@@ -80,7 +80,7 @@ interface SodActionsContextValue extends SodActionsState {
   isActionDeleted: (roleName: string, actionCode: string) => boolean;
   
   /** Vérifier si une action est restreinte */
-  isActionRestricted: (roleName: string, actionCode: string) => { isRestricted: boolean; restrictedByAction: boolean };
+  isActionRestricted: (roleName: string, actionCode: string, resources?: any[]) => { isRestricted: boolean; restrictedByAction: boolean };
   
   /** Vérifier si une ressource est restreinte */
   isResourceRestricted: (
@@ -113,6 +113,33 @@ interface SodActionsContextValue extends SodActionsState {
   
   /** Calculer le statut de remédiation d'un rôle */
   calculateRoleRemediation: (roleName: string, risks: any[]) => {
+    isRemediated: boolean;
+    totalRisks: number;
+    remediatedRisks: number;
+    remediationPercentage: number;
+  };
+  
+  // ============================================
+  // REMÉDIATION - RÔLES COMPOSITES (ÉTAPE 2)
+  // ============================================
+  
+  /** Calculer le statut de remédiation d'une fonction composite */
+  calculateCompositeFunctionRemediation: (compositeRoleName: string, func: any) => {
+    isRemediated: boolean;
+    totalSimpleRoles: number;
+    remediatedSimpleRoles: number;
+  };
+  
+  /** Calculer le statut de remédiation d'un risque composite */
+  calculateCompositeRiskRemediation: (compositeRoleName: string, functions: any[]) => {
+    isRemediated: boolean;
+    totalFunctions: number;
+    remediatedFunctions: number;
+    remediationPercentage: number;
+  };
+  
+  /** Calculer le statut de remédiation d'un rôle composite */
+  calculateCompositeRoleRemediation: (compositeRoleName: string, risks: any[]) => {
     isRemediated: boolean;
     totalRisks: number;
     remediatedRisks: number;
@@ -350,13 +377,23 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const restrictAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
     const key = getActionKey(roleName, actionCode);
     
-    // ✅ Restreindre directement (pas de toggle)
+    // ✅ Vérifier l'état actuel avant restriction
+    const wasAlreadyRestricted = restrictedActionsRef.current.has(key);
+    
+    if (wasAlreadyRestricted) {
+      return;
+    }
+    
+    // ✅ Ajouter l'action comme restreinte
     restrictedActionsRef.current.set(key, { restrictedByAction: true });
     
-    // Si on restreint, on retire la suppression
-    deletedActionsRef.current.delete(key);
+    // ✅ Si on restreint, on retire la suppression
+    const wasDeleted = deletedActionsRef.current.has(key);
+    if (wasDeleted) {
+      deletedActionsRef.current.delete(key);
+    }
     
-    // Restreindre toutes les ressources non-S_TCODE
+    // ✅ Restreindre toutes les ressources non-S_TCODE
     resources.forEach(resource => {
       if (resource.code !== 'S_TCODE') {
         resource.externalResources?.forEach((extRes: any) => {
@@ -383,12 +420,13 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const toggleRestrictAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
     const key = getActionKey(roleName, actionCode);
     
-    // ✅ CLEANUP PRÉALABLE : Nettoyer l'action si elle n'a plus de ressources restreintes
+    // ✅ CLEANUP PRÉALABLE
     cleanupActionIfNeeded(roleName, actionCode, resources);
     
+    // ✅ Vérifier restriction directe
     const actionDirectlyRestricted = restrictedActionsRef.current.get(key);
     
-    // ✅ Vérifier si l'action est visuellement restreinte (via ses ressources)
+    // ✅ Vérifier restriction indirecte (via ressources)
     const hasRestrictedResource = resources.some(resource => {
       if (resource.code === 'S_TCODE') return false;
       
@@ -406,10 +444,11 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     });
     
+    // ✅ État final calculé
     const isCurrentlyRestricted = !!actionDirectlyRestricted || hasRestrictedResource;
     
     if (isCurrentlyRestricted) {
-      // Dé-restreindre : retirer l'action ET les ressources
+      // ✅ Dé-restreindre
       restrictedActionsRef.current.delete(key);
       
       // Retirer les valeurs des ressources non-S_TCODE
@@ -431,11 +470,14 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       });
     } else {
-      // Restreindre : ajouter l'action ET les ressources
+      // ✅ Restreindre
       restrictedActionsRef.current.set(key, { restrictedByAction: true });
       
       // Si on restreint, on retire la suppression
-      deletedActionsRef.current.delete(key);
+      const wasDeleted = deletedActionsRef.current.has(key);
+      if (wasDeleted) {
+        deletedActionsRef.current.delete(key);
+      }
       
       // Ajouter les valeurs des ressources non-S_TCODE
       resources.forEach(resource => {
@@ -543,23 +585,46 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [getActionKey]);
   
   /**
-   * Vérifier si une action est restreinte
-   * 
-   * Note : Le lazy cleanup a été retiré car il n'était pas assez précis.
-   * La logique de restriction se base maintenant uniquement sur applyStateToAction
-   * qui vérifie correctement si les ressources de l'action sont restreintes.
-   * restrictedActionsRef sert uniquement à marquer qu'une action a été restreinte
-   * directement via son bouton (pour la propagation aux ressources).
+   * Vérifier si une action est restreinte (directement OU via ses ressources)
+   * ✅ FIX : Détecte maintenant les restrictions par propagation
+   * - Restriction directe : action dans restrictedActionsRef
+   * - Restriction indirecte : toutes les ressources non-S_TCODE sont restreintes
    */
-  const isActionRestricted = useCallback((roleName: string, actionCode: string) => {
+  const isActionRestricted = useCallback((roleName: string, actionCode: string, resources?: any[]) => {
     const key = getActionKey(roleName, actionCode);
     const restriction = restrictedActionsRef.current.get(key);
     
+    // ✅ Vérifier restriction directe
+    const directlyRestricted = !!restriction;
+    
+    // ✅ Vérifier restriction indirecte (via ressources) si resources fournis
+    let indirectlyRestricted = false;
+    if (resources && resources.length > 0) {
+      indirectlyRestricted = resources.some(resource => {
+        if (resource.code === 'S_TCODE') return false;
+        
+        return resource.externalResources?.some((extRes: any) => {
+          const values = extractExternalResourceValues(extRes);
+          const resKey = getResourceKey(roleName, resource.code, extRes.code);
+          const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+          
+          if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
+            return false;
+          }
+          
+          // Toutes les valeurs doivent être dans le set pour que la ressource soit restreinte
+          return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+        });
+      });
+    }
+    
+    const isRestricted = directlyRestricted || indirectlyRestricted;
+    
     return {
-      isRestricted: !!restriction,
+      isRestricted,
       restrictedByAction: restriction?.restrictedByAction || false
     };
-  }, [getActionKey]);
+  }, [getActionKey, getResourceKey]);
   
   /**
    * Vérifier si une ressource est restreinte (toutes les valeurs)
@@ -747,6 +812,303 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, [calculateRiskRemediation]);
   
+  // ============================================
+  // FONCTIONS DE CALCUL DE REMÉDIATION - RÔLES COMPOSITES (ÉTAPE 2)
+  // ============================================
+  
+  /**
+   * Calcule si une fonction composite est remediée
+   * 
+   * ✅ LOGIQUE CORRECTE :
+   *    - Agrège TOUTES les actions de TOUS les rôles simples
+   *    - Vérifie au niveau de la FONCTION (pas rôle par rôle)
+   *    - Une fonction est remediée si :
+   *      1. TOUTES les actions supprimables sont supprimées
+   *      OU
+   *      2. TOUTES les actions restrainables sont restreintes
+   * 
+   * ✅ OPTIMISATIONS :
+   *    - Gestion des rôles simples exclus (ignorés dans le calcul)
+   *    - Réutilisation de la logique existante (getActionKey, getResourceKey)
+   * 
+   * @param compositeRoleName - Nom du rôle composite
+   * @param func - Fonction composite contenant plusieurs rôles simples
+   */
+  const calculateCompositeFunctionRemediation = useCallback((
+    compositeRoleName: string,
+    func: any // SodCompositeRoleFunction
+  ) => {
+    
+    if (!func.simpleRoles || func.simpleRoles.length === 0) {
+      console.log('⚠️ [COMPOSITE FUNCTION] Aucun rôle simple trouvé', { functionCode: func.code });
+      return {
+        isRemediated: false,
+        totalSimpleRoles: 0,
+        remediatedSimpleRoles: 0
+      };
+    }
+    
+    // ✅ ÉTAPE 1 : Agréger toutes les actions de tous les rôles simples (non exclus)
+    const allActions: any[] = [];
+    let totalSimpleRoles = 0;
+    
+    func.simpleRoles.forEach((simpleRole: any) => {
+      // Ignorer les rôles simples exclus
+      const isExcluded = isSimpleRoleExcluded(compositeRoleName, simpleRole.roleName);
+      
+      if (isExcluded) {
+        console.log('⏭️ [COMPOSITE FUNCTION] Rôle simple exclu (ignoré)', {
+          functionCode: func.code,
+          simpleRoleName: simpleRole.roleName
+        });
+        return;
+      }
+      
+      totalSimpleRoles++;
+      
+      // Ajouter toutes les actions de ce rôle simple
+      if (simpleRole.actions && simpleRole.actions.length > 0) {
+        simpleRole.actions.forEach((action: any) => {
+          allActions.push({
+            ...action,
+            sourceRoleName: simpleRole.roleName // Pour debug
+          });
+        });
+      }
+    });
+    
+    
+    if (allActions.length === 0) {
+      console.log('⚠️ [COMPOSITE FUNCTION] Aucune action trouvée', { functionCode: func.code });
+      return {
+        isRemediated: false,
+        totalSimpleRoles,
+        remediatedSimpleRoles: 0
+      };
+    }
+    
+    // ✅ ÉTAPE 2 : Vérifier la remédiation au niveau de la FONCTION
+    let suppressableCount = 0;
+    let suppressedCount = 0;
+    let restrainableCount = 0;
+    let restrictedCount = 0;
+    
+    allActions.forEach(action => {
+      const sourceRoleName = action.sourceRoleName || '';
+      const actionKey = getActionKey(sourceRoleName, action.code || '');
+      const isDeleted = deletedActionsRef.current.get(actionKey) || false;
+      
+      // Analyser les ressources
+      const resources = action.resources || [];
+      const hasTCode = resources.some((r: any) => r.code === 'S_TCODE');
+      const hasOtherResources = resources.some((r: any) => r.code !== 'S_TCODE');
+      
+      // Ignorer les actions sans ressources valides
+      if (!hasTCode && !hasOtherResources) {
+        return;
+      }
+      
+      const restriction = restrictedActionsRef.current.get(actionKey);
+      const isActionDirectlyRestricted = !!restriction;
+      
+      // ✅ Vérifier si au moins une ressource non-S_TCODE est restreinte
+      let hasRestrictedResource = false;
+      if (hasOtherResources && resources && Array.isArray(resources)) {
+        for (const resource of resources) {
+          // Ignorer S_TCODE
+          if (resource.code === 'S_TCODE') continue;
+          
+          // Vérifier si cette ressource a des externalResources restreintes
+          if (resource.externalResources && Array.isArray(resource.externalResources)) {
+            for (const extRes of resource.externalResources) {
+              // Extraire les valeurs de cette externalResource
+              const values = extractExternalResourceValues(extRes);
+              
+              // Vérifier si cette externalResource est restreinte
+              const resKey = getResourceKey(sourceRoleName, resource.code, extRes.code);
+              const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+              
+              if (restrictedValuesSet && restrictedValuesSet.size > 0) {
+                // Toutes les valeurs doivent être dans le set
+                const allValuesRestricted = values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+                if (allValuesRestricted) {
+                  hasRestrictedResource = true;
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (hasRestrictedResource) break;
+        }
+      }
+      
+      const isRestricted = isActionDirectlyRestricted || hasRestrictedResource;
+      
+      // Compter les actions supprimables et restrainables
+      if (hasTCode) {
+        suppressableCount++;
+        if (isDeleted) {
+          suppressedCount++;
+        }
+      }
+      
+      if (hasOtherResources) {
+        restrainableCount++;
+        if (isRestricted) {
+          restrictedCount++;
+        }
+      }
+    });
+    
+    // ✅ ÉTAPE 3 : Déterminer si la fonction est remediée
+    // Fonction remediée si AU MOINS UNE condition est vraie :
+    // 1. Toutes les actions supprimables sont supprimées
+    const allSuppressablesSuppressed = suppressableCount > 0 && suppressedCount === suppressableCount;
+    
+    // 2. Toutes les actions restrainables sont restreintes
+    const allRestrainablesRestricted = restrainableCount > 0 && restrictedCount === restrainableCount;
+    
+    const isRemediated = allSuppressablesSuppressed || allRestrainablesRestricted;
+    
+    return {
+      isRemediated,
+      totalSimpleRoles,
+      remediatedSimpleRoles: isRemediated ? totalSimpleRoles : 0
+    };
+  }, [getActionKey, getResourceKey, isSimpleRoleExcluded]);
+  
+  /**
+   * Calcule si un risque composite est remedié
+   * 
+   * ✅ IDENTIQUE à l'Étape 1 : Un risque est remedié si AU MOINS UNE fonction est remediée
+   * 
+   * ✅ OPTIMISATIONS :
+   *    - Mémoïsation recommandée dans les composants (useMemo avec version)
+   *    - Calcul du pourcentage pour affichage progressif
+   * 
+   * @param compositeRoleName - Nom du rôle composite
+   * @param functions - Liste des fonctions du risque
+   */
+  const calculateCompositeRiskRemediation = useCallback((
+    compositeRoleName: string,
+    functions: any[] // SodCompositeRoleFunction[]
+  ) => {
+    
+    if (!functions || functions.length === 0) {
+      console.log('⚠️ [COMPOSITE RISK] Aucune fonction trouvée');
+      return {
+        isRemediated: false,
+        totalFunctions: 0,
+        remediatedFunctions: 0,
+        remediationPercentage: 0
+      };
+    }
+    
+    let remediatedFunctions = 0;
+    const functionDetails: any[] = [];
+    
+    // Parcourir chaque fonction
+    functions.forEach(func => {
+      const funcStatus = calculateCompositeFunctionRemediation(
+        compositeRoleName,
+        func
+      );
+      
+      functionDetails.push({
+        functionCode: func.code,
+        isRemediated: funcStatus.isRemediated,
+        totalSimpleRoles: funcStatus.totalSimpleRoles,
+        remediatedSimpleRoles: funcStatus.remediatedSimpleRoles
+      });
+      
+      
+      if (funcStatus.isRemediated) {
+        remediatedFunctions++;
+      }
+    });
+    
+    const totalFunctions = functions.length;
+    const remediationPercentage = totalFunctions > 0
+      ? Math.round((remediatedFunctions / totalFunctions) * 100)
+      : 0;
+    const isRemediated = remediatedFunctions > 0; // ✅ AU MOINS UNE fonction
+    
+    
+    return {
+      isRemediated,
+      totalFunctions,
+      remediatedFunctions,
+      remediationPercentage
+    };
+  }, [calculateCompositeFunctionRemediation]);
+  
+  /**
+   * Calcule si un rôle composite est remedié
+   * 
+   * ✅ IDENTIQUE à l'Étape 1 : Un rôle est remedié si TOUS ses risques sont remediés
+   * 
+   * ✅ OPTIMISATIONS :
+   *    - Mémoïsation recommandée dans les composants (useMemo avec version)
+   *    - Calcul du pourcentage pour badges et gradients
+   * 
+   * @param compositeRoleName - Nom du rôle composite
+   * @param risks - Liste des risques du rôle
+   */
+  const calculateCompositeRoleRemediation = useCallback((
+    compositeRoleName: string,
+    risks: any[] // SodCompositeRoleRiskItem[]
+  ) => {
+    
+    if (!risks || risks.length === 0) {
+      console.log('⚠️ [COMPOSITE ROLE] Aucun risque trouvé', { compositeRoleName });
+      return {
+        isRemediated: false,
+        totalRisks: 0,
+        remediatedRisks: 0,
+        remediationPercentage: 0
+      };
+    }
+    
+    let remediatedRisks = 0;
+    const riskDetails: any[] = [];
+    
+    // Parcourir chaque risque
+    risks.forEach(risk => {
+      const riskStatus = calculateCompositeRiskRemediation(
+        compositeRoleName,
+        risk.functions || []
+      );
+      
+      riskDetails.push({
+        riskId: risk.riskId,
+        isRemediated: riskStatus.isRemediated,
+        totalFunctions: riskStatus.totalFunctions,
+        remediatedFunctions: riskStatus.remediatedFunctions,
+        remediationPercentage: riskStatus.remediationPercentage
+      });
+      
+      
+      if (riskStatus.isRemediated) {
+        remediatedRisks++;
+      }
+    });
+    
+    const totalRisks = risks.length;
+    const remediationPercentage = totalRisks > 0
+      ? Math.round((remediatedRisks / totalRisks) * 100)
+      : 0;
+    const isRemediated = remediatedRisks === totalRisks && totalRisks > 0; // ✅ TOUS les risques
+    
+    
+    return {
+      isRemediated,
+      totalRisks,
+      remediatedRisks,
+      remediationPercentage
+    };
+  }, [calculateCompositeRiskRemediation]);
+  
   // ✅ useMemo pour stabiliser la référence du contexte
   // La version change à chaque modification → force le re-calcul des useMemo dépendants
   const value: SodActionsContextValue = useMemo(() => ({
@@ -768,6 +1130,9 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     calculateFunctionRemediation,
     calculateRiskRemediation,
     calculateRoleRemediation,
+    calculateCompositeFunctionRemediation,
+    calculateCompositeRiskRemediation,
+    calculateCompositeRoleRemediation,
   }), [
     version, // ✅ Dépendre de la version
     buildActionResourcesMap,
@@ -784,6 +1149,9 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     calculateFunctionRemediation,
     calculateRiskRemediation,
     calculateRoleRemediation,
+    calculateCompositeFunctionRemediation,
+    calculateCompositeRiskRemediation,
+    calculateCompositeRoleRemediation,
   ]);
   
   return (

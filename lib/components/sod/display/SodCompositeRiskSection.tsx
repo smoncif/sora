@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -15,15 +15,18 @@ import {
   Paper,
   Button,
   Divider,
+  Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 // import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'; // Supprimé
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { SodCompositeRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodCompositeFunctionGrid } from './SodCompositeFunctionGrid';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodCompositeRiskSectionProps {
   /** Risque */
@@ -66,8 +69,18 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const actionsContext = useSodActionsContext();
   
   const { riskId, riskLevel, riskDescription, functions } = risk;
+  
+  // ✅ OPTIMISATION : Calculer le statut de remédiation avec useMemo
+  const remediationStatus = useMemo(
+    () => actionsContext.calculateCompositeRiskRemediation(
+      compositeRoleName || '',
+      functions
+    ),
+    [compositeRoleName, functions, actionsContext.version, actionsContext.calculateCompositeRiskRemediation]
+  );
   
   return (
     <Paper
@@ -75,37 +88,46 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
       sx={{
         borderRadius: 2,
         overflow: 'hidden',
-        border: `1px solid ${(() => {
-          switch (riskLevel) {
-            case 'CRITICAL':
-              return alpha(theme.palette.error.dark, 0.2);
-            case 'HIGH':
-              return alpha(theme.palette.error.main, 0.15);
-            case 'MEDIUM':
-              return alpha(theme.palette.warning.main, 0.15);
-            case 'LOW':
-              return alpha(theme.palette.success.main, 0.15);
-            default:
-              return alpha(theme.palette.error.main, 0.15);
-          }
-        })()}`,
+        // ✅ Bordure verte si remedié, sinon bordure selon niveau de risque
+        border: `1px solid ${remediationStatus.isRemediated 
+          ? alpha(theme.palette.success.main, 0.3)
+          : (() => {
+            switch (riskLevel) {
+              case 'CRITICAL':
+                return alpha(theme.palette.error.dark, 0.2);
+              case 'HIGH':
+                return alpha(theme.palette.error.main, 0.15);
+              case 'MEDIUM':
+                return alpha(theme.palette.warning.main, 0.15);
+              case 'LOW':
+                return alpha(theme.palette.success.main, 0.15);
+              default:
+                return alpha(theme.palette.error.main, 0.15);
+            }
+          })()}`,
+        // ✅ Fond vert clair si remedié
+        backgroundColor: remediationStatus.isRemediated 
+          ? alpha(theme.palette.success.main, 0.05)
+          : 'transparent',
         mb: 3,
         transition: 'all 0.2s ease',
         '&:hover': {
-          border: `1px solid ${(() => {
-            switch (riskLevel) {
-              case 'CRITICAL':
-                return alpha(theme.palette.error.dark, 0.3);
-              case 'HIGH':
-                return alpha(theme.palette.error.main, 0.25);
-              case 'MEDIUM':
-                return alpha(theme.palette.warning.main, 0.25);
-              case 'LOW':
-                return alpha(theme.palette.success.main, 0.25);
-              default:
-                return alpha(theme.palette.error.main, 0.25);
-            }
-          })()}`,
+          border: `1px solid ${remediationStatus.isRemediated
+            ? alpha(theme.palette.success.main, 0.4)
+            : (() => {
+              switch (riskLevel) {
+                case 'CRITICAL':
+                  return alpha(theme.palette.error.dark, 0.3);
+                case 'HIGH':
+                  return alpha(theme.palette.error.main, 0.25);
+                case 'MEDIUM':
+                  return alpha(theme.palette.warning.main, 0.25);
+                case 'LOW':
+                  return alpha(theme.palette.success.main, 0.25);
+                default:
+                  return alpha(theme.palette.error.main, 0.25);
+              }
+            })()}`,
         },
       }}
     >
@@ -188,8 +210,41 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
           )}
         </Box>
         
-        {/* Badge de niveau (à l'extrême droite) */}
-        <SodRiskLevelBadge level={riskLevel} size="medium" variant="filled" />
+        {/* Badges */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* Badge de niveau */}
+          <SodRiskLevelBadge level={riskLevel} size="medium" variant="filled" />
+          
+          {/* ✅ Badge de remédiation */}
+          {remediationStatus.isRemediated && (
+            <Chip
+              icon={<CheckCircleIcon />}
+              label="Remedié"
+              size="small"
+              sx={{
+                backgroundColor: alpha(theme.palette.success.main, 0.15),
+                color: theme.palette.success.dark,
+                fontWeight: 600,
+                '& .MuiChip-icon': {
+                  color: theme.palette.success.main,
+                },
+              }}
+            />
+          )}
+          
+          {/* Badge pourcentage si partiellement remedié */}
+          {!remediationStatus.isRemediated && remediationStatus.remediatedFunctions > 0 && (
+            <Chip
+              label={`${remediationStatus.remediationPercentage}% Remedié`}
+              size="small"
+              sx={{
+                backgroundColor: alpha(theme.palette.warning.main, 0.15),
+                color: theme.palette.warning.dark,
+                fontWeight: 600,
+              }}
+            />
+          )}
+        </Box>
         
         {/* Boutons d'action */}
         <Box sx={{ display: 'flex', gap: 1 }}>
