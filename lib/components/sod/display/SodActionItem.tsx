@@ -17,8 +17,6 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import CodeIcon from '@mui/icons-material/Code';
-import SecurityIcon from '@mui/icons-material/Security';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -93,7 +91,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
       const isActionGrayed = disableButtons || isDeleted;
       badges.push(
         <Box
-          key="tcode"
+          key="action"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -101,15 +99,17 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             width: 18,
             height: 18,
             borderRadius: '50%',
-            backgroundColor: isActionGrayed ? theme.palette.grey[400] : theme.palette.primary.main,
+            backgroundColor: isActionGrayed ? theme.palette.grey[400] : theme.palette.info.main, // Bleu pour les actions
             color: theme.palette.common.white,
             boxShadow: isActionGrayed 
               ? 'none'
-              : `0 1px 2px ${alpha(theme.palette.primary.main, 0.3)}`,
+              : `0 1px 2px ${alpha(theme.palette.info.main, 0.3)}`,
             opacity: isActionGrayed ? 0.5 : 1,
+            fontWeight: 700,
+            fontSize: '0.75rem',
           }}
         >
-          <CodeIcon sx={{ fontSize: 11 }} />
+          A
         </Box>
       );
     }
@@ -127,15 +127,17 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             width: 18,
             height: 18,
             borderRadius: '50%',
-            backgroundColor: isPermissionGrayed ? theme.palette.grey[400] : theme.palette.warning.main,
+            backgroundColor: isPermissionGrayed ? theme.palette.grey[400] : theme.palette.warning.main, // Orange pour les permissions
             color: theme.palette.common.white,
             boxShadow: isPermissionGrayed 
               ? 'none'
               : `0 1px 2px ${alpha(theme.palette.warning.main, 0.3)}`,
             opacity: isPermissionGrayed ? 0.5 : 1,
+            fontWeight: 700,
+            fontSize: '0.75rem',
           }}
         >
-          <SecurityIcon sx={{ fontSize: 11 }} />
+          P
         </Box>
       );
     }
@@ -150,9 +152,43 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
   // Pour le mode compact, une seule icône (priorité T-Code)
   const getCompactIcon = () => {
     if (hasTCode) {
-      return <CodeIcon sx={{ fontSize: 16, color: theme.palette.grey[600] }} />;
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            backgroundColor: theme.palette.info.main,
+            color: theme.palette.common.white,
+            fontWeight: 700,
+            fontSize: '0.7rem',
+          }}
+        >
+          A
+        </Box>
+      );
     } else if (hasOtherResources) {
-      return <SecurityIcon sx={{ fontSize: 16, color: theme.palette.grey[600] }} />;
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            backgroundColor: theme.palette.warning.main,
+            color: theme.palette.common.white,
+            fontWeight: 700,
+            fontSize: '0.7rem',
+          }}
+        >
+          P
+        </Box>
+      );
     }
     return null;
   };
