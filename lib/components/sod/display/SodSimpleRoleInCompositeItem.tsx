@@ -24,6 +24,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { SodSimpleRoleInComposite } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
@@ -281,6 +283,55 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       total: actions.length
     };
   }, [actions, roleName, actionsContext.isActionRestricted, actionsContext.version]);
+
+  // ✅ DÉTERMINER L'ÉTAT VISUEL DU RÔLE
+  const roleVisualState = useMemo(() => {
+    // État 1: Rôle exclu (rouge) - priorité la plus haute
+    if (isRoleExcluded) {
+      return {
+        type: 'excluded',
+        backgroundColor: alpha(theme.palette.error.main, 0.08),
+        borderColor: alpha(theme.palette.error.main, 0.3),
+        hoverBackgroundColor: alpha(theme.palette.error.main, 0.12),
+        hoverBorderColor: alpha(theme.palette.error.main, 0.4),
+        icon: 'excluded'
+      };
+    }
+
+    // État 2: Toutes les actions supprimables supprimées (rouge)
+    if (allTCodeActionsDeleted && hasTCode) {
+      return {
+        type: 'all-deleted',
+        backgroundColor: alpha(theme.palette.error.main, 0.08),
+        borderColor: alpha(theme.palette.error.main, 0.3),
+        hoverBackgroundColor: alpha(theme.palette.error.main, 0.12),
+        hoverBorderColor: alpha(theme.palette.error.main, 0.4),
+        icon: 'deleted'
+      };
+    }
+
+    // État 3: Toutes les actions restreignables restreintes (orange/warning)
+    if (allPermissionsRestricted && hasPermissions) {
+      return {
+        type: 'all-restricted',
+        backgroundColor: alpha(theme.palette.warning.main, 0.08),
+        borderColor: alpha(theme.palette.warning.main, 0.3),
+        hoverBackgroundColor: alpha(theme.palette.warning.main, 0.12),
+        hoverBorderColor: alpha(theme.palette.warning.main, 0.4),
+        icon: 'restricted'
+      };
+    }
+
+    // État 4: Normal (gris)
+    return {
+      type: 'normal',
+      backgroundColor: alpha(theme.palette.grey[400], 0.06),
+      borderColor: alpha(theme.palette.grey[400], 0.2),
+      hoverBackgroundColor: alpha(theme.palette.grey[400], 0.1),
+      hoverBorderColor: alpha(theme.palette.grey[400], 0.3),
+      icon: 'normal'
+    };
+  }, [isRoleExcluded, allTCodeActionsDeleted, hasTCode, allPermissionsRestricted, hasPermissions, theme]);
   
   return (
     <Box sx={{ ml: level * 2 }}>
@@ -293,24 +344,12 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
           py: 1,
           px: 1.5,
           borderRadius: 1.5,
-          backgroundColor: isRoleExcluded 
-            ? alpha(theme.palette.error.main, 0.08)
-            : alpha(theme.palette.grey[400], 0.06),
-          border: `1px solid ${
-            isRoleExcluded
-              ? alpha(theme.palette.error.main, 0.3)
-              : alpha(theme.palette.grey[400], 0.2)
-          }`,
+          backgroundColor: roleVisualState.backgroundColor,
+          border: `1px solid ${roleVisualState.borderColor}`,
           transition: 'all 0.2s ease',
           '&:hover': {
-            backgroundColor: isRoleExcluded
-              ? alpha(theme.palette.error.main, 0.12)
-              : alpha(theme.palette.grey[400], 0.1),
-            border: `1px solid ${
-              isRoleExcluded
-                ? alpha(theme.palette.error.main, 0.4)
-                : alpha(theme.palette.grey[400], 0.3)
-            }`,
+            backgroundColor: roleVisualState.hoverBackgroundColor,
+            border: `1px solid ${roleVisualState.hoverBorderColor}`,
           },
         }}
       >
@@ -348,6 +387,45 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
           >
             {roleName}
           </Typography>
+          
+          {/* Icône d'état visuel du rôle */}
+          {roleVisualState.type !== 'normal' && (
+            <Tooltip 
+              title={
+                roleVisualState.type === 'excluded' 
+                  ? "Rôle exclu de l'analyse"
+                  : roleVisualState.type === 'all-deleted'
+                    ? "Toutes les actions supprimables ont été supprimées"
+                    : roleVisualState.type === 'all-restricted'
+                      ? "Toutes les actions restreignables ont été restreintes"
+                      : ""
+              }
+              arrow
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  backgroundColor: roleVisualState.type === 'excluded' || roleVisualState.type === 'all-deleted'
+                    ? theme.palette.error.main
+                    : theme.palette.warning.main,
+                  color: theme.palette.common.white,
+                }}
+              >
+                {roleVisualState.type === 'excluded' ? (
+                  <RemoveCircleOutlineIcon sx={{ fontSize: 10 }} />
+                ) : roleVisualState.type === 'all-deleted' ? (
+                  <DeleteOutlineIcon sx={{ fontSize: 10 }} />
+                ) : roleVisualState.type === 'all-restricted' ? (
+                  <WarningIcon sx={{ fontSize: 10 }} />
+                ) : null}
+              </Box>
+            </Tooltip>
+          )}
           
           {/* Badges T-Code et/ou Permissions */}
           {roleBadges}
