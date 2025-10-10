@@ -18,8 +18,6 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import CodeIcon from '@mui/icons-material/Code';
-import SecurityIcon from '@mui/icons-material/Security';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
@@ -124,11 +122,11 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     const badges = [];
     
     if (hasTCode) {
-      // Badge T-Code devient gris si rôle exclu OU toutes les actions supprimées
-      const isTCodeGrayed = isRoleExcluded || allTCodeActionsDeleted;
+      // Badge Action (T-Code) devient gris si rôle exclu OU toutes les actions supprimées
+      const isActionGrayed = isRoleExcluded || allTCodeActionsDeleted;
       badges.push(
         <Box
-          key="tcode"
+          key="action"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -136,17 +134,19 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
             width: 18,
             height: 18,
             borderRadius: '50%',
-            backgroundColor: isTCodeGrayed 
+            backgroundColor: isActionGrayed 
               ? theme.palette.grey[400] 
-              : theme.palette.primary.main,
+              : theme.palette.info.main, // Bleu pour les actions
             color: theme.palette.common.white,
-            boxShadow: isTCodeGrayed 
+            boxShadow: isActionGrayed 
               ? 'none'
-              : `0 1px 2px ${alpha(theme.palette.primary.main, 0.3)}`,
-            opacity: isTCodeGrayed ? 0.5 : 1,
+              : `0 1px 2px ${alpha(theme.palette.info.main, 0.3)}`,
+            opacity: isActionGrayed ? 0.5 : 1,
+            fontWeight: 700,
+            fontSize: '0.75rem',
           }}
         >
-          <CodeIcon sx={{ fontSize: 11 }} />
+          A
         </Box>
       );
     }
@@ -166,15 +166,17 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
             borderRadius: '50%',
             backgroundColor: isPermissionGrayed 
               ? theme.palette.grey[400] 
-              : theme.palette.warning.main,
+              : theme.palette.warning.main, // Orange pour les permissions
             color: theme.palette.common.white,
             boxShadow: isPermissionGrayed 
               ? 'none'
               : `0 1px 2px ${alpha(theme.palette.warning.main, 0.3)}`,
             opacity: isPermissionGrayed ? 0.5 : 1,
+            fontWeight: 700,
+            fontSize: '0.75rem',
           }}
         >
-          <SecurityIcon sx={{ fontSize: 11 }} />
+          P
         </Box>
       );
     }
