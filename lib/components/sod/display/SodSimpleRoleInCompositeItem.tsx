@@ -75,7 +75,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
   const [expanded, setExpanded] = useState(defaultExpanded);
   const actionsContext = useSodActionsContext();
   
-  const { roleName, roleDescription, actions, actionCount } = simpleRole;
+  const { roleName, roleDescription, actions, actionCount: totalActionCount } = simpleRole;
   
   // ✅ Vérifier si le rôle simple est exclu de l'analyse
   // L'exclusion est au niveau du composite (toutes fonctions confondues)
@@ -255,6 +255,32 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       hasAnyRestricted
     };
   }, [actions, actionsContext, roleName]);
+
+  // ✅ CALCULER LE COMPTAGE DES ACTIONS RESTREINTES/SUPPRIMÉES
+  const actionCount = useMemo(() => {
+    if (!actions || actions.length === 0) return { restricted: 0, total: 0 };
+    
+    let restrictedCount = 0;
+    
+    actions.forEach(action => {
+      // Vérifier si l'action est supprimée (T-Code)
+      if (action.isDeleted) {
+        restrictedCount++;
+        return;
+      }
+      
+      // Vérifier si l'action est restreinte (Permissions)
+      const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      if (isRestricted) {
+        restrictedCount++;
+      }
+    });
+    
+    return {
+      restricted: restrictedCount,
+      total: actions.length
+    };
+  }, [actions, roleName, actionsContext.isActionRestricted, actionsContext.version]);
   
   return (
     <Box sx={{ ml: level * 2 }}>
@@ -325,6 +351,34 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
           
           {/* Badges T-Code et/ou Permissions */}
           {roleBadges}
+          
+          {/* Compteur d'actions restreintes/supprimées */}
+          {actionCount.total > 0 && (
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                fontFamily: 'monospace',
+                color: actionCount.restricted > 0 
+                  ? theme.palette.warning.dark 
+                  : theme.palette.grey[500],
+                fontSize: '0.75rem',
+                backgroundColor: actionCount.restricted > 0 
+                  ? alpha(theme.palette.warning.main, 0.1)
+                  : alpha(theme.palette.grey[400], 0.08),
+                px: 1,
+                py: 0.25,
+                borderRadius: 1,
+                border: `1px solid ${
+                  actionCount.restricted > 0 
+                    ? alpha(theme.palette.warning.main, 0.2)
+                    : alpha(theme.palette.grey[400], 0.15)
+                }`,
+              }}
+            >
+              {actionCount.restricted}/{actionCount.total}
+            </Typography>
+          )}
         </Box>
         
         {/* Boutons d'action pour le rôle */}
