@@ -260,34 +260,102 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
 
   // ✅ CALCULER LE COMPTAGE DES ACTIONS RESTREINTES/SUPPRIMÉES
   const actionCount = useMemo(() => {
-    if (!actions || actions.length === 0) return { restricted: 0, total: 0 };
+    if (!actions || actions.length === 0) {
+      console.log(`📊 [ROLE SIMPLE] Comptage actions - Rôle "${roleName}" : AUCUNE ACTION`, {
+        roleName,
+        compositeRoleName,
+        totalActions: 0,
+        restrictedActions: 0
+      });
+      return { restricted: 0, total: 0 };
+    }
     
     let restrictedCount = 0;
+    const actionDetails: any[] = [];
     
     actions.forEach(action => {
+      const actionDetail = {
+        code: action.code,
+        isDeleted: action.isDeleted,
+        isRestricted: false,
+        restrictedByAction: false,
+        reason: ''
+      };
+      
       // Vérifier si l'action est supprimée (T-Code)
       if (action.isDeleted) {
         restrictedCount++;
+        actionDetail.reason = 'Action supprimée (T-Code)';
+        actionDetails.push(actionDetail);
         return;
       }
       
       // Vérifier si l'action est restreinte (Permissions)
-      const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      const { isRestricted, restrictedByAction } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      actionDetail.isRestricted = isRestricted;
+      actionDetail.restrictedByAction = restrictedByAction;
+      
       if (isRestricted) {
         restrictedCount++;
+        actionDetail.reason = restrictedByAction 
+          ? 'Restreinte directement par action'
+          : 'Restreinte via ses ressources';
+      } else {
+        actionDetail.reason = 'Action normale (non restreinte)';
       }
+      
+      actionDetails.push(actionDetail);
+    });
+    
+    console.log(`📊 [ROLE SIMPLE] Comptage actions - Rôle "${roleName}" : ${restrictedCount}/${actions.length}`, {
+      roleName,
+      compositeRoleName,
+      totalActions: actions.length,
+      restrictedActions: restrictedCount,
+      actionDetails
     });
     
     return {
       restricted: restrictedCount,
       total: actions.length
     };
-  }, [actions, roleName, actionsContext.isActionRestricted, actionsContext.version]);
+  }, [actions, roleName, actionsContext.isActionRestricted, actionsContext.version, compositeRoleName]);
 
   // ✅ DÉTERMINER L'ÉTAT VISUEL DU RÔLE
   const roleVisualState = useMemo(() => {
+    // 🔍 LOGS DÉTAILLÉS POUR DEBUGGER L'ÉTAT DU RÔLE SIMPLE
+    console.log(`🔍 [ROLE SIMPLE] Analyse de l'état du rôle "${roleName}" dans le composite "${compositeRoleName}"`, {
+      roleName,
+      compositeRoleName,
+      functionCode,
+      // État d'exclusion
+      isRoleExcluded,
+      // Types de ressources
+      hasTCode,
+      hasPermissions,
+      // État des actions
+      totalActions: actions?.length || 0,
+      allTCodeActionsDeleted,
+      allPermissionsRestricted,
+      // Actions détaillées
+      actionsDetails: actions?.map(action => ({
+        code: action.code,
+        isDeleted: action.isDeleted,
+        isRestricted: action.isRestricted,
+        restrictedByAction: action.restrictedByAction,
+        hasTCodeResource: action.resources?.some(r => r.code === 'S_TCODE'),
+        hasPermissionResource: action.resources?.some(r => r.code !== 'S_TCODE'),
+        resourcesCount: action.resources?.length || 0
+      }))
+    });
+
     // État 1: Rôle exclu (rouge) - priorité la plus haute
     if (isRoleExcluded) {
+      console.log(`🔴 [ROLE SIMPLE] Rôle "${roleName}" EXCLU de l'analyse`, {
+        roleName,
+        compositeRoleName,
+        reason: 'Rôle exclu manuellement de l\'analyse'
+      });
       return {
         type: 'excluded',
         backgroundColor: alpha(theme.palette.error.main, 0.08),
@@ -300,6 +368,16 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
 
     // État 2: Toutes les actions supprimables supprimées (rouge)
     if (allTCodeActionsDeleted && hasTCode) {
+      console.log(`🔴 [ROLE SIMPLE] Rôle "${roleName}" - TOUTES les actions T-Code sont SUPPRIMÉES`, {
+        roleName,
+        compositeRoleName,
+        reason: 'Toutes les actions supprimables (T-Code) ont été supprimées',
+        hasTCode,
+        allTCodeActionsDeleted,
+        tCodeActions: actions?.filter(action => 
+          action.resources?.some(r => r.code === 'S_TCODE')
+        )?.map(a => ({ code: a.code, isDeleted: a.isDeleted }))
+      });
       return {
         type: 'all-deleted',
         backgroundColor: alpha(theme.palette.error.main, 0.08),
@@ -312,6 +390,20 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
 
     // État 3: Toutes les actions restreignables restreintes (orange/warning)
     if (allPermissionsRestricted && hasPermissions) {
+      console.log(`🟠 [ROLE SIMPLE] Rôle "${roleName}" - TOUTES les permissions sont RESTREINTES`, {
+        roleName,
+        compositeRoleName,
+        reason: 'Toutes les actions restreignables (Permissions) ont été restreintes',
+        hasPermissions,
+        allPermissionsRestricted,
+        permissionActions: actions?.filter(action => 
+          action.resources?.some(r => r.code !== 'S_TCODE')
+        )?.map(a => ({ 
+          code: a.code, 
+          isRestricted: a.isRestricted,
+          restrictedByAction: a.restrictedByAction
+        }))
+      });
       return {
         type: 'all-restricted',
         backgroundColor: alpha(theme.palette.warning.main, 0.08),
@@ -323,6 +415,22 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     }
 
     // État 4: Normal (gris)
+    console.log(`⚪ [ROLE SIMPLE] Rôle "${roleName}" - État NORMAL`, {
+      roleName,
+      compositeRoleName,
+      reason: 'Rôle en état normal (aucune restriction complète)',
+      hasTCode,
+      hasPermissions,
+      allTCodeActionsDeleted,
+      allPermissionsRestricted,
+      partialRestrictions: actions?.map(action => ({
+        code: action.code,
+        isDeleted: action.isDeleted,
+        isRestricted: action.isRestricted,
+        hasPartialRestrictions: action.isRestricted || action.isDeleted
+      }))
+    });
+
     return {
       type: 'normal',
       backgroundColor: alpha(theme.palette.grey[400], 0.06),
@@ -331,7 +439,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       hoverBorderColor: alpha(theme.palette.grey[400], 0.3),
       icon: 'normal'
     };
-  }, [isRoleExcluded, allTCodeActionsDeleted, hasTCode, allPermissionsRestricted, hasPermissions, theme]);
+  }, [isRoleExcluded, allTCodeActionsDeleted, hasTCode, allPermissionsRestricted, hasPermissions, theme, roleName, compositeRoleName, functionCode, actions]);
   
   return (
     <Box sx={{ ml: level * 2 }}>
