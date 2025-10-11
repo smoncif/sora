@@ -62,6 +62,9 @@ interface SodActionsContextValue extends SodActionsState {
   /** Restreindre une action directement (sans toggle) */
   restrictAction: (roleName: string, actionCode: string, resources: any[]) => void;
   
+  /** Dérestreindre une action directement (sans toggle) */
+  unrestrictAction: (roleName: string, actionCode: string, resources: any[]) => void;
+  
   /** Restreindre/dé-restreindre une action */
   toggleRestrictAction: (roleName: string, actionCode: string, resources: any[]) => void;
   
@@ -340,45 +343,13 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const key = getActionKey(roleName, actionCode);
     const restriction = restrictedActionsRef.current.get(key);
     
-    // 🔍 LOG : Début du nettoyage
-    console.log(`🧹 [CLEANUP] Début nettoyage pour ${roleName}|${actionCode}`, {
-      hasRestriction: !!restriction,
-      restrictedByAction: restriction?.restrictedByAction,
-      localResourcesCount: resources.length,
-      localResourceCodes: resources.map(r => r.code)
-    });
-    
     // Si l'action n'est pas marquée comme restreinte directement, pas besoin de nettoyer
     if (!restriction || !restriction.restrictedByAction) {
-      console.log(`🧹 [CLEANUP] Pas de restriction directe, pas de nettoyage nécessaire`);
       return;
     }
     
     // ✅ VÉRIFICATION GLOBALE : Utiliser actionResourcesMapRef pour voir TOUTES les ressources
     let globalRestrictedResources: string[] = [];
-    let localRestrictedResources: string[] = [];
-    
-    // Vérifier les ressources locales (passées en paramètre)
-    const hasLocalRestrictedResource = resources.some(resource => {
-      if (resource.code === 'S_TCODE') return false;
-      
-      return resource.externalResources?.some((extRes: any) => {
-        const values = extractExternalResourceValues(extRes);
-        const resKey = getResourceKey(roleName, resource.code, extRes.code);
-        const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
-        
-        if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
-          return false;
-        }
-        
-        // Toutes les valeurs doivent être dans le set
-        const isRestricted = values.length > 0 && values.every(v => restrictedValuesSet.has(v));
-        if (isRestricted) {
-          localRestrictedResources.push(`${resource.code}|${extRes.code} (${values.length} valeurs)`);
-        }
-        return isRestricted;
-      });
-    });
     
     // Vérifier TOUTES les ressources globales de cette action
     actionResourcesMapRef.current.forEach((resource, mapKey) => {
@@ -401,23 +372,9 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     });
     
-    // 🔍 LOG : Comparaison locale vs globale
-    console.log(`🧹 [CLEANUP] Comparaison des ressources restreintes`, {
-      actionKey: key,
-      localRestrictedCount: localRestrictedResources.length,
-      localRestricted: localRestrictedResources,
-      globalRestrictedCount: globalRestrictedResources.length,
-      globalRestricted: globalRestrictedResources,
-      hasLocalRestricted: hasLocalRestrictedResource,
-      hasGlobalRestricted: globalRestrictedResources.length > 0
-    });
-    
     // Si l'action n'a plus de ressources restreintes GLOBALEMENT, la nettoyer
     if (globalRestrictedResources.length === 0) {
-      console.log(`🧹 [CLEANUP] ✅ Nettoyage effectué - Suppression de ${key} de restrictedActionsRef`);
       restrictedActionsRef.current.delete(key);
-    } else {
-      console.log(`🧹 [CLEANUP] ⚠️ Pas de nettoyage - Ressources globales restreintes détectées`);
     }
   }, [getActionKey, getResourceKey]);
   
@@ -464,6 +421,39 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [getActionKey, getResourceKey, incrementVersion]);
 
   /**
+   * Dérestreindre une action directement (sans toggle)
+   * ✅ Utilisé pour "Dérestreindre tout" - force la dérestriction sans vérifier l'état
+   * ✅ PROPAGATION : Dérestreint automatiquement toutes les ressources non-S_TCODE
+   */
+  const unrestrictAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
+    const key = getActionKey(roleName, actionCode);
+    
+    // ✅ Marquer l'action comme non-restreinte directement
+    restrictedActionsRef.current.delete(key);
+    
+    // ✅ PROPAGATION : Dérestreindre automatiquement toutes les ressources non-S_TCODE
+    resources.forEach(resource => {
+      if (resource.code !== 'S_TCODE') {
+        resource.externalResources?.forEach((extRes: any) => {
+          const values = extractExternalResourceValues(extRes);
+          const resKey = getResourceKey(roleName, resource.code, extRes.code);
+          const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+          
+          if (restrictedValuesSet) {
+            // Retirer ces valeurs
+            values.forEach(v => restrictedValuesSet.delete(v));
+            if (restrictedValuesSet.size === 0) {
+              restrictedResourcesRef.current.delete(resKey);
+            }
+          }
+        });
+      }
+    });
+    
+    incrementVersion();
+  }, [getActionKey, getResourceKey, incrementVersion]);
+
+  /**
    * Toggle restriction d'une action
    * ✅ PROPAGATION : Restreint automatiquement toutes les ressources non-S_TCODE
    * ✅ FIX : Vérifie l'état visuel réel (action peut être restreinte via ses ressources)
@@ -471,12 +461,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
    */
   const toggleRestrictAction = useCallback((roleName: string, actionCode: string, resources: any[]) => {
     const key = getActionKey(roleName, actionCode);
-    
-    // 🔍 LOG : Début du toggle
-    console.log(`🔄 [TOGGLE RESTRICT] Début toggle pour ${roleName}|${actionCode}`, {
-      localResourcesCount: resources.length,
-      localResourceCodes: resources.map(r => r.code)
-    });
     
     // ✅ CLEANUP PRÉALABLE
     cleanupActionIfNeeded(roleName, actionCode, resources);
@@ -505,21 +489,11 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // ✅ État final calculé
     const isCurrentlyRestricted = !!actionDirectlyRestricted || hasRestrictedResource;
     
-    // 🔍 LOG : État avant action
-    console.log(`🔄 [TOGGLE RESTRICT] État calculé pour ${key}`, {
-      actionDirectlyRestricted: !!actionDirectlyRestricted,
-      hasRestrictedResource,
-      isCurrentlyRestricted,
-      action: isCurrentlyRestricted ? 'DÉRESTREINDRE' : 'RESTREINDRE'
-    });
-    
     if (isCurrentlyRestricted) {
       // ✅ Dé-restreindre
-      console.log(`🔄 [TOGGLE RESTRICT] 🗑️ Dérestriction de ${key}`);
       restrictedActionsRef.current.delete(key);
       
       // Retirer les valeurs des ressources non-S_TCODE
-      let removedValuesCount = 0;
       resources.forEach(resource => {
         if (resource.code !== 'S_TCODE') {
           resource.externalResources?.forEach((extRes: any) => {
@@ -530,31 +504,24 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             if (restrictedValuesSet) {
               // Retirer ces valeurs
               values.forEach(v => restrictedValuesSet.delete(v));
-              removedValuesCount += values.length;
               if (restrictedValuesSet.size === 0) {
                 restrictedResourcesRef.current.delete(resKey);
-                console.log(`🔄 [TOGGLE RESTRICT] 🗑️ Ressource ${resKey} complètement supprimée`);
               }
             }
           });
         }
       });
-      
-      console.log(`🔄 [TOGGLE RESTRICT] ✅ Dérestriction terminée - ${removedValuesCount} valeurs supprimées`);
     } else {
       // ✅ Restreindre
-      console.log(`🔄 [TOGGLE RESTRICT] 🔒 Restriction de ${key}`);
       restrictedActionsRef.current.set(key, { restrictedByAction: true });
       
       // Si on restreint, on retire la suppression
       const wasDeleted = deletedActionsRef.current.has(key);
       if (wasDeleted) {
         deletedActionsRef.current.delete(key);
-        console.log(`🔄 [TOGGLE RESTRICT] 🗑️ Suppression de ${key} annulée`);
       }
       
       // Ajouter les valeurs des ressources non-S_TCODE
-      let addedValuesCount = 0;
       resources.forEach(resource => {
         if (resource.code !== 'S_TCODE') {
           resource.externalResources?.forEach((extRes: any) => {
@@ -564,13 +531,10 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             
             // Ajouter ces valeurs
             values.forEach(v => restrictedValuesSet.add(v));
-            addedValuesCount += values.length;
             restrictedResourcesRef.current.set(resKey, restrictedValuesSet);
           });
         }
       });
-      
-      console.log(`🔄 [TOGGLE RESTRICT] ✅ Restriction terminée - ${addedValuesCount} valeurs ajoutées`);
     }
     
     incrementVersion();
@@ -677,7 +641,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     // ✅ Vérifier restriction indirecte (via ressources) si resources fournis
     let indirectlyRestricted = false;
-    let restrictedResourcesDetails: string[] = [];
     
     if (resources && resources.length > 0) {
       indirectlyRestricted = resources.some(resource => {
@@ -693,30 +656,12 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
           
           // Toutes les valeurs doivent être dans le set pour que la ressource soit restreinte
-          const isRestricted = values.length > 0 && values.every(v => restrictedValuesSet.has(v));
-          if (isRestricted) {
-            restrictedResourcesDetails.push(`${resource.code}|${extRes.code} (${values.length} valeurs)`);
-          }
-          return isRestricted;
+          return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
         });
       });
     }
     
     const isRestricted = directlyRestricted || indirectlyRestricted;
-    
-    // 🔍 LOG : Pour les actions problématiques (SPRO, SPRO_ADMIN)
-    if (actionCode === 'SPRO' || actionCode === 'SPRO_ADMIN') {
-      console.log(`🔍 [IS ACTION RESTRICTED] ${key}`, {
-        directlyRestricted,
-        indirectlyRestricted,
-        isRestricted,
-        restrictedByAction: restriction?.restrictedByAction || false,
-        localResourcesCount: resources?.length || 0,
-        restrictedResourcesDetails,
-        inRestrictedActionsRef: !!restriction,
-        restrictionDetails: restriction
-      });
-    }
     
     return {
       isRestricted,
@@ -1217,6 +1162,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     buildActionResourcesMap,
     toggleDeleteAction,
     restrictAction,
+    unrestrictAction,
     toggleRestrictAction,
     toggleRestrictResource,
     toggleExcludeSimpleRole,
@@ -1236,6 +1182,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     buildActionResourcesMap,
     toggleDeleteAction,
     restrictAction,
+    unrestrictAction,
     toggleRestrictAction,
     toggleRestrictResource,
     toggleExcludeSimpleRole,

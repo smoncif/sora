@@ -218,17 +218,6 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     
     if (restrainableActions.length === 0) return;
     
-    // 🔍 LOG : Début du processus global
-    console.log(`🎯 [RESTRICT ALL] Début processus global pour rôle ${roleName}`, {
-      totalActions: actions.length,
-      restrainableActionsCount: restrainableActions.length,
-      restrainableActions: restrainableActions.map(a => ({
-        code: a.code,
-        resourcesCount: a.resources?.length || 0,
-        resourceCodes: a.resources?.map(r => r.code) || []
-      }))
-    });
-    
     // ✅ ÉTAPE 1: DÉTECTER LE MODE GLOBAL
     const actionStates = restrainableActions.map(action => {
       const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
@@ -241,35 +230,19 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     const hasAnyRestricted = actionStates.some(state => state.isRestricted);
     const mode = hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE";
     
-    // 🔍 LOG : État des actions et mode détecté
-    console.log(`🎯 [RESTRICT ALL] État des actions et mode détecté`, {
-      mode,
-      hasAnyRestricted,
-      actionStates,
-      actionsToProcess: actionStates.filter(state => 
-        mode === "RESTREINDRE" ? !state.isRestricted : state.isRestricted
-      )
-    });
-    
     // ✅ SIMULER LES CLIQUES SUR LES BOUTONS INDIVIDUELS
     restrainableActions.forEach((action) => {
       const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
       
       if (mode === "RESTREINDRE" && !isRestricted) {
         // Mode RESTREINDRE : Utiliser restrictAction (force la restriction sans toggle)
-        console.log(`🎯 [RESTRICT ALL] 🔒 Restriction de ${action.code}`);
         actionsContext.restrictAction(roleName, action.code, action.resources);
       } else if (mode === "DÉRESTREINDRE" && isRestricted) {
-        // Mode DÉRESTREINDRE : Utiliser toggleRestrictAction (toggle pour dérestreindre)
-        console.log(`🎯 [RESTRICT ALL] 🗑️ Dérestriction de ${action.code}`);
-        actionsContext.toggleRestrictAction(roleName, action.code, action.resources);
-      } else {
-        console.log(`🎯 [RESTRICT ALL] ⏭️ Ignorer ${action.code} (déjà dans le bon état)`);
+        // Mode DÉRESTREINDRE : Utiliser unrestrictAction (force la dérestriction sans toggle)
+        actionsContext.unrestrictAction(roleName, action.code, action.resources);
       }
       // Sinon ignorer l'action (déjà dans le bon état)
     });
-    
-    console.log(`🎯 [RESTRICT ALL] ✅ Processus global terminé pour rôle ${roleName}`);
   }, [roleName, riskId, actions, actionsContext, onRestrictAction]);
   
   // ✅ CALCULER LE MODE GLOBAL POUR L'INTERFACE DYNAMIQUE
