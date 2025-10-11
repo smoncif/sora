@@ -113,8 +113,19 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     const permissionActions = actions?.filter(action => 
       action.resources?.some(r => r.code !== 'S_TCODE')
     ) || [];
-    return permissionActions.length > 0 && permissionActions.every(action => action.isRestricted);
-  }, [actions]);
+    return permissionActions.length > 0 && permissionActions.every(action => {
+      // ✅ Utiliser le contexte pour détecter les restrictions par propagation
+      const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      return isRestricted;
+    });
+  }, [
+    actions, 
+    roleName, 
+    actionsContext.isActionRestricted, 
+    actionsContext.version, // ✅ Force la mise à jour lors de changements de restrictions
+    actionsContext.restrictedActions, // ✅ Dépendance directe sur les restrictions
+    actionsContext.restrictedResources // ✅ Dépendance directe sur les ressources restreintes
+  ]);
   
   // ✅ Générer les badges (T-Code et/ou Permissions)
   // ✅ OPTIMISÉ : Mémoïsé pour éviter de recréer les badges à chaque rendu
@@ -261,7 +272,14 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       mode: hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE",
       hasAnyRestricted
     };
-  }, [actions, actionsContext, roleName]);
+  }, [
+    actions, 
+    roleName, 
+    actionsContext.isActionRestricted, 
+    actionsContext.version, // ✅ Force la mise à jour lors de changements de restrictions
+    actionsContext.restrictedActions, // ✅ Dépendance directe sur les restrictions
+    actionsContext.restrictedResources // ✅ Dépendance directe sur les ressources restreintes
+  ]);
 
   // ✅ CALCULER LE COMPTAGE DES ACTIONS RESTREINTES/SUPPRIMÉES
   const actionCount = useMemo(() => {
@@ -276,7 +294,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
         return;
       }
       
-      // Vérifier si l'action est restreinte (Permissions)
+      // Vérifier si l'action est restreinte (Permissions) - inclut la propagation
       const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
       if (isRestricted) {
         restrictedCount++;
@@ -287,7 +305,14 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       restricted: restrictedCount,
       total: actions.length
     };
-  }, [actions, roleName, actionsContext.isActionRestricted, actionsContext.version]);
+  }, [
+    actions, 
+    roleName, 
+    actionsContext.isActionRestricted, 
+    actionsContext.version, // ✅ Force la mise à jour lors de changements de restrictions
+    actionsContext.restrictedActions, // ✅ Dépendance directe sur les restrictions
+    actionsContext.restrictedResources // ✅ Dépendance directe sur les ressources restreintes
+  ]);
 
   // ✅ DÉTERMINER L'ÉTAT VISUEL DU RÔLE
   const roleVisualState = useMemo(() => {
