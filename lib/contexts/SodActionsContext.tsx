@@ -334,7 +334,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   /**
    * Nettoie une action de restrictedActionsRef si elle n'a plus de ressources restreintes
    * ✅ Maintient la cohérence entre l'état du contexte et l'état visuel
-   * ✅ RÈGLE : Si au moins une valeur d'une ressource n'est plus restreinte → la ressource n'est plus restreinte → l'action n'est plus restreinte
+   * ✅ CORRECTION : Utilise la Map globale pour vérifier TOUTES les ressources de l'action
    * ⚠️  Doit être déclaré AVANT toggleRestrictAction qui l'utilise
    */
   const cleanupActionIfNeeded = useCallback((roleName: string, actionCode: string, resources: any[]) => {
@@ -346,28 +346,47 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
     
-    // Vérifier si l'action a encore des ressources non-S_TCODE réellement restreintes
-    const hasRestrictedResource = resources.some(resource => {
-      if (resource.code === 'S_TCODE') return false;
+    // ✅ CORRECTION : Vérifier TOUTES les ressources de cette action dans la Map globale
+    // Pas seulement celles passées en paramètre (qui peuvent être d'une seule fonction)
+    let hasRestrictedResource = false;
+    
+    actionResourcesMapRef.current.forEach((resource, mapKey) => {
+      const [mapRoleName, mapActionCode, ] = mapKey.split('|');
       
-      return resource.externalResources?.some((extRes: any) => {
-        const values = extractExternalResourceValues(extRes);
-        const resKey = getResourceKey(roleName, resource.code, extRes.code);
-        const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+      // Vérifier si c'est la même action et le même rôle
+      if (mapRoleName === roleName && mapActionCode === actionCode) {
+        // Ignorer S_TCODE
+        if (resource.code === 'S_TCODE') return;
         
-        if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
-          return false;
+        // Vérifier si cette ressource est restreinte
+        const hasRestrictedExternalResource = resource.externalResources?.some((extRes: any) => {
+          const values = extractExternalResourceValues(extRes);
+          const resKey = getResourceKey(roleName, resource.code, extRes.code);
+          const restrictedValuesSet = restrictedResourcesRef.current.get(resKey);
+          
+          if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
+            return false;
+          }
+          
+          // Toutes les valeurs doivent être dans le set
+          return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+        });
+        
+        if (hasRestrictedExternalResource) {
+          hasRestrictedResource = true;
         }
-        
-        // Toutes les valeurs doivent être dans le set
-        return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
-      });
+      }
     });
     
-      // Si l'action n'a plus de ressources restreintes, la nettoyer
-      if (!hasRestrictedResource) {
-        restrictedActionsRef.current.delete(key);
-      }
+    // Si l'action n'a plus de ressources restreintes dans TOUTES les fonctions, la nettoyer
+    if (!hasRestrictedResource) {
+      restrictedActionsRef.current.delete(key);
+      console.log('🧹 [CLEANUP ACTION] Action nettoyée (plus de ressources restreintes)', {
+        roleName,
+        actionCode,
+        key
+      });
+    }
   }, [getActionKey, getResourceKey]);
   
   /**
@@ -501,7 +520,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   
   /**
    * Toggle restriction d'une ressource avec ses valeurs
-   * ✅ NOUVELLE RÈGLE : Si au moins une valeur n'est plus restreinte → TOUTES les valeurs de la ressource deviennent non restreintes
    */
   const toggleRestrictResource = useCallback((
     roleName: string,
@@ -516,9 +534,11 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const alreadyRestricted = values.every(v => restrictedValuesSet.has(v));
     
     if (alreadyRestricted) {
-      // ✅ DÉ-RESTREINDRE : Retirer TOUTES les valeurs de cette ressource (nouvelle règle)
-      // Si au moins une valeur n'est plus restreinte → toute la ressource n'est plus restreinte
-      restrictedResourcesRef.current.delete(key);
+      // ✅ DÉ-RESTREINDRE : Retirer les valeurs
+      values.forEach(v => restrictedValuesSet.delete(v));
+      if (restrictedValuesSet.size === 0) {
+        restrictedResourcesRef.current.delete(key);
+      }
     } else {
       // ✅ RESTREINDRE : Ajouter les valeurs
       values.forEach(v => restrictedValuesSet.add(v));
