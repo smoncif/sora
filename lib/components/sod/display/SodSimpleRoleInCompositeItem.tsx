@@ -294,7 +294,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
         return;
       }
       
-      // Vérifier si l'action est restreinte (Permissions) - inclut la propagation
+      // Vérifier si l'action est restreinte (Permissions)
       const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
       if (isRestricted) {
         restrictedCount++;
