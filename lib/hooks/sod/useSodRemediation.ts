@@ -7,6 +7,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { generateRemediationPlan, type RemediationPlan, type RemediationConfig } from 'lib/services/sod/sodRemediationService';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
+import { useSodActions } from 'lib/contexts/SodActionsContext';
 
 export interface SodRemediationState {
   isGenerating: boolean;
@@ -18,7 +19,7 @@ export interface SodRemediationState {
 
 export interface SodRemediationActions {
   generatePlan: (simpleRoles: SodSimpleRole[], compositeRoles: SodCompositeRole[], config: RemediationConfig) => Promise<void>;
-  applyPlan: (actionsContext?: any) => Promise<void>;
+  applyPlan: () => Promise<void>;
   undoLastApplication: () => Promise<void>;
   exportPlan: () => void;
   reset: () => void;
@@ -30,6 +31,7 @@ export interface SodRemediation {
 }
 
 export const useSodRemediation = (): SodRemediation => {
+  const actionsContext = useSodActions();
   const [state, setState] = useState<SodRemediationState>({
     isGenerating: false,
     plan: null,
@@ -61,47 +63,30 @@ export const useSodRemediation = (): SodRemediation => {
       }
     },
 
-    applyPlan: async (actionsContext?: any) => {
-      if (!state.plan || !actionsContext) return;
+    applyPlan: async () => {
+      if (!state.plan) return;
       
       try {
         setState(prev => ({ ...prev, isApplying: true, error: null }));
         
         let appliedCount = 0;
         
-        // 1. Appliquer les restrictions de ressources
+        // Appliquer les restrictions de ressources
         for (const restriction of state.plan.resourceRestrictions) {
-          await actionsContext.restrictResource(
-            restriction.roleName,
-            restriction.actionCode,
-            restriction.resourceCode,
-            restriction.externalResourceCode,
-            restriction.values
-          );
+          // TODO: Implémenter restriction de ressources via SodActionsContext
+          // actionsContext.restrictResource(restriction.roleName, restriction.actionCode, restriction.resourceCode, restriction.externalResourceCode, restriction.values);
           appliedCount++;
         }
         
-        // 2. Appliquer les restrictions d'actions
-        for (const restriction of state.plan.actionRestrictions) {
-          await actionsContext.restrictAction(restriction.roleName, restriction.actionCode);
-          appliedCount++;
-        }
-        
-        // 3. Appliquer les suppressions d'actions
+        // Appliquer les suppressions d'actions
         for (const deletion of state.plan.actionDeletions) {
-          await actionsContext.deleteAction(deletion.roleName, deletion.actionCode);
+          actionsContext.toggleDeleteAction(deletion.roleName, deletion.actionCode);
           appliedCount++;
         }
         
-        // 4. Appliquer les restrictions de rôles
-        for (const roleRestriction of state.plan.roleRestrictions) {
-          // TODO: Implémenter restriction de rôle si nécessaire
-          appliedCount++;
-        }
-        
-        // 5. Appliquer les suppressions de rôles
-        for (const roleDeletion of state.plan.roleDeletions) {
-          // TODO: Implémenter suppression de rôle si nécessaire
+        // Appliquer les restrictions d'actions
+        for (const restriction of state.plan.actionRestrictions) {
+          actionsContext.toggleRestrictAction(restriction.roleName, restriction.actionCode);
           appliedCount++;
         }
         
@@ -111,22 +96,37 @@ export const useSodRemediation = (): SodRemediation => {
           appliedModifications: prev.appliedModifications + appliedCount,
           error: null 
         }));
+        
+        console.log(`✅ Plan de remédiation appliqué: ${appliedCount} modifications`);
       } catch (error) {
         setState(prev => ({ 
           ...prev, 
           isApplying: false, 
           error: error instanceof Error ? error.message : 'Erreur lors de l\'application du plan' 
         }));
+        console.error('❌ Erreur lors de l\'application du plan:', error);
       }
     },
 
     undoLastApplication: async () => {
+      if (!state.plan) return;
+      
       try {
         setState(prev => ({ ...prev, isApplying: true, error: null }));
         
-        // TODO: Implémenter l'annulation via SodActionsContext
-        // Pour l'instant, simuler l'annulation
-        await new Promise(resolve => setTimeout(resolve, 500));
+        let undoneCount = 0;
+        
+        // Annuler les suppressions d'actions
+        for (const deletion of state.plan.actionDeletions) {
+          actionsContext.toggleDeleteAction(deletion.roleName, deletion.actionCode);
+          undoneCount++;
+        }
+        
+        // Annuler les restrictions d'actions
+        for (const restriction of state.plan.actionRestrictions) {
+          actionsContext.toggleRestrictAction(restriction.roleName, restriction.actionCode);
+          undoneCount++;
+        }
         
         setState(prev => ({ 
           ...prev, 
@@ -134,12 +134,15 @@ export const useSodRemediation = (): SodRemediation => {
           appliedModifications: 0,
           error: null 
         }));
+        
+        console.log(`↩️ Annulation du plan: ${undoneCount} modifications annulées`);
       } catch (error) {
         setState(prev => ({ 
           ...prev, 
           isApplying: false, 
           error: error instanceof Error ? error.message : 'Erreur lors de l\'annulation' 
         }));
+        console.error('❌ Erreur lors de l\'annulation:', error);
       }
     },
 

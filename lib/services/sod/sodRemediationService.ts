@@ -41,7 +41,8 @@ export interface ResourceRestriction {
 export interface ActionRestriction {
   roleName: string;
   actionCode: string;
-  resources: SodResource[];
+  resources: SodResource[]; // Gardé pour la logique interne
+  resourcesDisplay: string; // Chaîne sérialisée pour l'affichage
   impact: number;
   reason: string;
 }
@@ -55,7 +56,8 @@ export interface RoleRestriction {
 export interface ActionDeletion {
   roleName: string;
   actionCode: string;
-  resources: SodResource[];
+  resources: SodResource[]; // Gardé pour la logique interne
+  resourcesDisplay: string; // Chaîne sérialisée pour l'affichage
   impact: number;
   reason: string;
 }
@@ -89,6 +91,20 @@ function calculateImpactScore(
   };
   
   return baseScores[type][operation];
+}
+
+/**
+ * Sérialise les ressources en chaîne lisible pour l'affichage
+ */
+function serializeResources(resources: SodResource[]): string {
+  return resources.map(resource => {
+    const permissions = resource.externalResources?.map(extRes => {
+      const values = extRes.values ? ` (${extRes.values.join(', ')})` : '';
+      return `${extRes.code}${values}`;
+    }).join(', ') || 'Aucune permission';
+    
+    return `${resource.code} → ${permissions}`;
+  }).join('; ');
 }
 
 /**
@@ -482,18 +498,19 @@ function generateFunctionRemediationOptions(
     
     // Ajouter option de suppression
     if (suppressableActions.length > 0) {
-      options.push({
-        type: 'action_deletions',
-        modifications: suppressableActions.map(action => ({
-          roleName,
-          actionCode: action.code,
-          resources: action.resources,
-          impact: calculateImpactScore('action', 'delete'),
-          reason: `Supprimer l'action ${action.code}`
-        })),
-        totalImpact: suppressableActions.length * calculateImpactScore('action', 'delete'),
-        description: `Supprimer ${suppressableActions.length} action(s) supprimable(s)`
-      });
+        options.push({
+          type: 'action_deletions',
+          modifications: suppressableActions.map(action => ({
+            roleName,
+            actionCode: action.code,
+            resources: action.resources,
+            resourcesDisplay: serializeResources(action.resources),
+            impact: calculateImpactScore('action', 'delete'),
+            reason: `Supprimer l'action ${action.code}`
+          })),
+          totalImpact: suppressableActions.length * calculateImpactScore('action', 'delete'),
+          description: `Supprimer ${suppressableActions.length} action(s) supprimable(s)`
+        });
     }
   }
   
@@ -544,6 +561,7 @@ function generateFunctionRemediationOptions(
           roleName,
           actionCode: action.code,
           resources: action.resources,
+          resourcesDisplay: serializeResources(action.resources),
           impact: calculateImpactScore('action', 'delete'),
           reason: `Supprimer l'action ${action.code}`
         })),

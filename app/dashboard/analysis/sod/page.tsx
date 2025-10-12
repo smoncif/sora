@@ -22,7 +22,7 @@ import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 export default function SodAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
-  
+
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
   const sodWorkflow = useSodWorkflow({ userId: user?.id || 'anonymous' });
 
@@ -219,24 +219,24 @@ export default function SodAnalysisPage() {
   }, [toggleRestrictAction]); // ✅ Stable : toggleRestrictAction ne change jamais
 
   const handleRestrictResourceWrapped = useCallback((
-    roleName: string,
+        roleName: string,
     _riskId: string,
     _actionCode: string,
-    resourceCode: string,
-    externalResourceCode: string,
-    values: string[]
-  ) => {
+        resourceCode: string,
+        externalResourceCode: string,
+        values: string[]
+      ) => {
     toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
   }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
 
   const handleCompositeRestrictResourceWrapped = useCallback((
-    roleName: string,
+        roleName: string,
     _riskId: string,
     _actionCode: string,
-    resourceCode: string,
-    externalResourceCode: string,
-    values: string[]
-  ) => {
+        resourceCode: string,
+        externalResourceCode: string,
+        values: string[]
+      ) => {
     toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
   }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
   
@@ -399,9 +399,9 @@ export default function SodAnalysisPage() {
                         />
                       );
                     })}
-                  </Box>
-                )}
-              </Paper>
+              </Box>
+            )}
+          </Paper>
 
               {/* Actions restreintes */}
               <Paper sx={{ p: 2, bgcolor: 'warning.50' }}>
@@ -465,7 +465,7 @@ export default function SodAnalysisPage() {
                         <Box key={key} sx={{ p: 1, border: '1px solid', borderColor: 'info.main', borderRadius: 1 }}>
                           <Typography variant="body2" fontWeight="bold">
                             {roleName} → {resourceCode} → {externalResourceCode === 'NULL' ? '(pas de code externe)' : externalResourceCode}
-                          </Typography>
+              </Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                             {restrictedValues.map((value, idx) => (
                               <Chip 
@@ -476,8 +476,8 @@ export default function SodAnalysisPage() {
                                 variant="filled"
                               />
                             ))}
-                          </Box>
-                        </Box>
+              </Box>
+            </Box>
                       );
                     })}
                   </Box>
@@ -538,12 +538,12 @@ export default function SodAnalysisPage() {
                   }}>
                     <Typography variant="body2" color="text.secondary">
                       Chargement du rôle...
-                    </Typography>
+                </Typography>
                   </Box>
                 }
               >
-                <SodSimpleRoleCard
-                  role={role}
+                  <SodSimpleRoleCard
+                    role={role}
                   onDeleteAction={handleDeleteAction}
                   onRestrictAction={handleRestrictAction}
                   onRestrictResource={handleRestrictResourceWrapped}
@@ -573,8 +573,8 @@ export default function SodAnalysisPage() {
               />
             </Box>
           )}
-        </Box>
-      )}
+              </Box>
+            )}
 
             {/* Étape 2 : Rôles Composites avec pagination */}
             {sodWorkflow.state.currentStep === 2 && sodWorkflow.state.session?.compositeRoles && (
@@ -617,12 +617,12 @@ export default function SodAnalysisPage() {
                   }}>
                     <Typography variant="body2" color="text.secondary">
                       Chargement du rôle...
-                    </Typography>
+                </Typography>
                   </Box>
                 }
               >
-                <SodCompositeRoleCard
-                  role={role}
+                  <SodCompositeRoleCard
+                    role={role}
                   onDeleteAction={handleDeleteAction}
                   onRestrictAction={handleRestrictAction}
                   onRestrictResource={handleCompositeRestrictResourceWrapped}
@@ -652,32 +652,32 @@ export default function SodAnalysisPage() {
               />
             </Box>
           )}
-        </Box>
-      )}
+              </Box>
+            )}
 
             {/* Étape 3 : Analyse par Utilisateur */}
             {sodWorkflow.state.currentStep === 3 && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h5" gutterBottom>
             Étape 3: Analyse par Utilisateur
-          </Typography>
+                </Typography>
           <Alert severity="info">
             Cette fonctionnalité sera disponible prochainement.
           </Alert>
-        </Box>
-      )}
+              </Box>
+            )}
 
             {/* Étape 4 : Rapport SoD */}
             {sodWorkflow.state.currentStep === 4 && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h5" gutterBottom>
             Étape 4: Rapport SoD
-          </Typography>
+                </Typography>
           <Alert severity="info">
             Cette fonctionnalité sera disponible prochainement.
           </Alert>
-        </Box>
-      )}
+              </Box>
+            )}
 
           </Box>
         </Fade>

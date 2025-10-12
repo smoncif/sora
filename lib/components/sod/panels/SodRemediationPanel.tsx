@@ -317,7 +317,18 @@ export const SodRemediationPanel: React.FC<SodRemediationPanelProps> = ({
                             </ListItemIcon>
                             <ListItemText
                               primary={`${deletion.roleName} → ${deletion.actionCode}`}
-                              secondary={deletion.reason}
+                              secondary={
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    {deletion.reason}
+                                  </Typography>
+                                  {deletion.resourcesDisplay && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                                      Permissions: {deletion.resourcesDisplay}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
                             />
                           </ListItem>
                         ))}

@@ -9,7 +9,6 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useSodSession } from './useSodSession';
 import { useSodExcelParser } from './useSodExcelParser';
 import { useSodRemediation } from './useSodRemediation';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodWorkflowConfig {
   userId: string;
@@ -86,9 +85,6 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
   
   // Remédiation automatique
   const remediation = useSodRemediation();
-  
-  // Contexte des actions SOD
-  const actionsContext = useSodActionsContext();
   
   // Référence au fichier uploadé
   const uploadedFileRef = useRef<File | null>(null);
@@ -184,7 +180,7 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     closeRemediationPanel: () => setRemediationPanelOpen(false),
 
     applyRemediationPlan: async () => {
-      await remediation.actions.applyPlan(actionsContext);
+      await remediation.actions.applyPlan();
     },
 
     undoRemediation: async () => {
