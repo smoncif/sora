@@ -76,14 +76,6 @@ interface SodActionsContextValue extends SodActionsState {
     values: string[]
   ) => void;
   
-  /** Restreindre une ressource directement (sans toggle) */
-  restrictResource: (
-    roleName: string,
-    resourceCode: string,
-    externalResourceCode: string,
-    values: string[]
-  ) => void;
-  
   /** Réinitialiser tout l'état (nouveau fichier) */
   resetState: () => void;
   
@@ -577,30 +569,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     incrementVersion();
   }, [getResourceKey, incrementVersion]);
-
-  const restrictResource = useCallback((
-    roleName: string,
-    resourceCode: string,
-    externalResourceCode: string,
-    values: string[]
-  ) => {
-    console.log('🔒 restrictResource appelé:', { roleName, resourceCode, externalResourceCode, values });
-    const key = getResourceKey(roleName, resourceCode, externalResourceCode);
-    console.log('🔑 Clé générée:', key);
-    
-    const restrictedValuesSet = restrictedResourcesRef.current.get(key) || new Set<string>();
-    console.log('📊 Valeurs avant:', Array.from(restrictedValuesSet));
-    
-    // ✅ FORCER LA RESTRICTION : Ajouter les valeurs (sans toggle)
-    values.forEach(v => restrictedValuesSet.add(v));
-    restrictedResourcesRef.current.set(key, restrictedValuesSet);
-    
-    console.log('📊 Valeurs après:', Array.from(restrictedValuesSet));
-    console.log('🗂️ Toutes les restrictions:', Array.from(restrictedResourcesRef.current.entries()));
-    
-    incrementVersion();
-    console.log('🔄 Version incrémentée');
-  }, [getResourceKey, incrementVersion]);
   
   
   /**
@@ -713,18 +681,12 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const key = getResourceKey(roleName, resourceCode, externalResourceCode);
     const restrictedValuesSet = restrictedResourcesRef.current.get(key);
     
-    console.log('🔍 isResourceRestricted:', { roleName, resourceCode, externalResourceCode, values, key, restrictedValuesSet: restrictedValuesSet ? Array.from(restrictedValuesSet) : 'undefined' });
-    
     if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
-      console.log('❌ Pas de restrictions trouvées');
       return false;
     }
     
-    // ✅ Toutes les valeurs doivent être dans le set
-    // Une ressource est restreinte si toutes ses valeurs sont restreintes
-    const isRestricted = values.length > 0 && values.every(v => restrictedValuesSet.has(v));
-    console.log('✅ Restriction trouvée:', isRestricted, 'pour valeurs:', values);
-    return isRestricted;
+    // Toutes les valeurs doivent être dans le set
+    return values.length > 0 && values.every(v => restrictedValuesSet.has(v));
   }, [getResourceKey]);
   
   // ============================================
@@ -1203,7 +1165,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     unrestrictAction,
     toggleRestrictAction,
     toggleRestrictResource,
-    restrictResource,
     toggleExcludeSimpleRole,
     resetState,
     isActionDeleted,
@@ -1224,7 +1185,6 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     unrestrictAction,
     toggleRestrictAction,
     toggleRestrictResource,
-    restrictResource,
     toggleExcludeSimpleRole,
     resetState,
     isActionDeleted,

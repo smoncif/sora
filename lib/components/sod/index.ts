@@ -12,9 +12,6 @@ export { SodFileUploadSection } from './upload/SodFileUploadSection';
 // Auto-selection
 export { SodAutoSelectionSection } from './autoselection/SodAutoSelectionSection';
 
-// Panels
-export { SodRemediationPanel } from './panels/SodRemediationPanel';
-
 // Shared components
 export { SodRiskLevelBadge, SodRiskLevelIcon, SodRiskLevelText } from './shared/SodRiskLevelBadge';
 

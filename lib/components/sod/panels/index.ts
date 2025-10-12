@@ -1,1 +1,0 @@
-export { SodRemediationPanel } from './SodRemediationPanel';

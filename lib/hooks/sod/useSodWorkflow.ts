@@ -5,10 +5,9 @@
 
 'use client';
 
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useSodSession } from './useSodSession';
 import { useSodExcelParser } from './useSodExcelParser';
-import { useSodRemediation } from './useSodRemediation';
 
 export interface SodWorkflowConfig {
   userId: string;
@@ -27,8 +26,10 @@ export interface SodWorkflowState {
   session: any;
   currentStep: number;
   
-  // État du panneau de remédiation
-  remediationPanelOpen: boolean;
+  // État du parsing
+  parsing: boolean;
+  progress: any;
+  parsingError: string | null;
 }
 
 export interface SodWorkflowActions {
@@ -49,14 +50,8 @@ export interface SodWorkflowActions {
   // Remédiation automatique
   startAutomaticRemediation: () => Promise<void>;
   
-  // Gestion du panneau de remédiation
-  openRemediationPanel: () => void;
-  closeRemediationPanel: () => void;
-  
-  // Actions de remédiation
-  applyRemediationPlan: () => Promise<void>;
-  undoRemediation: () => Promise<void>;
-  exportRemediationPlan: () => void;
+  // Parsing
+  cancelParsing: () => void;
   
   // Reset
   resetWorkflow: () => void;
@@ -65,38 +60,18 @@ export interface SodWorkflowActions {
 export interface SodWorkflow {
   state: SodWorkflowState;
   actions: SodWorkflowActions;
-  remediation: {
-    state: any;
-    actions: any;
-  };
 }
 
 export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
   // État local
   const [importType, setImportType] = useState<'new' | 'import' | 'resume'>('new');
   const [enableUsageAnalysis, setEnableUsageAnalysis] = useState(false);
-  const [remediationPanelOpen, setRemediationPanelOpen] = useState(false);
   
   // Session SOD
   const sodSession = useSodSession({ userId: config.userId });
   
   // Parser Excel
   const excelParser = useSodExcelParser();
-  
-  // Remédiation automatique
-  const remediation = useSodRemediation();
-  
-  // Référence au fichier uploadé
-  const uploadedFileRef = useRef<File | null>(null);
-  
-  // Quand le parsing est terminé, créer la session avec les données parsées
-  useEffect(() => {
-    if (excelParser.parsedData && !excelParser.parsing && !sodSession.session && uploadedFileRef.current) {
-      // ✅ Créer la session directement avec les données déjà parsées par le Worker
-      sodSession.createSessionFromParsedData(uploadedFileRef.current, excelParser.parsedData);
-      uploadedFileRef.current = null;
-    }
-  }, [excelParser.parsedData, excelParser.parsing, sodSession.session, sodSession.createSessionFromParsedData]);
   
   // État dérivé
   const state: SodWorkflowState = useMemo(() => ({
@@ -106,7 +81,10 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     enableUsageAnalysis,
     session: sodSession.session,
     currentStep: sodSession.currentStep,
-    remediationPanelOpen,
+    // État du parsing pour la barre de progression
+    parsing: excelParser.parsing,
+    progress: excelParser.progress,
+    parsingError: excelParser.error,
   }), [
     importType,
     enableUsageAnalysis,
@@ -115,8 +93,8 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     sodSession.session,
     sodSession.currentStep,
     excelParser.parsing,
+    excelParser.progress,
     excelParser.error,
-    remediationPanelOpen,
   ]);
   
   // Actions
@@ -125,16 +103,13 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     
     startNewAnalysis: async (file: File) => {
       try {
-        // 🚀 Réinitialiser l'état global avant de charger un nouveau fichier
-        // TODO: Implémenter resetState dans SodActionsContext
-        // resetState();
-        
-        // Sauvegarder la référence au fichier
-        uploadedFileRef.current = file;
-        
-        // ✅ Parser avec le Web Worker (ne bloque pas l'UI)
+        // Parser le fichier Excel
         await excelParser.parseFile(file);
-        // La session sera créée automatiquement dans le useEffect ci-dessus
+        
+        // Créer la session avec les données parsées
+        if (excelParser.parsedData) {
+          await sodSession.createSessionFromParsedData(file, excelParser.parsedData);
+        }
       } catch (error) {
         console.error('Erreur lors de l\'analyse:', error);
       }
@@ -155,61 +130,32 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     setCurrentStep: sodSession.setCurrentStep || (() => {}),
     
     startAutomaticRemediation: async () => {
-      try {
-        if (!sodSession.session) {
-          console.error('Aucune session SOD active');
-          return;
-        }
-
-        // Générer le plan de remédiation
-        const config = { enableUsageAnalysis };
-        await remediation.actions.generatePlan(
-          sodSession.session.simpleRoles?.roles || [],
-          sodSession.session.compositeRoles?.roles || [],
-          config
-        );
-
-        // Ouvrir le panneau de remédiation
-        setRemediationPanelOpen(true);
-      } catch (error) {
-        console.error('Erreur lors de la génération du plan de remédiation:', error);
-      }
+      // TODO: Implémenter la remédiation automatique
+      console.log('Démarrage de la remédiation automatique...', {
+        enableUsageAnalysis,
+        session: sodSession.session,
+      });
     },
-
-    openRemediationPanel: () => setRemediationPanelOpen(true),
-    closeRemediationPanel: () => setRemediationPanelOpen(false),
-
-    applyRemediationPlan: async () => {
-      await remediation.actions.applyPlan();
-    },
-
-    undoRemediation: async () => {
-      await remediation.actions.undoLastApplication();
-    },
-
-    exportRemediationPlan: () => {
-      remediation.actions.exportPlan();
+    
+    cancelParsing: () => {
+      excelParser.cancelParsing?.();
     },
     
     resetWorkflow: () => {
       setImportType('new');
       setEnableUsageAnalysis(false);
-      setRemediationPanelOpen(false);
       // TODO: Implémenter resetSession dans useSodSession
       // sodSession.resetSession?.();
       excelParser.cancelParsing?.();
-      remediation.actions.reset();
     },
   }), [
     enableUsageAnalysis,
     sodSession,
     excelParser,
-    remediation,
   ]);
-
+  
   return {
     state,
     actions,
-    remediation,
   };
 };
