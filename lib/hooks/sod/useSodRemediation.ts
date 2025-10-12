@@ -7,7 +7,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { generateRemediationPlan, type RemediationPlan, type RemediationConfig } from 'lib/services/sod/sodRemediationService';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
-import { useSodActions } from 'lib/contexts/SodActionsContext';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodRemediationState {
   isGenerating: boolean;
@@ -31,7 +31,7 @@ export interface SodRemediation {
 }
 
 export const useSodRemediation = (): SodRemediation => {
-  const actionsContext = useSodActions();
+  const actionsContext = useSodActionsContext();
   const [state, setState] = useState<SodRemediationState>({
     isGenerating: false,
     plan: null,
