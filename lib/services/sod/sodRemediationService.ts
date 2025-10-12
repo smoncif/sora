@@ -126,7 +126,39 @@ function isFunctionRemediated(actions: SodAction[]): boolean {
 }
 
 /**
+ * Vérifie si un risque est remédié
+ * Un risque est remédié si AU MOINS UNE de ses fonctions est remédiée
+ */
+function isRiskRemediated(risk: any): boolean {
+  return risk.functions.some((func: any) => {
+    if ('actions' in func) {
+      return isFunctionRemediated(func.actions);
+    } else if ('simpleRoles' in func) {
+      // Pour les fonctions composites, agréger toutes les actions
+      const allActions: SodAction[] = [];
+      func.simpleRoles.forEach((simpleRole: any) => {
+        allActions.push(...simpleRole.actions);
+      });
+      return isFunctionRemediated(allActions);
+    }
+    return false;
+  });
+}
+
+/**
+ * Interface pour une option de remédiation de fonction
+ */
+interface FunctionRemediationOption {
+  roleName: string;
+  riskCode: string;
+  functionCode: string;
+  option: RemediationOption;
+  impact: number;
+}
+
+/**
  * Génère un plan de remédiation automatique
+ * CORRIGÉ : Groupe par risque et choisit la fonction avec l'impact minimal
  */
 export function generateRemediationPlan(
   simpleRoles: SodSimpleRole[],
@@ -145,12 +177,29 @@ export function generateRemediationPlan(
     rolesAffected: 0
   };
   
-  // Parcourir tous les rôles pour identifier les actions à remédier
+  // Grouper par risque et analyser chaque risque
   const allRoles = [...simpleRoles, ...compositeRoles];
   const affectedRoles = new Set<string>();
+  const risksProcessed = new Set<string>();
   
   allRoles.forEach(role => {
     role.risks.forEach(risk => {
+      // Vérifier si le risque a déjà été traité
+      const riskKey = `${role.roleName}:${risk.riskCode}`;
+      if (risksProcessed.has(riskKey)) {
+        return;
+      }
+      risksProcessed.add(riskKey);
+      
+      // Vérifier si le risque est déjà remédié
+      if (isRiskRemediated(risk)) {
+        plan.risksRemediated++;
+        return;
+      }
+      
+      // Analyser toutes les fonctions de ce risque
+      const functionOptions: FunctionRemediationOption[] = [];
+      
       risk.functions.forEach(func => {
         // Pour les rôles simples
         if ('actions' in func) {
@@ -158,8 +207,7 @@ export function generateRemediationPlan(
           
           // Vérifier si la fonction est déjà remédiée
           if (isFunctionRemediated(actions)) {
-            plan.risksRemediated++;
-            return;
+            return; // Cette fonction est déjà remédiée, pas besoin de l'inclure
           }
           
           // Générer les options de remédiation pour cette fonction
@@ -173,9 +221,13 @@ export function generateRemediationPlan(
           const bestOption = selectBestRemediationOption(remediationOptions);
           
           if (bestOption) {
-            // Ajouter les modifications au plan
-            applyRemediationOptionToPlan(plan, bestOption);
-            affectedRoles.add(role.roleName);
+            functionOptions.push({
+              roleName: role.roleName,
+              riskCode: risk.riskCode,
+              functionCode: func.functionCode,
+              option: bestOption,
+              impact: bestOption.totalImpact
+            });
           }
         }
         // Pour les rôles composites
@@ -195,8 +247,7 @@ export function generateRemediationPlan(
           // Vérifier si la fonction composite est déjà remédiée
           const functionActions = allActions.map(item => item.action);
           if (isFunctionRemediated(functionActions)) {
-            plan.risksRemediated++;
-            return;
+            return; // Cette fonction est déjà remédiée
           }
           
           // Générer les options de remédiation pour cette fonction composite
@@ -210,12 +261,32 @@ export function generateRemediationPlan(
           const bestOption = selectBestRemediationOption(remediationOptions);
           
           if (bestOption) {
-            // Ajouter les modifications au plan
-            applyRemediationOptionToPlan(plan, bestOption);
-            affectedRoles.add(role.roleName);
+            functionOptions.push({
+              roleName: role.roleName,
+              riskCode: risk.riskCode,
+              functionCode: func.functionCode,
+              option: bestOption,
+              impact: bestOption.totalImpact
+            });
           }
         }
       });
+      
+      // CHOISIR LA FONCTION AVEC L'IMPACT MINIMAL pour remédier ce risque
+      if (functionOptions.length > 0) {
+        // Trier par impact croissant (le plus faible en premier)
+        functionOptions.sort((a, b) => a.impact - b.impact);
+        
+        // Prendre la fonction avec l'impact minimal
+        const bestFunctionOption = functionOptions[0];
+        
+        // Ajouter les modifications au plan
+        applyRemediationOptionToPlan(plan, bestFunctionOption.option);
+        affectedRoles.add(role.roleName);
+        plan.risksRemediated++;
+        
+        console.log(`🎯 Risque ${risk.riskCode}: Choisi fonction ${bestFunctionOption.functionCode} (impact ${bestFunctionOption.impact}) au lieu de ${functionOptions.length - 1} autres options`);
+      }
     });
   });
   
