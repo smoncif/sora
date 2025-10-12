@@ -9,7 +9,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useSodSession } from './useSodSession';
 import { useSodExcelParser } from './useSodExcelParser';
 import { useSodRemediation } from './useSodRemediation';
-import { useSodActions } from 'lib/contexts/SodActionsContext';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodWorkflowConfig {
   userId: string;
@@ -88,7 +88,7 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
   const remediation = useSodRemediation();
   
   // Contexte des actions SOD
-  const actionsContext = useSodActions();
+  const actionsContext = useSodActionsContext();
   
   // Référence au fichier uploadé
   const uploadedFileRef = useRef<File | null>(null);
