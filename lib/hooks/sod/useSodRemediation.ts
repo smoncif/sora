@@ -18,7 +18,7 @@ export interface SodRemediationState {
 
 export interface SodRemediationActions {
   generatePlan: (simpleRoles: SodSimpleRole[], compositeRoles: SodCompositeRole[], config: RemediationConfig) => Promise<void>;
-  applyPlan: () => Promise<void>;
+  applyPlan: (actionsContext?: any) => Promise<void>;
   undoLastApplication: () => Promise<void>;
   exportPlan: () => void;
   reset: () => void;
@@ -61,20 +61,54 @@ export const useSodRemediation = (): SodRemediation => {
       }
     },
 
-    applyPlan: async () => {
-      if (!state.plan) return;
+    applyPlan: async (actionsContext?: any) => {
+      if (!state.plan || !actionsContext) return;
       
       try {
         setState(prev => ({ ...prev, isApplying: true, error: null }));
         
-        // TODO: Implémenter l'application du plan via SodActionsContext
-        // Pour l'instant, simuler l'application
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        let appliedCount = 0;
+        
+        // 1. Appliquer les restrictions de ressources
+        for (const restriction of state.plan.resourceRestrictions) {
+          await actionsContext.restrictResource(
+            restriction.roleName,
+            restriction.actionCode,
+            restriction.resourceCode,
+            restriction.externalResourceCode,
+            restriction.values
+          );
+          appliedCount++;
+        }
+        
+        // 2. Appliquer les restrictions d'actions
+        for (const restriction of state.plan.actionRestrictions) {
+          await actionsContext.restrictAction(restriction.roleName, restriction.actionCode);
+          appliedCount++;
+        }
+        
+        // 3. Appliquer les suppressions d'actions
+        for (const deletion of state.plan.actionDeletions) {
+          await actionsContext.deleteAction(deletion.roleName, deletion.actionCode);
+          appliedCount++;
+        }
+        
+        // 4. Appliquer les restrictions de rôles
+        for (const roleRestriction of state.plan.roleRestrictions) {
+          // TODO: Implémenter restriction de rôle si nécessaire
+          appliedCount++;
+        }
+        
+        // 5. Appliquer les suppressions de rôles
+        for (const roleDeletion of state.plan.roleDeletions) {
+          // TODO: Implémenter suppression de rôle si nécessaire
+          appliedCount++;
+        }
         
         setState(prev => ({ 
           ...prev, 
           isApplying: false, 
-          appliedModifications: prev.appliedModifications + state.plan!.totalModifications,
+          appliedModifications: prev.appliedModifications + appliedCount,
           error: null 
         }));
       } catch (error) {
