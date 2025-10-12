@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, alpha, useTheme, Fade } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import { useAuth } from 'lib/hooks/useAuth';
+import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
-import { useSodSession } from 'lib/hooks/sod/useSodSession';
-import { useSodExcelParser } from 'lib/hooks/sod/useSodExcelParser';
+import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSection';
+import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
 import { SodParsingProgress } from 'lib/components/sod/upload/SodParsingProgress';
+import { SodRemediationPanel } from 'lib/components/sod/panels/SodRemediationPanel';
 import { SodSimpleRoleCard, SodCompositeRoleCard } from 'lib/components/sod';
+import { useSodWorkflow } from 'lib/hooks/sod/useSodWorkflow';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
@@ -19,25 +21,10 @@ import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 
 export default function SodAnalysisPage() {
   const { user } = useAuth();
-  const {
-    session,
-    currentStep,
-    setCurrentStep,
-    isLoading,
-    error,
-    warnings,
-    createSessionFromParsedData,
-  } = useSodSession({ userId: user?.id || 'anonymous' });
-
-  // Hook pour le parsing Excel asynchrone avec progression
-  const {
-    parsing,
-    progress,
-    error: parsingError,
-    parsedData,
-    parseFile,
-    cancelParsing,
-  } = useSodExcelParser();
+  const theme = useTheme();
+  
+  // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
+  const sodWorkflow = useSodWorkflow({ userId: user?.id || 'anonymous' });
 
   // Pagination pour rôles simples (index 0-based pour TablePagination)
   const [simpleRolePage, setSimpleRolePage] = useState(0);
@@ -67,8 +54,8 @@ export default function SodAnalysisPage() {
   }, []);
 
   // 🚀 NOUVELLE ARCHITECTURE : État global + Pagination pure
-  const simpleRoles = (session?.simpleRoles?.roles || []) as SodSimpleRole[];
-  const compositeRoles = (session?.compositeRoles?.roles || []) as SodCompositeRole[];
+  const simpleRoles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
+  const compositeRoles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
   
   // ✅ Déstructurer le contexte pour avoir des références stables
   const actionsContext = useSodActionsContext();
@@ -101,12 +88,12 @@ export default function SodAnalysisPage() {
     const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     
     // Parcourir tous les rôles pour calculer l'état visuel réel de chaque action
-    [...simpleRoles, ...compositeRoles].forEach(role => {
-      role.risks.forEach(risk => {
-        risk.functions.forEach(func => {
+    [...simpleRoles, ...compositeRoles].forEach((role: any) => {
+      role.risks.forEach((risk: any) => {
+        risk.functions.forEach((func: any) => {
           // Pour les rôles simples
           if ('actions' in func) {
-            func.actions.forEach(action => {
+            func.actions.forEach((action: any) => {
               const key = `${role.roleName}|${action.code}`;
               
               // ✅ RÈGLE PRIORITAIRE : Ne pas lister les actions SUPPRIMÉES
@@ -118,10 +105,10 @@ export default function SodAnalysisPage() {
               const restrictedByAction = actionRestriction.restrictedByAction;
               
               // Vérifier si l'action a des ressources réellement restreintes
-              const hasRestrictedResource = action.resources.some(resource => {
+              const hasRestrictedResource = action.resources.some((resource: any) => {
                 if (resource.code === 'S_TCODE') return false;
                 
-                return resource.externalResources?.some(extRes => {
+                return resource.externalResources?.some((extRes: any) => {
                   const values = extractExternalResourceValues(extRes);
                   return isResourceRestricted(role.roleName, resource.code, extRes.code, values);
                 });
@@ -159,10 +146,10 @@ export default function SodAnalysisPage() {
                 const actionRestriction = isActionRestricted(simpleRole.roleName, action.code);
                 const restrictedByAction = actionRestriction.restrictedByAction;
                 
-                const hasRestrictedResource = action.resources.some(resource => {
+                const hasRestrictedResource = action.resources.some((resource: any) => {
                   if (resource.code === 'S_TCODE') return false;
                   
-                  return resource.externalResources?.some(extRes => {
+                  return resource.externalResources?.some((extRes: any) => {
                     const values = extractExternalResourceValues(extRes);
                     return isResourceRestricted(simpleRole.roleName, resource.code, extRes.code, values);
                   });
@@ -223,12 +210,12 @@ export default function SodAnalysisPage() {
   }, [paginatedCompositeRolesRaw, actionsState, version]); // ✅ Dépend de version pour se recalculer
   
   // 🚀 OPTIMISATION 3 : Callbacks stables (ne dépendent que des fonctions, pas du contexte entier)
-  const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources: any[]) => {
-    toggleDeleteAction(roleName, actionCode, resources);
+  const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources?: any[]) => {
+    toggleDeleteAction(roleName, actionCode, resources || []);
   }, [toggleDeleteAction]); // ✅ Stable : toggleDeleteAction ne change jamais
 
-  const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources: any[]) => {
-    toggleRestrictAction(roleName, actionCode, resources);
+  const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources?: any[]) => {
+    toggleRestrictAction(roleName, actionCode, resources || []);
   }, [toggleRestrictAction]); // ✅ Stable : toggleRestrictAction ne change jamais
 
   const handleRestrictResourceWrapped = useCallback((
@@ -274,68 +261,96 @@ export default function SodAnalysisPage() {
     previousCallbackRef.current = handleDeleteAction;
   }, [handleDeleteAction]);
 
-  // Référence au fichier uploadé (pour créer la session après le parsing)
-  const uploadedFileRef = useRef<File | null>(null);
-
-  // Quand le parsing est terminé, créer la session avec les données parsées
-  useEffect(() => {
-    if (parsedData && !parsing && !session && uploadedFileRef.current) {
-      // ✅ Créer la session directement avec les données déjà parsées par le Worker
-      createSessionFromParsedData(uploadedFileRef.current, parsedData);
-      uploadedFileRef.current = null;
-    }
-  }, [parsedData, parsing, session, createSessionFromParsedData]);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // 🚀 Réinitialiser l'état global avant de charger un nouveau fichier
-      resetState();
-      
-      // Sauvegarder la référence au fichier
-      uploadedFileRef.current = file;
-      
-      // ✅ Parser avec le Web Worker (ne bloque pas l'UI)
-      await parseFile(file);
-      // La session sera créée automatiquement dans le useEffect ci-dessus
-    }
-  };
+  // Handler pour la remédiation automatique
+  const handleStartRemediation = useCallback(async () => {
+    await sodWorkflow.actions.startAutomaticRemediation();
+  }, [sodWorkflow.actions]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Analyse SoD (Segregation of Duties)
-      </Typography>
+      {/* En-tête moderne et épuré */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-start',
+        mb: 6,
+        pb: 3,
+        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+      }}>
+        <Box>
+          <Typography 
+            variant="h3" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 700,
+              color: theme.palette.text.primary,
+              mb: 1,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Analyse SoD (Segregation of Duties)
+          </Typography>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ 
+              color: theme.palette.text.secondary,
+              fontSize: '1.1rem',
+              fontWeight: 400,
+            }}
+          >
+            Remédiation automatique des risques de ségrégation des tâches
+          </Typography>
+        </Box>
+        <ThemeToggle />
+      </Box>
 
-      {session && (
-        <SodStepperNavigation currentStep={currentStep} onStepChange={setCurrentStep} />
+      {/* Navigation par étapes */}
+      {sodWorkflow.state.session && (
+        <SodStepperNavigation 
+          currentStep={sodWorkflow.state.currentStep as 1 | 2 | 3 | 4} 
+          onStepChange={sodWorkflow.actions.setCurrentStep} 
+        />
       )}
 
-      {error && (
+      {/* Affichage des erreurs */}
+      {sodWorkflow.state.error && (
         <Alert severity="error" sx={{ mt: 2 }}>
-          {error.message}
+          {sodWorkflow.state.error}
         </Alert>
       )}
 
-      {parsingError && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {parsingError}
-        </Alert>
-      )}
+      {/* Layout 2 cartes avec proportions ajustées */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Carte 1 : Upload des fichiers - Plus large */}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <SodFileUploadSection
+            importType={sodWorkflow.state.importType}
+            loading={sodWorkflow.state.loading}
+            error={sodWorkflow.state.error}
+            user={user}
+            onImportTypeChange={sodWorkflow.actions.setImportType}
+            onFileUpload={sodWorkflow.actions.startNewAnalysis}
+            onLoadSavedAnalysis={sodWorkflow.actions.loadSavedAnalysis}
+            onResumeFromFile={sodWorkflow.actions.resumeFromFile}
+          />
+        </Grid>
 
-      {warnings.length > 0 && (
-        <Alert severity="warning" sx={{ mt: 2 }}>
-          <Typography variant="h6">Avertissements:</Typography>
-          <ul>
-            {warnings.map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
+        {/* Carte 2 : Sélection automatique - Plus étroite */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <SodAutoSelectionSection
+            enableUsageAnalysis={sodWorkflow.state.enableUsageAnalysis}
+            onUsageAnalysisChange={sodWorkflow.actions.setEnableUsageAnalysis}
+            disabled={!sodWorkflow.state.session}
+            onStartRemediation={handleStartRemediation}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Barre de progression pendant le parsing */}
+      {/* TODO: Intégrer SodParsingProgress avec le nouveau workflow */}
 
       {/* 🐛 Section de Debug - État des restrictions */}
-      {session && (
+      {sodWorkflow.state.session && (
         <Accordion sx={{ mt: 2 }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -475,39 +490,15 @@ export default function SodAnalysisPage() {
       )}
 
       {/* Barre de progression pendant le parsing */}
-      {parsing && progress && (
-        <Box sx={{ mt: 3 }}>
-          <SodParsingProgress
-            progress={progress.progress}
-            message={progress.message}
-            parsing={parsing}
-            error={parsingError}
-            onCancel={cancelParsing}
-          />
-        </Box>
-      )}
+      {/* TODO: Intégrer SodParsingProgress avec le nouveau workflow */}
 
-      {/* Upload de fichier */}
-      {!session && !isLoading && !parsing && (
-        <Paper sx={{ p: 4, mt: 3, textAlign: 'center' }}>
-          <CloudUploadIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            Importez votre fichier Excel d'analyse SoD
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Le fichier doit contenir 28 colonnes avec les informations de risques, rôles, fonctions et actions.
-            <br />
-            <strong>Gère jusqu'à 1 million de lignes sans bloquer le navigateur !</strong>
-          </Typography>
-          <Button variant="contained" component="label" startIcon={<CloudUploadIcon />}>
-            Choisir un fichier
-            <input type="file" hidden accept=".xlsx,.xls" onChange={handleFileUpload} />
-          </Button>
-        </Paper>
-      )}
+      {/* Résultats d'analyse */}
+      {sodWorkflow.state.session && (
+        <Fade in timeout={800}>
+          <Box>
 
-      {/* Étape 1 : Rôles Simples avec pagination */}
-      {currentStep === 1 && session?.simpleRoles && (
+            {/* Étape 1 : Rôles Simples avec pagination */}
+            {sodWorkflow.state.currentStep === 1 && sodWorkflow.state.session?.simpleRoles && (
         <Box sx={{ mt: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Box>
@@ -552,14 +543,14 @@ export default function SodAnalysisPage() {
                 }
               >
                 <SodSimpleRoleCard
-                role={role}
-                onDeleteAction={handleDeleteAction}
-                onRestrictAction={handleRestrictAction}
-                onRestrictResource={handleRestrictResourceWrapped}
+                  role={role}
+                  onDeleteAction={handleDeleteAction}
+                  onRestrictAction={handleRestrictAction}
+                  onRestrictResource={handleRestrictResourceWrapped}
                   onDeleteRisk={undefined}
                   onNextStep={undefined}
                   showNextStepButton={false}
-              />
+                />
               </React.Suspense>
             ))}
           </Box>
@@ -585,8 +576,8 @@ export default function SodAnalysisPage() {
         </Box>
       )}
 
-      {/* Étape 2 : Rôles Composites avec pagination */}
-      {currentStep === 2 && session?.compositeRoles && (
+            {/* Étape 2 : Rôles Composites avec pagination */}
+            {sodWorkflow.state.currentStep === 2 && sodWorkflow.state.session?.compositeRoles && (
         <Box sx={{ mt: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Box>
@@ -631,14 +622,14 @@ export default function SodAnalysisPage() {
                 }
               >
                 <SodCompositeRoleCard
-                role={role}
+                  role={role}
                   onDeleteAction={handleDeleteAction}
                   onRestrictAction={handleRestrictAction}
-                onRestrictResource={handleCompositeRestrictResourceWrapped}
+                  onRestrictResource={handleCompositeRestrictResourceWrapped}
                   onDeleteRisk={undefined}
                   onNextStep={undefined}
                   showNextStepButton={false}
-              />
+                />
               </React.Suspense>
             ))}
           </Box>
@@ -664,8 +655,8 @@ export default function SodAnalysisPage() {
         </Box>
       )}
 
-      {/* Étape 3 : Analyse par Utilisateur */}
-      {currentStep === 3 && (
+            {/* Étape 3 : Analyse par Utilisateur */}
+            {sodWorkflow.state.currentStep === 3 && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h5" gutterBottom>
             Étape 3: Analyse par Utilisateur
@@ -676,8 +667,8 @@ export default function SodAnalysisPage() {
         </Box>
       )}
 
-      {/* Étape 4 : Rapport SoD */}
-      {currentStep === 4 && (
+            {/* Étape 4 : Rapport SoD */}
+            {sodWorkflow.state.currentStep === 4 && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h5" gutterBottom>
             Étape 4: Rapport SoD
@@ -687,6 +678,24 @@ export default function SodAnalysisPage() {
           </Alert>
         </Box>
       )}
+
+          </Box>
+        </Fade>
+      )}
+
+      {/* Panneau de remédiation automatique */}
+      <SodRemediationPanel
+        open={sodWorkflow.state.remediationPanelOpen}
+        onClose={sodWorkflow.actions.closeRemediationPanel}
+        plan={sodWorkflow.remediation.state.plan}
+        isGenerating={sodWorkflow.remediation.state.isGenerating}
+        isApplying={sodWorkflow.remediation.state.isApplying}
+        appliedModifications={sodWorkflow.remediation.state.appliedModifications}
+        error={sodWorkflow.remediation.state.error}
+        onApply={sodWorkflow.actions.applyRemediationPlan}
+        onUndo={sodWorkflow.actions.undoRemediation}
+        onExport={sodWorkflow.actions.exportRemediationPlan}
+      />
     </Container>
   );
 }
