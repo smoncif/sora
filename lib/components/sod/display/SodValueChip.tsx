@@ -32,8 +32,12 @@ export const SodValueChip: React.FC<SodValueChipProps> = ({
   
   const { valueFrom, valueTo } = value;
   
+  // Protection contre les objets complexes
+  const safeValueFrom = typeof valueFrom === 'object' ? JSON.stringify(valueFrom) : valueFrom;
+  const safeValueTo = typeof valueTo === 'object' ? JSON.stringify(valueTo) : valueTo;
+  
   // Si les valeurs sont identiques, n'afficher qu'une seule fois
-  const isSameValue = valueFrom === valueTo;
+  const isSameValue = safeValueFrom === safeValueTo;
   
   if (variant === 'outlined') {
     return (
@@ -41,23 +45,23 @@ export const SodValueChip: React.FC<SodValueChipProps> = ({
         label={
           isSameValue ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
-              <span>{valueFrom}</span>
-              {valueFrom && valueFrom !== valueFrom && (
+              <span>{safeValueFrom}</span>
+              {safeValueFrom && safeValueFrom !== safeValueTo && (
                 <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>
-                  {valueFrom}
+                  {safeValueFrom} → {safeValueTo}
                 </Typography>
               )}
             </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <span>{valueFrom}</span>
+                <span>{safeValueFrom}</span>
                 <ArrowForwardIcon sx={{ fontSize: 10 }} />
-                <span>{valueTo}</span>
+                <span>{safeValueTo}</span>
               </Box>
-              {(valueFrom || valueTo) && (
+              {(safeValueFrom || safeValueTo) && (
                 <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>
-                  {valueFrom} → {valueTo}
+                  {safeValueFrom} → {safeValueTo}
                 </Typography>
               )}
             </Box>
@@ -102,7 +106,7 @@ export const SodValueChip: React.FC<SodValueChipProps> = ({
           color: theme.palette.primary.main,
         }}
       >
-        {valueFrom}
+        {safeValueFrom}
       </Typography>
       
       {!isSameValue && (
@@ -116,7 +120,7 @@ export const SodValueChip: React.FC<SodValueChipProps> = ({
               color: theme.palette.primary.main,
             }}
           >
-            {valueTo}
+            {safeValueTo}
           </Typography>
         </>
       )}

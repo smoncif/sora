@@ -32,6 +32,8 @@ export interface SodRemediation {
 
 export const useSodRemediation = (): SodRemediation => {
   const actionsContext = useSodActionsContext();
+  console.log('🔗 SodActionsContext connecté:', !!actionsContext);
+  
   const [state, setState] = useState<SodRemediationState>({
     isGenerating: false,
     plan: null,
@@ -64,28 +66,45 @@ export const useSodRemediation = (): SodRemediation => {
     },
 
     applyPlan: async () => {
-      if (!state.plan) return;
+      console.log('🚀 applyPlan appelé');
+      console.log('📋 Plan disponible:', !!state.plan);
+      
+      if (!state.plan) {
+        console.log('❌ Aucun plan disponible');
+        return;
+      }
       
       try {
         setState(prev => ({ ...prev, isApplying: true, error: null }));
+        console.log('✅ État isApplying défini à true');
         
         let appliedCount = 0;
         
         // Appliquer les restrictions de ressources
+        console.log('📊 Restrictions de ressources:', state.plan.resourceRestrictions.length);
         for (const restriction of state.plan.resourceRestrictions) {
-          // TODO: Implémenter restriction de ressources via SodActionsContext
-          // actionsContext.restrictResource(restriction.roleName, restriction.actionCode, restriction.resourceCode, restriction.externalResourceCode, restriction.values);
+          console.log('🔒 Restriction ressource:', restriction.roleName, restriction.actionCode, restriction.resourceCode, restriction.externalResourceCode, restriction.values);
+          actionsContext.restrictResource(
+            restriction.roleName, 
+            restriction.resourceCode, 
+            restriction.externalResourceCode, 
+            restriction.values
+          );
           appliedCount++;
         }
         
         // Appliquer les suppressions d'actions
+        console.log('🗑️ Suppressions d\'actions:', state.plan.actionDeletions.length);
         for (const deletion of state.plan.actionDeletions) {
+          console.log('❌ Suppression action:', deletion.roleName, deletion.actionCode);
           actionsContext.toggleDeleteAction(deletion.roleName, deletion.actionCode);
           appliedCount++;
         }
         
         // Appliquer les restrictions d'actions
+        console.log('🔐 Restrictions d\'actions:', state.plan.actionRestrictions.length);
         for (const restriction of state.plan.actionRestrictions) {
+          console.log('⚠️ Restriction action:', restriction.roleName, restriction.actionCode);
           actionsContext.toggleRestrictAction(restriction.roleName, restriction.actionCode);
           appliedCount++;
         }

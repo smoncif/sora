@@ -327,11 +327,15 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
                       <>
                         <Box component="span" sx={{ mx: 0.5 }}>:</Box>
                         {externalResource.values.map((val, idx: number) => {
-                          const hasRange = val.valueTo && val.valueTo !== val.valueFrom;
+                          // Protection contre les objets complexes
+                          const valueFrom = typeof val.valueFrom === 'object' ? JSON.stringify(val.valueFrom) : val.valueFrom;
+                          const valueTo = typeof val.valueTo === 'object' ? JSON.stringify(val.valueTo) : val.valueTo;
+                          
+                          const hasRange = valueTo && valueTo !== valueFrom;
                           if (hasRange) {
-                            return `${val.valueFrom} → ${val.valueTo}`;
+                            return `${valueFrom} → ${valueTo}`;
                           }
-                          return val.valueFrom;
+                          return valueFrom;
                         }).join(', ')}
                       </>
                     )}

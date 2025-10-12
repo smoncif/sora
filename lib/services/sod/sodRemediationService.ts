@@ -9,6 +9,7 @@ import type {
   SodAction,
   SodResource 
 } from 'lib/types/sodAnalysis';
+import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 
 /**
  * Plan de remédiation généré automatiquement
@@ -99,7 +100,17 @@ function calculateImpactScore(
 function serializeResources(resources: SodResource[]): string {
   return resources.map(resource => {
     const permissions = resource.externalResources?.map(extRes => {
-      const values = extRes.values ? ` (${extRes.values.join(', ')})` : '';
+      let values = '';
+      if (extRes.values && extRes.values.length > 0) {
+        // Gérer les objets {valueFrom, valueTo} ou les strings simples
+        const valueStrings = extRes.values.map(value => {
+          if (typeof value === 'object' && value.valueFrom && value.valueTo) {
+            return `${value.valueFrom}-${value.valueTo}`;
+          }
+          return String(value);
+        });
+        values = ` (${valueStrings.join(', ')})`;
+      }
       return `${extRes.code}${values}`;
     }).join(', ') || 'Aucune permission';
     
@@ -325,6 +336,13 @@ export function generateRemediationPlan(
   else if (totalImpact < 500) plan.estimatedImpact = 'important';
   else plan.estimatedImpact = 'critique';
   
+  console.log('📋 Plan de remédiation généré:', {
+    resourceRestrictions: plan.resourceRestrictions.length,
+    actionRestrictions: plan.actionRestrictions.length,
+    actionDeletions: plan.actionDeletions.length,
+    totalModifications: plan.totalModifications
+  });
+  
   return plan;
 }
 
@@ -365,9 +383,10 @@ function analyserRessourcesCommunes(actions: SodAction[]): ResourceAnalysis[] {
         const analysis = resourceMap.get(key)!;
         analysis.actions.push(action);
         
-        // Ajouter toutes les valeurs de cette ressource
+        // Ajouter toutes les valeurs de cette ressource (normalisées)
         if (extRes.values) {
-          extRes.values.forEach(val => analysis.totalValues.add(val));
+          const normalizedValues = extractExternalResourceValues(extRes);
+          normalizedValues.forEach(val => analysis.totalValues.add(val));
         }
       });
     });

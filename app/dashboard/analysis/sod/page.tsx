@@ -467,15 +467,22 @@ export default function SodAnalysisPage() {
                             {roleName} → {resourceCode} → {externalResourceCode === 'NULL' ? '(pas de code externe)' : externalResourceCode}
               </Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                            {restrictedValues.map((value, idx) => (
-                              <Chip 
-                                key={idx}
-                                label={value}
-                                size="small"
-                                color="info"
-                                variant="filled"
-                              />
-                            ))}
+                            {restrictedValues.map((value, idx) => {
+                              // Protection contre les objets complexes
+                              const displayValue = typeof value === 'object' && value.valueFrom && value.valueTo 
+                                ? `${value.valueFrom} → ${value.valueTo}`
+                                : String(value);
+                              
+                              return (
+                                <Chip 
+                                  key={idx}
+                                  label={displayValue}
+                                  size="small"
+                                  color="info"
+                                  variant="filled"
+                                />
+                              );
+                            })}
               </Box>
             </Box>
                       );
