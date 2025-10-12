@@ -9,8 +9,14 @@ export { SodStepperNavigation } from './navigation/SodStepperNavigation';
 export { SodParsingProgress } from './upload/SodParsingProgress';
 export { SodFileUploadSection } from './upload/SodFileUploadSection';
 
+// Progress
+export { SodParsingProgress as SodParsingProgressNew } from './progress/SodParsingProgress';
+
 // Auto-selection
 export { SodAutoSelectionSection } from './autoselection/SodAutoSelectionSection';
+
+// Results
+export { SodAnalysisResults } from './results/SodAnalysisResults';
 
 // Shared components
 export { SodRiskLevelBadge, SodRiskLevelIcon, SodRiskLevelText } from './shared/SodRiskLevelBadge';

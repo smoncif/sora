@@ -9,7 +9,8 @@ import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
 import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSection';
 import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
-import { SodParsingProgress } from 'lib/components/sod/upload/SodParsingProgress';
+import { SodParsingProgress as SodParsingProgressNew } from 'lib/components/sod/progress/SodParsingProgress';
+import { SodAnalysisResults } from 'lib/components/sod/results/SodAnalysisResults';
 import { SodSimpleRoleCard, SodCompositeRoleCard } from 'lib/components/sod';
 import { useSodWorkflow } from 'lib/hooks/sod/useSodWorkflow';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
@@ -21,7 +22,7 @@ import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 export default function SodAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
-  
+
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
   const sodWorkflow = useSodWorkflow({ userId: user?.id || 'anonymous' });
 
@@ -218,24 +219,24 @@ export default function SodAnalysisPage() {
   }, [toggleRestrictAction]); // ✅ Stable : toggleRestrictAction ne change jamais
 
   const handleRestrictResourceWrapped = useCallback((
-    roleName: string,
+        roleName: string,
     _riskId: string,
     _actionCode: string,
-    resourceCode: string,
-    externalResourceCode: string,
-    values: string[]
-  ) => {
+        resourceCode: string,
+        externalResourceCode: string,
+        values: string[]
+      ) => {
     toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
   }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
 
   const handleCompositeRestrictResourceWrapped = useCallback((
-    roleName: string,
+        roleName: string,
     _riskId: string,
     _actionCode: string,
-    resourceCode: string,
-    externalResourceCode: string,
-    values: string[]
-  ) => {
+        resourceCode: string,
+        externalResourceCode: string,
+        values: string[]
+      ) => {
     toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
   }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
   
@@ -303,13 +304,6 @@ export default function SodAnalysisPage() {
         <ThemeToggle />
       </Box>
 
-      {/* Navigation par étapes */}
-      {sodWorkflow.state.session && (
-        <SodStepperNavigation 
-          currentStep={sodWorkflow.state.currentStep as 1 | 2 | 3 | 4} 
-          onStepChange={sodWorkflow.actions.setCurrentStep} 
-        />
-      )}
 
       {/* Affichage des erreurs */}
       {sodWorkflow.state.error && (
@@ -318,7 +312,7 @@ export default function SodAnalysisPage() {
         </Alert>
       )}
 
-      {/* Layout 2 cartes avec proportions ajustées */}
+      {/* Layout 2 cartes avec proportions ajustées - Toujours visibles */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* Carte 1 : Upload des fichiers - Plus large */}
         <Grid size={{ xs: 12, md: 8 }}>
@@ -346,97 +340,12 @@ export default function SodAnalysisPage() {
       </Grid>
 
       {/* Barre de progression pendant le parsing */}
-      {sodWorkflow.state.parsing && sodWorkflow.state.progress && (
-        <Box sx={{ mt: 3 }}>
-          <SodParsingProgress
-            progress={sodWorkflow.state.progress.progress}
-            message={sodWorkflow.state.progress.message}
-            parsing={sodWorkflow.state.parsing}
-            error={sodWorkflow.state.parsingError}
-            onCancel={sodWorkflow.actions.cancelParsing}
-          />
-        </Box>
-      )}
-
-      {/* Section de statistiques après chargement */}
-      {sodWorkflow.state.session && (
-        <Fade in timeout={800}>
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
-              Résultats de l'analyse
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4" color="primary" sx={{ fontWeight: 700 }}>
-                    {sodWorkflow.state.session.simpleRoles?.roles?.length || 0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Rôles Simples
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4" color="secondary" sx={{ fontWeight: 700 }}>
-                    {sodWorkflow.state.session.compositeRoles?.roles?.length || 0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Rôles Composites
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4" color="success.main" sx={{ fontWeight: 700 }}>
-                    {sodWorkflow.state.session.simpleRoles?.metrics?.totalRisks || 0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Risques Identifiés
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4" color="warning.main" sx={{ fontWeight: 700 }}>
-                    {sodWorkflow.state.session.simpleRoles?.metrics?.totalActions || 0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Actions Analysées
-                  </Typography>
-                </Paper>
-              </Grid>
-            </Grid>
-            
-            {/* Section de test pour vérifier le workflow */}
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                🧪 Test du workflow :
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                • Session active : {sodWorkflow.state.session ? '✅' : '❌'}
-                <br />
-                • Étape courante : {sodWorkflow.state.currentStep}
-                <br />
-                • Analyse d'usage : {sodWorkflow.state.enableUsageAnalysis ? 'Activée' : 'Désactivée'}
-                <br />
-                • Type d'import : {sodWorkflow.state.importType}
-              </Typography>
-            </Box>
-            
-            {/* Bouton pour réinitialiser et charger un nouveau fichier */}
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
-              <Button
-                variant="outlined"
-                onClick={sodWorkflow.actions.resetWorkflow}
-                sx={{ textTransform: 'none' }}
-              >
-                Charger un nouveau fichier
-              </Button>
-            </Box>
-          </Box>
-        </Fade>
-      )}
+      <SodParsingProgressNew
+        parsing={sodWorkflow.state.parsing}
+        progress={sodWorkflow.state.parsingProgress}
+        message={sodWorkflow.state.parsingMessage}
+        error={sodWorkflow.state.parsingError}
+      />
 
       {/* 🐛 Section de Debug - État des restrictions */}
       {sodWorkflow.state.session && (
@@ -488,9 +397,9 @@ export default function SodAnalysisPage() {
                         />
                       );
                     })}
-                  </Box>
-                )}
-              </Paper>
+              </Box>
+            )}
+          </Paper>
 
               {/* Actions restreintes */}
               <Paper sx={{ p: 2, bgcolor: 'warning.50' }}>
@@ -554,7 +463,7 @@ export default function SodAnalysisPage() {
                         <Box key={key} sx={{ p: 1, border: '1px solid', borderColor: 'info.main', borderRadius: 1 }}>
                           <Typography variant="body2" fontWeight="bold">
                             {roleName} → {resourceCode} → {externalResourceCode === 'NULL' ? '(pas de code externe)' : externalResourceCode}
-                          </Typography>
+              </Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                             {restrictedValues.map((value, idx) => (
                               <Chip 
@@ -565,8 +474,8 @@ export default function SodAnalysisPage() {
                                 variant="filled"
                               />
                             ))}
-                          </Box>
-                        </Box>
+              </Box>
+            </Box>
                       );
                     })}
                   </Box>
@@ -578,198 +487,164 @@ export default function SodAnalysisPage() {
         </Accordion>
       )}
 
-      {/* Barre de progression pendant le parsing */}
-      {/* TODO: Intégrer SodParsingProgress avec le nouveau workflow */}
-
       {/* Résultats d'analyse */}
       {sodWorkflow.state.session && (
-        <Fade in timeout={800}>
-          <Box>
-
-            {/* Étape 1 : Rôles Simples avec pagination */}
-            {sodWorkflow.state.currentStep === 1 && sodWorkflow.state.session?.simpleRoles && (
-        <Box sx={{ mt: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box>
-              <Typography variant="h5" gutterBottom>
-                Étape 1: Rôles Simples
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {simpleRoles.length} rôle(s) simple(s) • Affichage de {paginatedSimpleRoles.length} rôle(s) par page
-              </Typography>
-            </Box>
-            <TablePagination
-              component="div"
-              count={simpleRoles.length}
-                page={simpleRolePage}
-              onPageChange={handleSimplePageChange}
-              rowsPerPage={simpleRolesPerPage}
-              onRowsPerPageChange={handleSimpleRowsPerPageChange}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage="Rôles par page:"
-              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
-                showFirstButton
-                showLastButton
-              />
-          </Box>
-
-          {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {paginatedSimpleRoles.map((role, index) => (
-              <React.Suspense 
-                key={`${simpleRolePage}-${index}`}
-                fallback={
-                  <Box sx={{ 
-                    p: 4, 
-                    textAlign: 'center', 
-                    border: '1px solid rgba(0,0,0,0.1)', 
-                    borderRadius: 3 
-                  }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Chargement du rôle...
-                    </Typography>
-                  </Box>
-                }
-              >
-                <SodSimpleRoleCard
-                  role={role}
-                  onDeleteAction={handleDeleteAction}
-                  onRestrictAction={handleRestrictAction}
-                  onRestrictResource={handleRestrictResourceWrapped}
-                  onDeleteRisk={undefined}
-                  onNextStep={undefined}
-                  showNextStepButton={false}
+        <SodAnalysisResults
+          session={sodWorkflow.state.session}
+          currentStep={sodWorkflow.state.currentStep}
+          onStepChange={sodWorkflow.actions.setCurrentStep}
+          simpleRoles={simpleRoles}
+          compositeRoles={compositeRoles}
+          loading={sodWorkflow.state.loading}
+          renderSimpleRoles={() => (
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {simpleRoles.length} rôle(s) simple(s) • Affichage de {paginatedSimpleRoles.length} rôle(s) par page
+                  </Typography>
+                </Box>
+                <TablePagination
+                  component="div"
+                  count={simpleRoles.length}
+                  page={simpleRolePage}
+                  onPageChange={handleSimplePageChange}
+                  rowsPerPage={simpleRolesPerPage}
+                  onRowsPerPageChange={handleSimpleRowsPerPageChange}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="Rôles par page:"
+                  labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
+                  showFirstButton
+                  showLastButton
                 />
-              </React.Suspense>
-            ))}
-          </Box>
+              </Box>
 
-          {/* Pagination en bas aussi */}
-          {simpleRoles.length > 5 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <TablePagination
-                component="div"
-                count={simpleRoles.length}
-                page={simpleRolePage}
-                onPageChange={handleSimplePageChange}
-                rowsPerPage={simpleRolesPerPage}
-                onRowsPerPageChange={handleSimpleRowsPerPageChange}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                labelRowsPerPage="Rôles par page:"
-                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
-                showFirstButton
-                showLastButton
-              />
-            </Box>
-          )}
-        </Box>
-      )}
+              {/* Rôles simples */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {paginatedSimpleRoles.map((role, index) => (
+                  <React.Suspense 
+                    key={`${simpleRolePage}-${index}`}
+                    fallback={
+                      <Box sx={{ 
+                        p: 4, 
+                        textAlign: 'center', 
+                        border: '1px solid rgba(0,0,0,0.1)', 
+                        borderRadius: 3 
+                      }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Chargement du rôle...
+                </Typography>
+                      </Box>
+                    }
+                  >
+                  <SodSimpleRoleCard
+                    role={role}
+                      onDeleteAction={handleDeleteAction}
+                      onRestrictAction={handleRestrictAction}
+                      onRestrictResource={handleRestrictResourceWrapped}
+                      onDeleteRisk={undefined}
+                      onNextStep={undefined}
+                      showNextStepButton={false}
+                    />
+                  </React.Suspense>
+                ))}
+              </Box>
 
-            {/* Étape 2 : Rôles Composites avec pagination */}
-            {sodWorkflow.state.currentStep === 2 && sodWorkflow.state.session?.compositeRoles && (
-        <Box sx={{ mt: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box>
-              <Typography variant="h5" gutterBottom>
-                Étape 2: Rôles Composites
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {compositeRoles.length} rôle(s) composite(s) • Affichage de {paginatedCompositeRoles.length} rôle(s) par page
-              </Typography>
-            </Box>
-            <TablePagination
-              component="div"
-              count={compositeRoles.length}
-                page={compositeRolePage}
-              onPageChange={handleCompositePageChange}
-              rowsPerPage={compositeRolesPerPage}
-              onRowsPerPageChange={handleCompositeRowsPerPageChange}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage="Rôles par page:"
-              labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
-                showFirstButton
-                showLastButton
-              />
-          </Box>
-
-          {/* 🚀 OPTIMISATION : Lazy rendering avec Suspense */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {paginatedCompositeRoles.map((role, index) => (
-              <React.Suspense 
-                key={`${compositeRolePage}-${index}`}
-                fallback={
-                  <Box sx={{ 
-                    p: 4, 
-                    textAlign: 'center', 
-                    border: '1px solid rgba(0,0,0,0.1)', 
-                    borderRadius: 3 
-                  }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Chargement du rôle...
-                    </Typography>
-                  </Box>
-                }
-              >
-                <SodCompositeRoleCard
-                  role={role}
-                  onDeleteAction={handleDeleteAction}
-                  onRestrictAction={handleRestrictAction}
-                  onRestrictResource={handleCompositeRestrictResourceWrapped}
-                  onDeleteRisk={undefined}
-                  onNextStep={undefined}
-                  showNextStepButton={false}
+              {/* Pagination en bas */}
+              {simpleRoles.length > 5 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <TablePagination
+                    component="div"
+                    count={simpleRoles.length}
+                    page={simpleRolePage}
+                    onPageChange={handleSimplePageChange}
+                    rowsPerPage={simpleRolesPerPage}
+                    onRowsPerPageChange={handleSimpleRowsPerPageChange}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    labelRowsPerPage="Rôles par page:"
+                    labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
+                    showFirstButton
+                    showLastButton
+                  />
+                </Box>
+              )}
+              </Box>
+            )}
+          renderCompositeRoles={() => (
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {compositeRoles.length} rôle(s) composite(s) • Affichage de {paginatedCompositeRoles.length} rôle(s) par page
+                </Typography>
+                </Box>
+                <TablePagination
+                  component="div"
+                  count={compositeRoles.length}
+                  page={compositeRolePage}
+                  onPageChange={handleCompositePageChange}
+                  rowsPerPage={compositeRolesPerPage}
+                  onRowsPerPageChange={handleCompositeRowsPerPageChange}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="Rôles par page:"
+                  labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
+                  showFirstButton
+                  showLastButton
                 />
-              </React.Suspense>
-            ))}
-          </Box>
+              </Box>
 
-          {/* Pagination en bas aussi */}
-          {compositeRoles.length > 5 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <TablePagination
-                component="div"
-                count={compositeRoles.length}
-                page={compositeRolePage}
-                onPageChange={handleCompositePageChange}
-                rowsPerPage={compositeRolesPerPage}
-                onRowsPerPageChange={handleCompositeRowsPerPageChange}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                labelRowsPerPage="Rôles par page:"
-                labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
-                showFirstButton
-                showLastButton
-              />
-            </Box>
+              {/* Rôles composites */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {paginatedCompositeRoles.map((role, index) => (
+                  <React.Suspense 
+                    key={`${compositeRolePage}-${index}`}
+                    fallback={
+                      <Box sx={{ 
+                        p: 4, 
+                        textAlign: 'center', 
+                        border: '1px solid rgba(0,0,0,0.1)', 
+                        borderRadius: 3 
+                      }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Chargement du rôle...
+                </Typography>
+                      </Box>
+                    }
+                  >
+                    <SodCompositeRoleCard
+                      role={role}
+                      onDeleteAction={handleDeleteAction}
+                      onRestrictAction={handleRestrictAction}
+                      onRestrictResource={handleCompositeRestrictResourceWrapped}
+                      onDeleteRisk={undefined}
+                      onNextStep={undefined}
+                      showNextStepButton={false}
+                    />
+                  </React.Suspense>
+                ))}
+              </Box>
+
+              {/* Pagination en bas */}
+              {compositeRoles.length > 5 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <TablePagination
+                    component="div"
+                    count={compositeRoles.length}
+                    page={compositeRolePage}
+                    onPageChange={handleCompositePageChange}
+                    rowsPerPage={compositeRolesPerPage}
+                    onRowsPerPageChange={handleCompositeRowsPerPageChange}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    labelRowsPerPage="Rôles par page:"
+                    labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
+                    showFirstButton
+                    showLastButton
+                  />
+              </Box>
+            )}
+          </Box>
           )}
-        </Box>
-      )}
-
-            {/* Étape 3 : Analyse par Utilisateur */}
-            {sodWorkflow.state.currentStep === 3 && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h5" gutterBottom>
-            Étape 3: Analyse par Utilisateur
-          </Typography>
-          <Alert severity="info">
-            Cette fonctionnalité sera disponible prochainement.
-          </Alert>
-        </Box>
-      )}
-
-            {/* Étape 4 : Rapport SoD */}
-            {sodWorkflow.state.currentStep === 4 && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h5" gutterBottom>
-            Étape 4: Rapport SoD
-          </Typography>
-          <Alert severity="info">
-            Cette fonctionnalité sera disponible prochainement.
-          </Alert>
-        </Box>
-      )}
-
-          </Box>
-        </Fade>
+        />
       )}
     </Container>
   );

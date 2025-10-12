@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useSodSession } from './useSodSession';
 import { useSodExcelParser } from './useSodExcelParser';
 
@@ -28,7 +28,8 @@ export interface SodWorkflowState {
   
   // État du parsing
   parsing: boolean;
-  progress: any;
+  parsingProgress: number;
+  parsingMessage: string;
   parsingError: string | null;
 }
 
@@ -50,9 +51,6 @@ export interface SodWorkflowActions {
   // Remédiation automatique
   startAutomaticRemediation: () => Promise<void>;
   
-  // Parsing
-  cancelParsing: () => void;
-  
   // Reset
   resetWorkflow: () => void;
 }
@@ -73,6 +71,18 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
   // Parser Excel
   const excelParser = useSodExcelParser();
   
+  // Référence au fichier uploadé (pour créer la session après le parsing)
+  const uploadedFileRef = useRef<File | null>(null);
+  
+  // ✅ EFFET : Créer la session automatiquement quand les données sont parsées
+  useEffect(() => {
+    if (excelParser.parsedData && !excelParser.parsing && uploadedFileRef.current && !sodSession.session) {
+      console.log('📊 Création de la session SOD avec les données parsées...');
+      sodSession.createSessionFromParsedData(uploadedFileRef.current, excelParser.parsedData);
+      uploadedFileRef.current = null; // Nettoyer la référence
+    }
+  }, [excelParser.parsedData, excelParser.parsing, sodSession]);
+  
   // État dérivé
   const state: SodWorkflowState = useMemo(() => ({
     importType,
@@ -81,10 +91,11 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     enableUsageAnalysis,
     session: sodSession.session,
     currentStep: sodSession.currentStep,
-    // État du parsing pour la barre de progression
-    parsing: excelParser.parsing,
-    progress: excelParser.progress,
-    parsingError: excelParser.error,
+    // État du parsing
+    parsing: excelParser.parsing || false,
+    parsingProgress: excelParser.progress?.progress || 0,
+    parsingMessage: excelParser.progress?.message || 'Traitement en cours...',
+    parsingError: excelParser.error || null,
   }), [
     importType,
     enableUsageAnalysis,
@@ -93,7 +104,8 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     sodSession.session,
     sodSession.currentStep,
     excelParser.parsing,
-    excelParser.progress,
+    excelParser.progress?.progress,
+    excelParser.progress?.message,
     excelParser.error,
   ]);
   
@@ -103,15 +115,19 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
     
     startNewAnalysis: async (file: File) => {
       try {
-        // Parser le fichier Excel
+        console.log('🚀 Démarrage de l\'analyse pour:', file.name);
+        
+        // Sauvegarder la référence au fichier
+        uploadedFileRef.current = file;
+        
+        // Parser le fichier Excel (asynchrone via Web Worker)
         await excelParser.parseFile(file);
         
-        // Créer la session avec les données parsées
-        if (excelParser.parsedData) {
-          await sodSession.createSessionFromParsedData(file, excelParser.parsedData);
-        }
+        // ✅ La session sera créée automatiquement par le useEffect
+        // quand parsedData sera disponible
       } catch (error) {
-        console.error('Erreur lors de l\'analyse:', error);
+        console.error('❌ Erreur lors de l\'analyse:', error);
+        uploadedFileRef.current = null; // Nettoyer en cas d'erreur
       }
     },
     
@@ -135,10 +151,6 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
         enableUsageAnalysis,
         session: sodSession.session,
       });
-    },
-    
-    cancelParsing: () => {
-      excelParser.cancelParsing?.();
     },
     
     resetWorkflow: () => {
