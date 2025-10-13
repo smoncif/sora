@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useSodSession } from './useSodSession';
-import { useSodExcelParser } from './useSodExcelParser';
+import { useSodExcelParserOptimized } from './useSodExcelParserOptimized';
 
 export interface SodWorkflowConfig {
   userId: string;
@@ -69,7 +69,7 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
   const sodSession = useSodSession({ userId: config.userId });
   
   // Parser Excel
-  const excelParser = useSodExcelParser();
+  const excelParser = useSodExcelParserOptimized();
   
   // Référence au fichier uploadé (pour créer la session après le parsing)
   const uploadedFileRef = useRef<File | null>(null);
