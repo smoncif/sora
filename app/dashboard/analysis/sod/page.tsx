@@ -65,13 +65,17 @@ export default function SodAnalysisPage() {
   const compositeRoles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
   
   // 🚀 AUTO-ACTIVATION DE LA VIRTUALISATION : Si > 50 rôles, activer automatiquement
+  // Optimisé : S'exécute uniquement quand la session est chargée (pas pendant le parsing)
   useEffect(() => {
+    // Ne s'exécuter que si une session existe et n'est pas en cours de parsing
+    if (!sodWorkflow.state.session || sodWorkflow.state.parsing) return;
+    
     const totalRoles = simpleRoles.length + compositeRoles.length;
     if (totalRoles > 50 && !useVirtualization) {
       setUseVirtualization(true);
       console.log(`🚀 Virtualisation activée automatiquement (${totalRoles} rôles détectés)`);
     }
-  }, [simpleRoles.length, compositeRoles.length, useVirtualization]);
+  }, [sodWorkflow.state.session, sodWorkflow.state.parsing, simpleRoles.length, compositeRoles.length, useVirtualization]);
   
   // ✅ Déstructurer le contexte pour avoir des références stables
   const actionsContext = useSodActionsContext();
@@ -100,7 +104,13 @@ export default function SodAnalysisPage() {
   }, [simpleRoles, compositeRoles, buildActionResourcesMap]);
   
   // 🐛 Calculer toutes les actions VISUELLEMENT restreintes (en utilisant la même logique que applyStateToAction)
+  // 🚀 OPTIMISÉ : Ne se calcule pas pendant le parsing pour éviter de ralentir le chargement
   const allRestrictedActions = useMemo(() => {
+    // ⚡ Skip pendant le parsing pour ne pas ralentir le chargement
+    if (sodWorkflow.state.parsing) {
+      return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
+    }
+    
     const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     
     // Parcourir tous les rôles pour calculer l'état visuel réel de chaque action
@@ -191,7 +201,7 @@ export default function SodAnalysisPage() {
     });
     
     return result;
-  }, [simpleRoles, compositeRoles, restrictedActions, isResourceRestricted, version]);
+  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, isResourceRestricted, version]);
   
   
   // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
@@ -258,7 +268,8 @@ export default function SodAnalysisPage() {
 
   // 🧭 CALCUL DES RISQUES NON REMÉDIÉS : Pour le badge du bouton de navigation
   const nonRemediatedRisksCount = useMemo(() => {
-    if (!sodWorkflow.state.session) return 0;
+    // ⚡ Skip pendant le parsing pour ne pas ralentir le chargement
+    if (!sodWorkflow.state.session || sodWorkflow.state.parsing) return 0;
 
     let count = 0;
 
@@ -287,7 +298,7 @@ export default function SodAnalysisPage() {
     }
 
     return count;
-  }, [sodWorkflow.state.session, actionsContext, version]);
+  }, [sodWorkflow.state.session, sodWorkflow.state.parsing, actionsContext, version]);
 
   // 🧭 NAVIGATION VERS RISQUE : Callback pour naviguer vers un rôle/risque spécifique
   const handleNavigateToRisk = useCallback((
