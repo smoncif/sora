@@ -42,3 +42,6 @@ export { SodCompositeFunctionGrid } from './display/SodCompositeFunctionGrid';
 export { SodCompositeRiskSection } from './display/SodCompositeRiskSection';
 export { SodCompositeRoleCard } from './display/SodCompositeRoleCard';
 
+// Virtualized components
+export { VirtualizedSimpleRoleList, VirtualizedCompositeRoleList } from './virtualized';
+

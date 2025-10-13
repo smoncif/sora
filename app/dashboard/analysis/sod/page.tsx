@@ -11,7 +11,7 @@ import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSec
 import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
 import { SodParsingProgress as SodParsingProgressNew } from 'lib/components/sod/progress/SodParsingProgress';
 import { SodAnalysisResults } from 'lib/components/sod/results/SodAnalysisResults';
-import { SodSimpleRoleCard, SodCompositeRoleCard, SodNavigationButton, SodNavigationSlider } from 'lib/components/sod';
+import { SodSimpleRoleCard, SodCompositeRoleCard, SodNavigationButton, SodNavigationSlider, VirtualizedSimpleRoleList, VirtualizedCompositeRoleList } from 'lib/components/sod';
 import { useSodWorkflow } from 'lib/hooks/sod/useSodWorkflow';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { useSodNavigation } from 'lib/hooks/sod/useSodNavigation';
@@ -29,6 +29,9 @@ export default function SodAnalysisPage() {
 
   // 🧭 SYSTÈME DE NAVIGATION : Hook pour la navigation des risques
   const sodNavigation = useSodNavigation();
+
+  // 🚀 VIRTUALISATION : Activer la virtualisation pour de grandes listes (> 50 rôles)
+  const [useVirtualization, setUseVirtualization] = useState(false);
 
   // Pagination pour rôles simples (index 0-based pour TablePagination)
   const [simpleRolePage, setSimpleRolePage] = useState(0);
@@ -60,6 +63,15 @@ export default function SodAnalysisPage() {
   // 🚀 NOUVELLE ARCHITECTURE : État global + Pagination pure
   const simpleRoles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
   const compositeRoles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
+  
+  // 🚀 AUTO-ACTIVATION DE LA VIRTUALISATION : Si > 50 rôles, activer automatiquement
+  useEffect(() => {
+    const totalRoles = simpleRoles.length + compositeRoles.length;
+    if (totalRoles > 50 && !useVirtualization) {
+      setUseVirtualization(true);
+      console.log(`🚀 Virtualisation activée automatiquement (${totalRoles} rôles détectés)`);
+    }
+  }, [simpleRoles.length, compositeRoles.length, useVirtualization]);
   
   // ✅ Déstructurer le contexte pour avoir des références stables
   const actionsContext = useSodActionsContext();
@@ -650,35 +662,48 @@ export default function SodAnalysisPage() {
               </Box>
 
               {/* Rôles simples */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {paginatedSimpleRoles.map((role, index) => (
-                  <React.Suspense 
-                    key={`${simpleRolePage}-${index}`}
-                    fallback={
-                      <Box sx={{ 
-                        p: 4, 
-                        textAlign: 'center', 
-                        border: '1px solid rgba(0,0,0,0.1)', 
-                        borderRadius: 3 
-                      }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Chargement du rôle...
-                </Typography>
-                      </Box>
-                    }
-                  >
-                  <SodSimpleRoleCard
-                    role={role}
-                      onDeleteAction={handleDeleteAction}
-                      onRestrictAction={handleRestrictAction}
-                      onRestrictResource={handleRestrictResourceWrapped}
-                      onDeleteRisk={undefined}
-                      onNextStep={undefined}
-                      showNextStepButton={false}
-                    />
-                  </React.Suspense>
-                ))}
-              </Box>
+              {useVirtualization ? (
+                // 🚀 MODE VIRTUALISÉ : Pour de grandes listes (> 50 rôles)
+                <VirtualizedSimpleRoleList
+                  roles={paginatedSimpleRoles}
+                  itemHeight={600}
+                  listHeight={800}
+                  onDeleteAction={handleDeleteAction}
+                  onRestrictAction={handleRestrictAction}
+                  onRestrictResource={handleRestrictResourceWrapped}
+                />
+              ) : (
+                // 📄 MODE STANDARD : Pour des listes plus petites
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {paginatedSimpleRoles.map((role, index) => (
+                    <React.Suspense 
+                      key={`${simpleRolePage}-${index}`}
+                      fallback={
+                        <Box sx={{ 
+                          p: 4, 
+                          textAlign: 'center', 
+                          border: '1px solid rgba(0,0,0,0.1)', 
+                          borderRadius: 3 
+                        }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Chargement du rôle...
+                  </Typography>
+                        </Box>
+                      }
+                    >
+                    <SodSimpleRoleCard
+                      role={role}
+                        onDeleteAction={handleDeleteAction}
+                        onRestrictAction={handleRestrictAction}
+                        onRestrictResource={handleRestrictResourceWrapped}
+                        onDeleteRisk={undefined}
+                        onNextStep={undefined}
+                        showNextStepButton={false}
+                      />
+                    </React.Suspense>
+                  ))}
+                </Box>
+              )}
 
               {/* Pagination en bas */}
               {simpleRoles.length > 5 && (
@@ -724,35 +749,49 @@ export default function SodAnalysisPage() {
               </Box>
 
               {/* Rôles composites */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {paginatedCompositeRoles.map((role, index) => (
-                  <React.Suspense 
-                    key={`${compositeRolePage}-${index}`}
-                    fallback={
-                      <Box sx={{ 
-                        p: 4, 
-                        textAlign: 'center', 
-                        border: '1px solid rgba(0,0,0,0.1)', 
-                        borderRadius: 3 
-                      }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Chargement du rôle...
-                </Typography>
-                      </Box>
-                    }
-                  >
-                    <SodCompositeRoleCard
-                      role={role}
-                      onDeleteAction={handleDeleteAction}
-                      onRestrictAction={handleRestrictAction}
-                      onRestrictResource={handleCompositeRestrictResourceWrapped}
-                      onDeleteRisk={undefined}
-                      onNextStep={undefined}
-                      showNextStepButton={false}
-                    />
-                  </React.Suspense>
-                ))}
-              </Box>
+              {useVirtualization ? (
+                // 🚀 MODE VIRTUALISÉ : Pour de grandes listes (> 50 rôles)
+                <VirtualizedCompositeRoleList
+                  roles={paginatedCompositeRoles}
+                  itemHeight={700}
+                  listHeight={800}
+                  onDeleteAction={handleDeleteAction}
+                  onRestrictAction={handleRestrictAction}
+                  onRestrictResource={handleCompositeRestrictResourceWrapped}
+                  onExcludeSimpleRole={handleExcludeSimpleRole}
+                />
+              ) : (
+                // 📄 MODE STANDARD : Pour des listes plus petites
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {paginatedCompositeRoles.map((role, index) => (
+                    <React.Suspense 
+                      key={`${compositeRolePage}-${index}`}
+                      fallback={
+                        <Box sx={{ 
+                          p: 4, 
+                          textAlign: 'center', 
+                          border: '1px solid rgba(0,0,0,0.1)', 
+                          borderRadius: 3 
+                        }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Chargement du rôle...
+                  </Typography>
+                        </Box>
+                      }
+                    >
+                      <SodCompositeRoleCard
+                        role={role}
+                        onDeleteAction={handleDeleteAction}
+                        onRestrictAction={handleRestrictAction}
+                        onRestrictResource={handleCompositeRestrictResourceWrapped}
+                        onDeleteRisk={undefined}
+                        onNextStep={undefined}
+                        showNextStepButton={false}
+                      />
+                    </React.Suspense>
+                  ))}
+                </Box>
+              )}
 
               {/* Pagination en bas */}
               {compositeRoles.length > 5 && (
