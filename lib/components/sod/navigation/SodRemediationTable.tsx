@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { SodSession, SodRiskLevel, SOD_RISK_LEVEL_COLORS } from 'lib/types/sodAnalysis';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
+import { useRemediationCache } from 'lib/utils/sodRemediationCache';
 import { NavigationMode } from 'lib/hooks/sod/useSodNavigation';
 
 export interface SodRemediationTableProps {
@@ -37,20 +38,24 @@ interface RoleData {
   risks: RiskState[];
 }
 
-export const SodRemediationTable: React.FC<SodRemediationTableProps> = ({
+// ✅ OPTIMISATION : Mémoriser le composant pour éviter les re-rendus inutiles
+export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.memo(({
   session,
   mode,
   onNavigateToRisk,
 }) => {
   const theme = useTheme();
   const actionsContext = useSodActionsContext();
+  const remediationCache = useRemediationCache();
 
   // Pas besoin de collecter tous les risques uniques - chaque rôle a ses propres risques
   // Structure dynamique : autant de carrés que de risques par rôle
 
   // Préparer les données des rôles avec leurs états de remédiation
+  // ✅ OPTIMISATION : Utiliser le cache et des dépendances stables
   const rolesData = React.useMemo((): RoleData[] => {
     const roles: RoleData[] = [];
+    const currentVersion = actionsContext.version;
     
     if (mode === 'simple' && session.simpleRoles?.roles) {
       
@@ -58,8 +63,15 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = ({
         const roleRisks: RiskState[] = [];
         
         role.risks?.forEach(risk => {
-          // Calculer l'état de remédiation du risque
-          const remediation = actionsContext.calculateRiskRemediation(role.roleName, risk.functions);
+          // ✅ OPTIMISATION : Utiliser le cache pour les calculs de remédiation
+          const cacheKey = `${role.roleName}-${risk.riskId}`;
+          let remediation = remediationCache.get(role.roleName, risk.riskId, 'simple', currentVersion);
+          
+          if (!remediation) {
+            // Calculer seulement si pas en cache
+            remediation = actionsContext.calculateRiskRemediation(role.roleName, risk.functions);
+            remediationCache.set(role.roleName, risk.riskId, 'simple', remediation, currentVersion);
+          }
           
           roleRisks.push({
             code: risk.riskId || risk.code || `RISK_${role.roleName}_${risk.name}`, // Fallback si code n'existe pas
@@ -80,8 +92,14 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = ({
         const roleRisks: RiskState[] = [];
         
         role.risks?.forEach(risk => {
-          // Calculer l'état de remédiation du risque composite
-          const remediation = actionsContext.calculateCompositeRiskRemediation(role.roleName, risk.functions);
+          // ✅ OPTIMISATION : Utiliser le cache pour les calculs de remédiation
+          let remediation = remediationCache.get(role.roleName, risk.riskId, 'composite', currentVersion);
+          
+          if (!remediation) {
+            // Calculer seulement si pas en cache
+            remediation = actionsContext.calculateCompositeRiskRemediation(role.roleName, risk.functions);
+            remediationCache.set(role.roleName, risk.riskId, 'composite', remediation, currentVersion);
+          }
           
           roleRisks.push({
             code: risk.riskId || risk.code || `RISK_${role.roleName}_${risk.name}`, // Fallback si code n'existe pas
@@ -103,7 +121,7 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = ({
     }
     
     return roles;
-  }, [session, mode, actionsContext]);
+  }, [session, mode, actionsContext.version]); // ✅ OPTIMISATION : Dépendance stable (version au lieu de actionsContext)
 
   // Obtenir la couleur d'un carré selon la logique de remédiation et criticité
   const getSquareColor = (risk: RiskState) => {
@@ -127,13 +145,11 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = ({
     }
   };
 
-  // Gérer le clic sur un carré
-  const handleSquareClick = (roleName: string, riskCode: string) => {
+  // ✅ OPTIMISATION : Mémoriser le callback pour éviter les re-rendus
+  const handleSquareClick = React.useCallback((roleName: string, riskCode: string) => {
     const targetStep = mode === 'simple' ? 1 : mode === 'composite' ? 2 : 3; // 3 = Utilisateurs
-    
-    
     onNavigateToRisk(roleName, riskCode, targetStep);
-  };
+  }, [mode, onNavigateToRisk]);
 
   if (rolesData.length === 0) {
     return (
@@ -250,4 +266,11 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = ({
       </Box>
     </Box>
   );
-};
+}, (prevProps, nextProps) => {
+  // ✅ OPTIMISATION : Comparaison personnalisée pour React.memo
+  return (
+    prevProps.session === nextProps.session &&
+    prevProps.mode === nextProps.mode &&
+    prevProps.onNavigateToRisk === nextProps.onNavigateToRisk
+  );
+});

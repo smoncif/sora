@@ -27,6 +27,7 @@ import { SodSimpleRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodFunctionGrid } from './SodFunctionGrid';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
+import { useRemediationCache } from 'lib/utils/sodRemediationCache';
 
 export interface SodRiskSectionProps {
   /** Risque */
@@ -69,15 +70,26 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
 }) => {
   const theme = useTheme();
   const actionsContext = useSodActionsContext();
+  const remediationCache = useRemediationCache();
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { riskId, riskLevel, riskDescription, functions } = risk;
   
-  // ✅ Calculer le statut de remédiation du risque
-  const remediationStatus = useMemo(
-    () => actionsContext.calculateRiskRemediation(roleName || '', functions),
-    [roleName, functions, actionsContext.version, actionsContext.calculateRiskRemediation]
-  );
+  // ✅ OPTIMISATION : Calculer le statut de remédiation avec cache
+  const remediationStatus = useMemo(() => {
+    if (!roleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0 };
+    
+    // Essayer d'obtenir depuis le cache
+    const cached = remediationCache.get(roleName, riskId, 'simple', actionsContext.version);
+    if (cached) {
+      return cached;
+    }
+    
+    // Calculer si pas en cache
+    const result = actionsContext.calculateRiskRemediation(roleName, functions);
+    remediationCache.set(roleName, riskId, 'simple', result, actionsContext.version);
+    return result;
+  }, [roleName, riskId, functions, actionsContext.version]); // ✅ OPTIMISATION : Dépendances stables
   
   return (
     <Paper
