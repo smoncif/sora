@@ -11,9 +11,10 @@ import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSec
 import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
 import { SodParsingProgress as SodParsingProgressNew } from 'lib/components/sod/progress/SodParsingProgress';
 import { SodAnalysisResults } from 'lib/components/sod/results/SodAnalysisResults';
-import { SodSimpleRoleCard, SodCompositeRoleCard } from 'lib/components/sod';
+import { SodSimpleRoleCard, SodCompositeRoleCard, SodNavigationButton, SodNavigationSlider } from 'lib/components/sod';
 import { useSodWorkflow } from 'lib/hooks/sod/useSodWorkflow';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
+import { useSodNavigation } from 'lib/hooks/sod/useSodNavigation';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
@@ -25,6 +26,9 @@ export default function SodAnalysisPage() {
 
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
   const sodWorkflow = useSodWorkflow({ userId: user?.id || 'anonymous' });
+
+  // 🧭 SYSTÈME DE NAVIGATION : Hook pour la navigation des risques
+  const sodNavigation = useSodNavigation();
 
   // Pagination pour rôles simples (index 0-based pour TablePagination)
   const [simpleRolePage, setSimpleRolePage] = useState(0);
@@ -239,6 +243,132 @@ export default function SodAnalysisPage() {
       ) => {
     toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
   }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
+
+  // 🧭 CALCUL DES RISQUES NON REMÉDIÉS : Pour le badge du bouton de navigation
+  const nonRemediatedRisksCount = useMemo(() => {
+    if (!sodWorkflow.state.session) return 0;
+
+    let count = 0;
+
+    // Compter les risques non remédiés dans les rôles simples
+    if (sodWorkflow.state.session.simpleRoles?.roles) {
+      sodWorkflow.state.session.simpleRoles.roles.forEach((role: any) => {
+        role.risks?.forEach((risk: any) => {
+          const remediation = actionsContext.calculateRiskRemediation(role.roleName, risk.functions);
+          if (!remediation.isRemediated) {
+            count++;
+          }
+        });
+      });
+    }
+
+    // Compter les risques non remédiés dans les rôles composites
+    if (sodWorkflow.state.session.compositeRoles?.roles) {
+      sodWorkflow.state.session.compositeRoles.roles.forEach((role: any) => {
+        role.risks?.forEach((risk: any) => {
+          const remediation = actionsContext.calculateCompositeRiskRemediation(role.roleName, risk.functions);
+          if (!remediation.isRemediated) {
+            count++;
+          }
+        });
+      });
+    }
+
+    return count;
+  }, [sodWorkflow.state.session, actionsContext, version]);
+
+  // 🧭 NAVIGATION VERS RISQUE : Callback pour naviguer vers un rôle/risque spécifique
+  const handleNavigateToRisk = useCallback((
+    roleName: string, 
+    riskCode: string, 
+    targetStep: number
+  ) => {
+    // Corriger targetStep si undefined
+    const correctedTargetStep = targetStep || sodWorkflow.state.currentStep;
+    
+    // Changer l'étape si nécessaire
+    if (sodWorkflow.state.currentStep !== correctedTargetStep) {
+      sodWorkflow.actions.setCurrentStep(correctedTargetStep);
+    }
+
+    // Gérer la pagination : trouver la page qui contient le rôle
+    if (correctedTargetStep === 1) {
+      // Étape 1 : Rôles simples
+      const roleIndex = simpleRoles.findIndex(role => role.roleName === roleName);
+      if (roleIndex !== -1) {
+        const targetPage = Math.floor(roleIndex / simpleRolesPerPage);
+        if (targetPage !== simpleRolePage) {
+          setSimpleRolePage(targetPage);
+        }
+      }
+    } else if (correctedTargetStep === 2) {
+      // Étape 2 : Rôles composites
+      const roleIndex = compositeRoles.findIndex(role => role.roleName === roleName);
+      if (roleIndex !== -1) {
+        const targetPage = Math.floor(roleIndex / compositeRolesPerPage);
+        if (targetPage !== compositeRolePage) {
+          setCompositeRolePage(targetPage);
+        }
+      }
+    }
+
+    // Fonction pour chercher l'élément avec retry
+    const findElementWithRetry = (selector: string, maxRetries = 10, delay = 200) => {
+      return new Promise<Element | null>((resolve) => {
+        let attempts = 0;
+        
+        const search = () => {
+          attempts++;
+          const element = document.querySelector(selector);
+          
+          if (element) {
+            resolve(element);
+          } else if (attempts < maxRetries) {
+            setTimeout(search, delay);
+          } else {
+            resolve(null);
+          }
+        };
+        
+        search();
+      });
+    };
+
+    // Attendre que l'étape change, puis chercher l'élément
+    setTimeout(async () => {
+      // Sélecteur unique : combinaison rôle-risque pour éviter les conflits
+      const uniqueRiskSelector = `[data-role-risk="${roleName}-${riskCode}"]`;
+      const roleSelector = `[data-role-name="${roleName}"]`;
+      
+      let element = await findElementWithRetry(uniqueRiskSelector);
+      
+      // Si le risque spécifique n'est pas trouvé, chercher le rôle
+      if (!element) {
+        element = await findElementWithRetry(roleSelector);
+      }
+      
+      if (element) {
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        
+        // Highlight temporaire avec styles inline
+        const originalStyle = element.getAttribute('style') || '';
+        element.setAttribute('style', 
+          originalStyle + 
+          'box-shadow: 0 0 20px rgba(25, 118, 210, 0.5) !important; ' +
+          'border: 2px solid #1976d2 !important; ' +
+          'border-radius: 8px !important; ' +
+          'transition: all 0.3s ease !important;'
+        );
+        
+        setTimeout(() => {
+          element.setAttribute('style', originalStyle);
+        }, 2000);
+      }
+    }, 300); // Augmenter le délai initial
+  }, [sodWorkflow, simpleRoles, simpleRolesPerPage, simpleRolePage, compositeRoles, compositeRolesPerPage, compositeRolePage]);
   
   // 🔍 DEBUG 4 : Détecter les changements de callbacks
   const callbackRefId = useRef(0);
@@ -499,7 +629,7 @@ export default function SodAnalysisPage() {
           renderSimpleRoles={() => (
             <Box sx={{ mt: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box>
+          <Box>
                   <Typography variant="body2" color="text.secondary">
                     {simpleRoles.length} rôle(s) simple(s) • Affichage de {paginatedSimpleRoles.length} rôle(s) par page
                   </Typography>
@@ -645,6 +775,34 @@ export default function SodAnalysisPage() {
           </Box>
           )}
         />
+      )}
+
+      {/* 🧭 SYSTÈME DE NAVIGATION : Bouton flottant et slider */}
+      {sodWorkflow.state.session && (
+        <>
+          <SodNavigationButton
+            nonRemediatedCount={nonRemediatedRisksCount}
+            onOpenSlider={sodNavigation.actions.openSlider}
+            visible={!!sodWorkflow.state.session}
+          />
+          
+          <SodNavigationSlider
+            isOpen={sodNavigation.state.isSliderOpen}
+            session={sodWorkflow.state.session}
+            mode={sodNavigation.state.mode}
+            onClose={sodNavigation.actions.closeSlider}
+            onModeChange={sodNavigation.actions.setMode}
+            onNavigateToRisk={(roleName, riskCode, targetStep) => 
+              sodNavigation.actions.navigateToRisk(
+                roleName, 
+                riskCode, 
+                targetStep,
+                sodWorkflow.actions.setCurrentStep,
+                handleNavigateToRisk
+              )
+            }
+          />
+        </>
       )}
     </Container>
   );

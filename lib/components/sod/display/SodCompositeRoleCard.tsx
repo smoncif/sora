@@ -90,6 +90,7 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
   
   return (
     <Paper
+      data-role-name={compositeRoleName}
       elevation={0}
       sx={{
         borderRadius: 3,

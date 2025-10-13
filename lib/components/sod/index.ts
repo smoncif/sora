@@ -4,6 +4,11 @@
 
 // Navigation
 export { SodStepperNavigation } from './navigation/SodStepperNavigation';
+export { 
+  SodNavigationButton, 
+  SodNavigationSlider, 
+  SodRemediationTable 
+} from './navigation';
 
 // Upload
 export { SodParsingProgress } from './upload/SodParsingProgress';

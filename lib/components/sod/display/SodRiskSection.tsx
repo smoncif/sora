@@ -81,6 +81,8 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
   
   return (
     <Paper
+      data-risk-code={riskId}
+      data-role-risk={`${roleName}-${riskId}`}
       elevation={0}
       sx={{
         borderRadius: 2,

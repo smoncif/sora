@@ -80,6 +80,7 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
   
   return (
     <Paper
+      data-role-name={roleName}
       elevation={0}
       sx={{
         borderRadius: 3,
