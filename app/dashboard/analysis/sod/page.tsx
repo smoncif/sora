@@ -29,6 +29,13 @@ import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 export default function SodAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
+  
+  // 🔍 LOG : Tracker les renders du composant principal
+  const renderCountRef = useRef(0);
+  useEffect(() => {
+    renderCountRef.current += 1;
+    console.log('🎨 [RENDER] SodAnalysisPage render #' + renderCountRef.current);
+  });
 
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
   const sodWorkflow = useSodWorkflowOptimized({ userId: user?.id || 'anonymous' });
@@ -60,15 +67,28 @@ export default function SodAnalysisPage() {
 
   // ⚡ OPTIMISATION CRITIQUE 1 : Mémoiser les rôles pour éviter les re-renders inutiles
   // 🎯 Impact : 5-8x plus rapide, références stables pour useMemo et React.memo
-  const simpleRoles = useMemo(() => 
-    (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[],
-    [sodWorkflow.state.session?.simpleRoles?.roles]
-  );
+  const simpleRoles = useMemo(() => {
+    const start = performance.now();
+    const roles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
+    const duration = performance.now() - start;
+    console.log('🔍 [MEMO] simpleRoles recalculé:', {
+      count: roles.length,
+      duration: duration.toFixed(2) + 'ms',
+      timestamp: new Date().toISOString()
+    });
+    return roles;
+  }, [sodWorkflow.state.session?.simpleRoles?.roles]);
   
-  const compositeRoles = useMemo(() => 
-    (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[],
-    [sodWorkflow.state.session?.compositeRoles?.roles]
-  );
+  const compositeRoles = useMemo(() => {
+    const start = performance.now();
+    const roles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
+    const duration = performance.now() - start;
+    console.log('🔍 [MEMO] compositeRoles recalculé:', {
+      count: roles.length,
+      duration: duration.toFixed(2) + 'ms'
+    });
+    return roles;
+  }, [sodWorkflow.state.session?.compositeRoles?.roles]);
 
 
   // Pagination pour rôles simples (index 0-based pour TablePagination)
@@ -82,12 +102,24 @@ export default function SodAnalysisPage() {
   
   // ✅ Callbacks de pagination mémorisés avec prefetch
   const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
+    const startTime = performance.now();
+    console.log('🔍 [PAGINATION] Changement page simple:', { 
+      from: simpleRolePage, 
+      to: newPage,
+      timestamp: new Date().toISOString() 
+    });
     
+    // Étape 1 : Mise à jour de l'état de page
+    const step1Start = performance.now();
     setSimpleRolePage(newPage);
+    const step1Duration = performance.now() - step1Start;
+    console.log('⏱️ [STEP 1] setState page:', step1Duration.toFixed(2), 'ms');
+    
     setPrefetchStatus(prev => ({ ...prev, simple: '⚡ Prefetch...' }));
     
     // ⚡ Prefetch les pages adjacentes après changement (UNE SEULE FOIS)
     setTimeout(() => {
+      const prefetchStart = performance.now();
       const totalPages = Math.ceil(simpleRoles.length / simpleRolesPerPage);
       
       if (newPage + 1 < totalPages) {
@@ -97,9 +129,14 @@ export default function SodAnalysisPage() {
         prefetchPreviousPage(newPage, simpleRolesPerPage, simpleRoles);
       }
       
+      const prefetchDuration = performance.now() - prefetchStart;
+      console.log('⏱️ [STEP 2] Prefetch pages adjacentes:', prefetchDuration.toFixed(2), 'ms');
+      
       // ✅ Marquer comme terminé
       setTimeout(() => {
         setPrefetchStatus(prev => ({ ...prev, simple: '✅ Prêt' }));
+        const totalDuration = performance.now() - startTime;
+        console.log('✅ [TOTAL] Changement de page complet:', totalDuration.toFixed(2), 'ms');
       }, 50);
     }, 0);
   }, [simpleRoles, simpleRolesPerPage, prefetchNextPage, prefetchPreviousPage, simpleRolePage]);
@@ -190,10 +227,21 @@ export default function SodAnalysisPage() {
     
     // ✅ Retour ultra-rapide si cache valide (évite recalcul ~390 opérations)
     if (cacheKey === lastCacheKey.current && restrictedActionsCache.current.has(cacheKey)) {
+      console.log('⚡ [CACHE HIT] allRestrictedActions depuis cache:', {
+        cacheKey,
+        cacheSize: restrictedActionsCache.current.get(cacheKey)!.size,
+        duration: '< 0.01ms'
+      });
       return restrictedActionsCache.current.get(cacheKey)!;
     }
     
+    console.log('🔄 [CACHE MISS] allRestrictedActions recalcul nécessaire:', {
+      oldKey: lastCacheKey.current,
+      newKey: cacheKey
+    });
+    
     lastCacheKey.current = cacheKey;
+    const calcStart = performance.now();
     
     const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     
@@ -284,6 +332,14 @@ export default function SodAnalysisPage() {
       });
     });
     
+    const calcDuration = performance.now() - calcStart;
+    console.log('✅ [CALC] allRestrictedActions calculé:', {
+      totalRoles: simpleRoles.length + compositeRoles.length,
+      restrictedActionsFound: result.size,
+      duration: calcDuration.toFixed(2) + 'ms',
+      cacheKey
+    });
+    
     // ✅ Sauvegarder dans le cache avant de retourner
     restrictedActionsCache.current.set(cacheKey, result);
     
@@ -300,9 +356,19 @@ export default function SodAnalysisPage() {
   // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
   // Slice ultra-rapide (< 1ms) sur les données brutes
   const paginatedSimpleRolesRaw = useMemo(() => {
+    const sliceStart = performance.now();
     const start = simpleRolePage * simpleRolesPerPage;
     const end = start + simpleRolesPerPage;
-    return simpleRoles.slice(start, end);
+    const result = simpleRoles.slice(start, end);
+    const sliceDuration = performance.now() - sliceStart;
+    console.log('🔍 [SLICE] paginatedSimpleRolesRaw:', {
+      page: simpleRolePage,
+      pageSize: simpleRolesPerPage,
+      sliceRange: `${start}-${end}`,
+      resultCount: result.length,
+      duration: sliceDuration.toFixed(2) + 'ms'
+    });
+    return result;
   }, [simpleRoles, simpleRolePage, simpleRolesPerPage]);
 
   const paginatedCompositeRolesRaw = useMemo(() => {
@@ -322,12 +388,37 @@ export default function SodAnalysisPage() {
   
   // ✅ Mémoisation optimale : Se recalcule UNIQUEMENT si les rôles de la page ou version changent
   const paginatedSimpleRoles = useMemo(() => {
-    return applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsState);
+    const applyStart = performance.now();
+    const result = applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsState);
+    const applyDuration = performance.now() - applyStart;
+    console.log('🔍 [APPLY] applyStateToSimpleRoles:', {
+      inputCount: paginatedSimpleRolesRaw.length,
+      outputCount: result.length,
+      version: version,
+      duration: applyDuration.toFixed(2) + 'ms',
+      isRecalculated: true
+    });
+    return result;
   }, [paginatedSimpleRolesRaw, actionsState, version]);
 
   const paginatedCompositeRoles = useMemo(() => {
     return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsState);
   }, [paginatedCompositeRolesRaw, actionsState, version]);
+  
+  // 🔍 LOG GLOBAL : Résumé de l'état actuel de la pagination
+  useEffect(() => {
+    if (paginatedSimpleRoles.length > 0) {
+      console.log('📊 [RÉSUMÉ PAGINATION]', {
+        render: renderCountRef.current,
+        simpleRolesTotal: simpleRoles.length,
+        compositeRolesTotal: compositeRoles.length,
+        currentPage: simpleRolePage + 1,
+        pageSize: simpleRolesPerPage,
+        rolesOnPage: paginatedSimpleRoles.length,
+        cacheStatus: lastCacheKey.current ? 'ACTIVE' : 'VIDE'
+      });
+    }
+  }, [simpleRolePage, paginatedSimpleRoles, simpleRoles.length, compositeRoles.length, simpleRolesPerPage]);
   
   // ⚡ OPTIMISATION PREFETCH : Prefetch des pages adjacentes pour navigation instantanée
   // ✅ NOUVEAU : Prefetch intelligent des données de pagination
