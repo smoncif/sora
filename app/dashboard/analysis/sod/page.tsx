@@ -60,17 +60,17 @@ export default function SodAnalysisPage() {
       restrictedResourcesSize: restrictedResources.size,
       
       // État du parser (nouveau)
-      parserProgress: sodWorkflow.state.parserProgress,
-      parserError: sodWorkflow.state.parserError,
-      parserMode: sodWorkflow.state.parserMode,
+      parserProgress: sodWorkflow.state.parsingProgress,
+      parserError: sodWorkflow.state.parsingError,
+      parserMessage: sodWorkflow.state.parsingMessage,
       
-      // État des mutations TanStack Query
-      createSessionStatus: sodWorkflow.actions.createSession?.status,
-      updateSessionStatus: sodWorkflow.actions.updateSession?.status,
+      // État des mutations TanStack Query (simplifié)
+      // createSessionStatus: sodWorkflow.actions.createSession?.status,
+      // updateSessionStatus: sodWorkflow.actions.updateSession?.status,
     };
     
     const changes: string[] = [];
-    Object.keys(currentProps).forEach(key => {
+    (Object.keys(currentProps) as Array<keyof typeof currentProps>).forEach(key => {
       const oldValue = prevPropsRef.current[key];
       const newValue = currentProps[key];
       
@@ -89,14 +89,11 @@ export default function SodAnalysisPage() {
     }
     
     // 🔍 DÉTECTION SPÉCIALE : Parser Progress (cause probable des 55 renders)
-    if (sodWorkflow.state.parserProgress) {
+    if (sodWorkflow.state.parsingProgress) {
       const oldProgress = prevPropsRef.current.parserProgress;
-      const newProgress = sodWorkflow.state.parserProgress;
-      if (oldProgress?.percentage !== newProgress?.percentage) {
-        changes.push(`parserProgress: ${oldProgress?.percentage}% → ${newProgress?.percentage}%`);
-      }
-      if (oldProgress?.phase !== newProgress?.phase) {
-        changes.push(`parserPhase: ${oldProgress?.phase} → ${newProgress?.phase}`);
+      const newProgress = sodWorkflow.state.parsingProgress;
+      if (oldProgress !== newProgress) {
+        changes.push(`parserProgress: ${oldProgress} → ${newProgress}`);
       }
     }
     
@@ -1024,7 +1021,7 @@ export default function SodAnalysisPage() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {paginatedSimpleRoles.map((role, index) => (
                   <React.Suspense 
-                    key={`${simpleRolePage}-${index}`}
+                    key={role.roleName}  // ✅ KEY STABLE : Basée sur l'ID du rôle, pas la pagination
                     fallback={
                       <Box sx={{ 
                         p: 4, 
@@ -1098,7 +1095,7 @@ export default function SodAnalysisPage() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {paginatedCompositeRoles.map((role, index) => (
                     <React.Suspense 
-                      key={`${compositeRolePage}-${index}`}
+                      key={role.roleName}  // ✅ KEY STABLE : Basée sur l'ID du rôle, pas la pagination
                       fallback={
                         <Box sx={{ 
                           p: 4, 
