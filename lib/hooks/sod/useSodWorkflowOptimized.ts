@@ -100,11 +100,20 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   // Parser Excel (garde la logique actuelle pour l'instant)
   const excelParser = useSodExcelParserOptimized();
   
+  // 🔧 FIX BOUCLE INFINIE : Mémoriser excelParser pour éviter les re-renders
+  const memoizedExcelParser = useMemo(() => excelParser, [
+    excelParser.parsing,
+    excelParser.parsedData?.simpleRoles?.length,
+    excelParser.parsedData?.compositeRoles?.length,
+    excelParser.error,
+    excelParser.progress?.progress
+  ]);
+  
   // 🔍 LOG : Hook re-render avec détection de cause
   const prevHookState = useRef({
     activeSessionId,
-    parsing: excelParser.state?.parsing,
-    progress: excelParser.state?.progress,
+    parsing: memoizedExcelParser.state?.parsing,
+    progress: memoizedExcelParser.state?.progress,
     importType,
     enableUsageAnalysis
   });
@@ -113,11 +122,11 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   if (prevHookState.current.activeSessionId !== activeSessionId) {
     hookChanges.push(`activeSessionId: ${prevHookState.current.activeSessionId} → ${activeSessionId}`);
   }
-  if (prevHookState.current.parsing !== excelParser.state?.parsing) {
-    hookChanges.push(`parsing: ${prevHookState.current.parsing} → ${excelParser.state?.parsing}`);
+  if (prevHookState.current.parsing !== memoizedExcelParser.state?.parsing) {
+    hookChanges.push(`parsing: ${prevHookState.current.parsing} → ${memoizedExcelParser.state?.parsing}`);
   }
-  if (prevHookState.current.progress !== excelParser.state?.progress) {
-    hookChanges.push(`progress: ${prevHookState.current.progress} → ${excelParser.state?.progress}`);
+  if (prevHookState.current.progress !== memoizedExcelParser.state?.progress) {
+    hookChanges.push(`progress: ${prevHookState.current.progress} → ${memoizedExcelParser.state?.progress}`);
   }
   if (prevHookState.current.importType !== importType) {
     hookChanges.push(`importType: ${prevHookState.current.importType} → ${importType}`);
@@ -137,8 +146,8 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   
   prevHookState.current = {
     activeSessionId,
-    parsing: excelParser.state?.parsing,
-    progress: excelParser.state?.progress,
+    parsing: memoizedExcelParser.state?.parsing,
+    progress: memoizedExcelParser.state?.progress,
     importType,
     enableUsageAnalysis
   };
@@ -148,11 +157,11 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   // 🎯 OPTION B : Effet pour créer la session ET activer le sessionId
   useEffect(() => {
     console.log('🔧 [EFFECT] Session creation effect déclenché', {
-      hasParsedData: !!excelParser.parsedData,
-      isParsing: excelParser.parsing,
+      hasParsedData: !!memoizedExcelParser.parsedData,
+      isParsing: memoizedExcelParser.parsing,
       hasUploadedFile: !!uploadedFileRef.current,
       activeSessionId,
-      shouldCreateSession: !!(excelParser.parsedData && !excelParser.parsing && uploadedFileRef.current && !activeSessionId)
+      shouldCreateSession: !!(memoizedExcelParser.parsedData && !memoizedExcelParser.parsing && uploadedFileRef.current && !activeSessionId)
     });
     
     // Créer la session seulement si :
@@ -160,9 +169,9 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     // 2. Le parsing est terminé
     // 3. On a un fichier en attente
     // 4. Aucune session n'est active
-    if (excelParser.parsedData && !excelParser.parsing && uploadedFileRef.current && !activeSessionId) {
+    if (memoizedExcelParser.parsedData && !memoizedExcelParser.parsing && uploadedFileRef.current && !activeSessionId) {
       const file = uploadedFileRef.current;
-      const data = excelParser.parsedData;
+      const data = memoizedExcelParser.parsedData;
       
       console.log('🚀 [EFFECT] Création session en cours...');
       
@@ -180,21 +189,21 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       
       uploadedFileRef.current = null; // Nettoyer la référence
     }
-  }, [excelParser.parsedData, excelParser.parsing, activeSessionId, memoizedSodSession]);
+  }, [memoizedExcelParser.parsedData, memoizedExcelParser.parsing, activeSessionId, memoizedSodSession]);
   
   // État dérivé optimisé
   const state: SodWorkflowState = useMemo(() => ({
     importType,
-    loading: memoizedSodSession.isLoading || excelParser.parsing,
-    error: memoizedSodSession.error || excelParser.error,
+    loading: memoizedSodSession.isLoading || memoizedExcelParser.parsing,
+    error: memoizedSodSession.error || memoizedExcelParser.error,
     enableUsageAnalysis,
     session: memoizedSodSession.session,
     currentStep: memoizedSodSession.currentStep,
     // État du parsing
-    parsing: excelParser.parsing || false,
-    parsingProgress: excelParser.progress?.progress || 0,
-    parsingMessage: excelParser.progress?.message || 'Traitement en cours...',
-    parsingError: excelParser.error || null,
+    parsing: memoizedExcelParser.parsing || false,
+    parsingProgress: memoizedExcelParser.progress?.progress || 0,
+    parsingMessage: memoizedExcelParser.progress?.message || 'Traitement en cours...',
+    parsingError: memoizedExcelParser.error || null,
   }), [
     importType,
     enableUsageAnalysis,
@@ -202,10 +211,10 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     memoizedSodSession.error,
     memoizedSodSession.session,
     memoizedSodSession.currentStep,
-    excelParser.parsing,
-    excelParser.progress?.progress,
-    excelParser.progress?.message,
-    excelParser.error,
+    memoizedExcelParser.parsing,
+    memoizedExcelParser.progress?.progress,
+    memoizedExcelParser.progress?.message,
+    memoizedExcelParser.error,
   ]);
   
   // Actions optimisées
@@ -219,7 +228,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       uploadedFileRef.current = file;
       
       // Parser le fichier Excel (asynchrone via Web Worker)
-      await excelParser.parseFile(file);
+      await memoizedExcelParser.parseFile(file);
     },
     
     loadSavedAnalysis: async () => {
