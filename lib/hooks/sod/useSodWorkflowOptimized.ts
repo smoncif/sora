@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSodSession } from './useSodAnalysisQuery';
 import { useSodExcelParserOptimized } from './useSodExcelParserOptimized';
@@ -146,12 +146,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   
   // ✅ SIMPLIFIÉ : Le hook useSodSession gère toutes les mutations nécessaires
   
-  // 🔧 STABILISER createSessionFromParsedData avec useRef pour éviter boucle infinie
-  const createSessionRef = useRef(createSessionFromParsedData);
-  createSessionRef.current = createSessionFromParsedData;
-  
   // 🎯 OPTION B : Effet pour créer la session ET activer le sessionId
-  // ⚠️ IMPORTANT : Ne PAS mettre createSessionFromParsedData dans les deps !
   useEffect(() => {
     // Créer la session seulement si :
     // 1. Les données sont parsées
@@ -164,8 +159,8 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       
       console.log('🚀 [EFFECT] Création session en cours...');
       
-      // Utiliser la ref pour éviter la dépendance instable
-      createSessionRef.current(file, data)
+      // Appel direct de la fonction (stable depuis useSodSession)
+      createSessionFromParsedData(file, data)
         .then((newSession) => {
           if (newSession) {
             console.log('✅ [EFFECT] Session créée, activation:', newSession.id);
@@ -178,7 +173,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       
       uploadedFileRef.current = null; // Nettoyer la référence
     }
-  }, [parsedData, parsingState, activeSessionId]);
+  }, [parsedData, parsingState, activeSessionId, createSessionFromParsedData]);
   
   // État dérivé optimisé
   const state: SodWorkflowState = useMemo(() => ({
