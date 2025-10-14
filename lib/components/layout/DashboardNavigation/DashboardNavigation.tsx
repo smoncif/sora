@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, List, ListItemButton, ListItemIcon, ListItemText, Paper } from '@mui/material';
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { OptimizedLink } from 'lib/components/common/OptimizedLink';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import GroupIcon from '@mui/icons-material/Group';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -41,7 +41,12 @@ const DashboardNavigation = () => {
     <Box component={Paper} sx={{ width: 280, height: '100%' }}>
       <List>
         {navigationItems.map((item) => (
-          <Link key={item.href} href={item.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+          <OptimizedLink 
+            key={item.href} 
+            href={item.href} 
+            prefetch="hover"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             <ListItemButton
               selected={currentPath === item.href}
               sx={{
@@ -56,7 +61,7 @@ const DashboardNavigation = () => {
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />
             </ListItemButton>
-          </Link>
+          </OptimizedLink>
         ))}
       </List>
     </Box>

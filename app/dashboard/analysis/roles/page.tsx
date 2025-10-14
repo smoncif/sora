@@ -26,6 +26,7 @@ import { OverviewStatsSection } from 'lib/components/analysis/OverviewStatsSecti
 import { ResultsSection } from 'lib/components/analysis/ResultsSection';
 import { AnalysisCard } from 'lib/components/analysis/AnalysisCard';
 import { useAnalysisWorkflow } from 'lib/hooks/analysis/useAnalysisWorkflow';
+import { useRoleAnalysisData } from 'lib/hooks/analysis/useRoleAnalysisQuery';
 import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
 import { FocusProvider } from 'lib/contexts/FocusContext';
 import { SaveAnalysisDialog } from 'lib/components/analysis/SaveAnalysisDialog';
@@ -99,6 +100,9 @@ export default function RoleAnalysisPage() {
   
   // 🚀 WORKFLOW UNIFIÉ : Hook principal avec tous les sous-hooks intégrés (MODE ROLES)
   const workflow = useAnalysisWorkflow('roles', stableWorkflowConfig);
+
+  // 🚀 NOUVEAU : Hook TanStack Query pour l'analyse des rôles
+  const { data: roleAnalysisData, isLoading: isRoleDataLoading, error: roleDataError } = useRoleAnalysisData();
 
   // 🎯 État du focus depuis le workflow local
   const focusedItem = workflow.localState.state.focusedItem;
@@ -251,6 +255,7 @@ export default function RoleAnalysisPage() {
                 }}
               >
                   Analyse des Rôles Métier
+                  {isRoleDataLoading && <span style={{ marginLeft: '10px', fontSize: '0.8em', color: '#666' }}>🔄 Chargement TanStack Query...</span>}
                 </Typography>
               <Typography 
                 variant="subtitle1" 

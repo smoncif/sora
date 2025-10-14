@@ -141,9 +141,33 @@ async function parseExcelFileWithExcelJS({ arrayBuffer }) {
   const headerRow = worksheet.getRow(1);
   const headers = [];
   
-  // ⚡ OPTIMISATION : Accès direct aux valeurs avec ExcelJS
+  // ⚡ OPTIMISATION : Accès direct aux valeurs avec ExcelJS et extraction robuste
   headerRow.eachCell((cell, colNumber) => {
-    headers[colNumber - 1] = cell.value ? String(cell.value).trim() : '';
+    const value = cell.value;
+    let headerValue = '';
+    
+    if (value !== null && value !== undefined) {
+      if (typeof value === 'string' || typeof value === 'number') {
+        headerValue = String(value).trim();
+      } else if (value && typeof value === 'object') {
+        // Cas des objets ExcelJS : extraire la valeur textuelle
+        if (value.text !== undefined) {
+          headerValue = String(value.text).trim();
+        } else if (value.result !== undefined) {
+          headerValue = String(value.result).trim();
+        } else if (value.richText && Array.isArray(value.richText)) {
+          // RichText : concaténer tous les textes
+          headerValue = value.richText.map(rt => rt.text || '').join('').trim();
+        } else {
+          // Fallback : conversion string
+          headerValue = String(value).trim();
+        }
+      } else {
+        headerValue = String(value).trim();
+      }
+    }
+    
+    headers[colNumber - 1] = headerValue;
   });
 
   // Mapper les colonnes FR/EN
@@ -170,10 +194,32 @@ async function parseExcelFileWithExcelJS({ arrayBuffer }) {
     // Ignorer l'en-tête
     if (rowNumber === 1) return;
     
-    // ⚡ OPTIMISATION : Remplir le tableau pré-alloué
+    // ⚡ OPTIMISATION : Remplir le tableau pré-alloué avec extraction robuste
     for (let i = 0; i < headers.length; i++) {
       const cell = row.getCell(i + 1);
-      rowValues[i] = cell.value !== null && cell.value !== undefined ? cell.value : '';
+      const value = cell.value;
+      
+      // ⚡ Extraction robuste de la valeur primitive (comme XLSX.js cell.v)
+      if (value === null || value === undefined) {
+        rowValues[i] = '';
+      } else if (typeof value === 'string' || typeof value === 'number') {
+        rowValues[i] = String(value);
+      } else if (value && typeof value === 'object') {
+        // Cas des objets ExcelJS : extraire la valeur textuelle
+        if (value.text !== undefined) {
+          rowValues[i] = String(value.text);
+        } else if (value.result !== undefined) {
+          rowValues[i] = String(value.result);
+        } else if (value.richText && Array.isArray(value.richText)) {
+          // RichText : concaténer tous les textes
+          rowValues[i] = value.richText.map(rt => rt.text || '').join('');
+        } else {
+          // Fallback : conversion string (peut donner "[object Object]")
+          rowValues[i] = String(value);
+        }
+      } else {
+        rowValues[i] = String(value);
+      }
     }
     
     // Normaliser et filtrer
@@ -280,10 +326,8 @@ function normalizeRecord(rowValues, columnIndexes) {
     const index = columnIndexes[field];
     if (index === undefined) return '';
     const value = rowValues[index];
-    // ⚡ Gérer les types ExcelJS (Date, Number, String)
-    if (value === null || value === undefined) return '';
-    if (value instanceof Date) return value.toISOString();
-    return String(value).trim();
+    // ⚡ Conversion simple comme XLSX.js - Excel contient que des données brutes
+    return value ? String(value).trim() : '';
   };
   
   return {

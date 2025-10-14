@@ -272,16 +272,6 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
     if (!restrictActionSame) changedProps.push('onRestrictAction (callback)');
     if (!restrictResourceSame) changedProps.push('onRestrictResource (callback)');
     
-    console.error(`
-╔════════════════════════════════════════════════════════════════
-║ ❌ REACT.MEMO ÉCHOUE : ${nextProps.role.roleName}
-╠════════════════════════════════════════════════════════════════
-║ Props qui ont changé: ${changedProps.join(', ')}
-║ 
-║ ${!deleteActionSame || !restrictActionSame || !restrictResourceSame ? '⚠️  LES CALLBACKS ONT CHANGÉ → Contexte instable !' : ''}
-║ ${!risksSame ? '⚠️  RISKS A CHANGÉ → applyState crée de nouveaux objets !' : ''}
-╚════════════════════════════════════════════════════════════════
-    `);
   }
   
   return shouldNotRerender;

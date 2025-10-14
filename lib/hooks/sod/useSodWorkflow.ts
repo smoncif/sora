@@ -121,6 +121,7 @@ export const useSodWorkflow = (config: SodWorkflowConfig): SodWorkflow => {
         uploadedFileRef.current = file;
         
         // Parser le fichier Excel (asynchrone via Web Worker)
+        // ExcelJS par défaut avec fallback automatique vers XLSX.js
         await excelParser.parseFile(file);
         
         // ✅ La session sera créée automatiquement par le useEffect

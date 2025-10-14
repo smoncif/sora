@@ -26,6 +26,7 @@ import { OverviewStatsSection } from 'lib/components/analysis/OverviewStatsSecti
 import { ResultsSection } from 'lib/components/analysis/ResultsSection';
 import { AnalysisCard } from 'lib/components/analysis/AnalysisCard';
 import { useAnalysisWorkflow } from 'lib/hooks/analysis/useAnalysisWorkflow';
+import { useUserAnalysisData } from 'lib/hooks/analysis/useUserAnalysisQuery';
 import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService';
 import { FocusProvider } from 'lib/contexts/FocusContext';
 import { SaveAnalysisDialog } from 'lib/components/analysis/SaveAnalysisDialog';
@@ -99,6 +100,9 @@ export default function UserAnalysisPage() {
   
   // 🚀 WORKFLOW UNIFIÉ : Hook principal avec tous les sous-hooks intégrés (MODE USERS)
   const workflow = useAnalysisWorkflow('users', stableWorkflowConfig);
+
+  // 🚀 NOUVEAU : Hook TanStack Query pour l'analyse des utilisateurs
+  const { data: userAnalysisData, isLoading: isUserDataLoading, error: userDataError } = useUserAnalysisData();
 
   // 🎯 État du focus depuis le workflow local  
   const focusedItem = workflow.localState.state.focusedItem;
@@ -251,6 +255,7 @@ export default function UserAnalysisPage() {
                 }}
               >
                 Gestion des Utilisateurs
+                {isUserDataLoading && <span style={{ marginLeft: '10px', fontSize: '0.8em', color: '#666' }}>🔄 Chargement TanStack Query...</span>}
               </Typography>
               <Typography 
                 variant="subtitle1" 

@@ -20,7 +20,13 @@ export interface SodNavigationActions {
   closeSlider: () => void;
   toggleSlider: () => void;
   setMode: (mode: NavigationMode) => void;
-  navigateToRisk: (roleName: string, riskCode: string, targetStep: number) => void;
+  navigateToRisk: (
+    roleName: string, 
+    riskCode: string, 
+    targetStep: number,
+    onStepChange?: ((step: number) => void) | undefined,
+    onScrollToRole?: ((roleName: string, riskCode: string, targetStep: number) => void) | undefined
+  ) => void;
 }
 
 export interface UseSodNavigationReturn {
@@ -56,7 +62,7 @@ export const useSodNavigation = (): UseSodNavigationReturn => {
     riskCode: string, 
     targetStep: number,
     onStepChange?: (step: number) => void,
-    onScrollToRole?: (roleName: string, riskCode: string) => void
+    onScrollToRole?: (roleName: string, riskCode: string, targetStep: number) => void
   ) => {
     // Changer l'étape si nécessaire
     if (onStepChange && targetStep !== undefined) {
@@ -65,7 +71,7 @@ export const useSodNavigation = (): UseSodNavigationReturn => {
     
     // Naviguer vers le rôle/risque spécifique
     if (onScrollToRole) {
-      onScrollToRole(roleName, riskCode);
+      onScrollToRole(roleName, riskCode, targetStep);
     }
     
     // Garder le slider ouvert après navigation

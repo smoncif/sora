@@ -11,10 +11,16 @@ import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSec
 import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
 import { SodParsingProgress as SodParsingProgressNew } from 'lib/components/sod/progress/SodParsingProgress';
 import { SodAnalysisResults } from 'lib/components/sod/results/SodAnalysisResults';
-import { SodSimpleRoleCard, SodCompositeRoleCard, SodNavigationButton, SodNavigationSlider, VirtualizedSimpleRoleList, VirtualizedCompositeRoleList } from 'lib/components/sod';
-import { useSodWorkflow } from 'lib/hooks/sod/useSodWorkflow';
+import { SodNavigationButton, SodNavigationSlider } from 'lib/components/sod';
+import { SodSimpleRoleCardSuspense, SodCompositeRoleCardSuspense } from 'lib/components/sod/suspense/SodAnalysisResultsSuspense';
+import { useSodWorkflowOptimized } from 'lib/hooks/sod/useSodWorkflowOptimized';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { useSodNavigation } from 'lib/hooks/sod/useSodNavigation';
+import { usePrefetchSodSession } from 'lib/hooks/sod/useSodAnalysisQuery';
+import { useSodAnalysisData } from 'lib/hooks/sod/useSodAnalysisDataQuery';
+import { useSodPaginationPrefetch } from 'lib/hooks/sod/useSodPaginationPrefetch';
+import { useSodOptimisticUpdates } from 'lib/hooks/sod/useSodOptimisticUpdates';
+import { useQueryClient } from '@tanstack/react-query';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
@@ -25,13 +31,37 @@ export default function SodAnalysisPage() {
   const theme = useTheme();
 
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
-  const sodWorkflow = useSodWorkflow({ userId: user?.id || 'anonymous' });
+  const sodWorkflow = useSodWorkflowOptimized({ userId: user?.id || 'anonymous' });
 
   // 🧭 SYSTÈME DE NAVIGATION : Hook pour la navigation des risques
   const sodNavigation = useSodNavigation();
 
-  // 🚀 VIRTUALISATION : Activer la virtualisation pour de grandes listes (> 50 rôles)
-  const [useVirtualization, setUseVirtualization] = useState(false);
+  // 🚀 OPTIMISTIC UPDATES : Hook pour les actions optimisées
+  const optimisticUpdates = useSodOptimisticUpdates({ 
+    userId: user?.id || 'anonymous',
+    sessionId: sodWorkflow.state.session?.id 
+  });
+
+
+
+  // 🚀 NOUVEAU : Hook TanStack Query pour l'analyse SoD (cohérent avec les autres pages)
+  const { data: sodAnalysisData, isLoading: isSodAnalysisLoading, error: sodAnalysisError } = useSodAnalysisData();
+
+  // ⚡ NOUVEAU : Hook pour prefetch de pagination
+  const { prefetchNextPage, prefetchPreviousPage, prefetchAdjacentPages } = useSodPaginationPrefetch();
+  const queryClient = useQueryClient();
+
+  // 🧪 DEBUG : État du prefetch pour monitoring
+  const [prefetchStatus, setPrefetchStatus] = useState<{ simple: string; composite: string }>({
+    simple: 'Prêt',
+    composite: 'Prêt'
+  });
+
+
+  // 🚀 NOUVELLE ARCHITECTURE : État global + Pagination pure
+  const simpleRoles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
+  const compositeRoles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
+
 
   // Pagination pour rôles simples (index 0-based pour TablePagination)
   const [simpleRolePage, setSimpleRolePage] = useState(0);
@@ -40,42 +70,74 @@ export default function SodAnalysisPage() {
   // Pagination pour rôles composites (index 0-based pour TablePagination)
   const [compositeRolePage, setCompositeRolePage] = useState(0);
   const [compositeRolesPerPage, setCompositeRolesPerPage] = useState(5);
+
   
-  // ✅ Callbacks de pagination mémorisés
+  // ✅ Callbacks de pagination mémorisés avec prefetch
   const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
+    
     setSimpleRolePage(newPage);
-  }, []);
+    setPrefetchStatus(prev => ({ ...prev, simple: '⚡ Prefetch...' }));
+    
+    // ⚡ Prefetch les pages adjacentes après changement (UNE SEULE FOIS)
+    setTimeout(() => {
+      const totalPages = Math.ceil(simpleRoles.length / simpleRolesPerPage);
+      
+      if (newPage + 1 < totalPages) {
+        prefetchNextPage(newPage, simpleRolesPerPage, simpleRoles);
+      }
+      if (newPage > 0) {
+        prefetchPreviousPage(newPage, simpleRolesPerPage, simpleRoles);
+      }
+      
+      // ✅ Marquer comme terminé
+      setTimeout(() => {
+        setPrefetchStatus(prev => ({ ...prev, simple: '✅ Prêt' }));
+      }, 50);
+    }, 0);
+  }, [simpleRoles, simpleRolesPerPage, prefetchNextPage, prefetchPreviousPage, simpleRolePage]);
   
   const handleSimpleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    setSimpleRolesPerPage(parseInt(event.target.value, 10));
+    const newPageSize = parseInt(event.target.value, 10);
+    setSimpleRolesPerPage(newPageSize);
     setSimpleRolePage(0);
-  }, []);
+    
+    // ⚡ Prefetch la première page avec la nouvelle taille
+    setTimeout(() => {
+      prefetchNextPage(0, newPageSize, simpleRoles);
+    }, 0);
+  }, [prefetchNextPage, simpleRoles]);
   
   const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
     setCompositeRolePage(newPage);
-  }, []);
+    setPrefetchStatus(prev => ({ ...prev, composite: '⚡ Prefetch...' }));
+    
+    // ⚡ Prefetch les pages adjacentes après changement
+    setTimeout(() => {
+      const totalPages = Math.ceil(compositeRoles.length / compositeRolesPerPage);
+      if (newPage + 1 < totalPages) {
+        prefetchNextPage(newPage, compositeRolesPerPage, compositeRoles);
+      }
+      if (newPage > 0) {
+        prefetchPreviousPage(newPage, compositeRolesPerPage, compositeRoles);
+      }
+      
+      // ✅ Marquer comme terminé
+      setTimeout(() => {
+        setPrefetchStatus(prev => ({ ...prev, composite: '✅ Prêt' }));
+      }, 50);
+    }, 0);
+  }, [compositeRoles, compositeRolesPerPage, prefetchNextPage, prefetchPreviousPage]);
   
   const handleCompositeRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    setCompositeRolesPerPage(parseInt(event.target.value, 10));
+    const newPageSize = parseInt(event.target.value, 10);
+    setCompositeRolesPerPage(newPageSize);
     setCompositeRolePage(0);
-  }, []);
-
-  // 🚀 NOUVELLE ARCHITECTURE : État global + Pagination pure
-  const simpleRoles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
-  const compositeRoles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
-  
-  // 🚀 AUTO-ACTIVATION DE LA VIRTUALISATION : Si > 50 rôles, activer automatiquement
-  // Optimisé : S'exécute uniquement quand la session est chargée (pas pendant le parsing)
-  useEffect(() => {
-    // Ne s'exécuter que si une session existe et n'est pas en cours de parsing
-    if (!sodWorkflow.state.session || sodWorkflow.state.parsing) return;
     
-    const totalRoles = simpleRoles.length + compositeRoles.length;
-    if (totalRoles > 50 && !useVirtualization) {
-      setUseVirtualization(true);
-      console.log(`🚀 Virtualisation activée automatiquement (${totalRoles} rôles détectés)`);
-    }
-  }, [sodWorkflow.state.session, sodWorkflow.state.parsing, simpleRoles.length, compositeRoles.length, useVirtualization]);
+    // ⚡ Prefetch la première page avec la nouvelle taille
+    setTimeout(() => {
+      prefetchNextPage(0, newPageSize, compositeRoles);
+    }, 0);
+  }, [prefetchNextPage, compositeRoles]);
   
   // ✅ Déstructurer le contexte pour avoir des références stables
   const actionsContext = useSodActionsContext();
@@ -105,10 +167,21 @@ export default function SodAnalysisPage() {
   
   // 🐛 Calculer toutes les actions VISUELLEMENT restreintes (en utilisant la même logique que applyStateToAction)
   // 🚀 OPTIMISÉ : Ne se calcule pas pendant le parsing pour éviter de ralentir le chargement
+  // ⚡ CACHE INCRÉMENTAL : Évite de recalculer si rien n'a changé
+  const restrictedActionsCache = useRef(new Map<string, Map<string, { directlyRestricted: boolean; viaResources: boolean }>>());
+  
   const allRestrictedActions = useMemo(() => {
     // ⚡ Skip pendant le parsing pour ne pas ralentir le chargement
     if (sodWorkflow.state.parsing) {
       return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
+    }
+    
+    // ✅ Créer une clé de cache basée sur les dépendances
+    const cacheKey = `${version}-${simpleRoles.length}-${compositeRoles.length}-${restrictedActions.size}-${restrictedResources.size}`;
+    
+    // ✅ Retourner le cache si rien n'a changé
+    if (restrictedActionsCache.current.has(cacheKey)) {
+      return restrictedActionsCache.current.get(cacheKey)!;
     }
     
     const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
@@ -156,12 +229,12 @@ export default function SodAnalysisPage() {
           }
           // Pour les rôles composites
           else if ('simpleRoles' in func) {
-            func.simpleRoles.forEach(simpleRole => {
+            func.simpleRoles.forEach((simpleRole: any) => {
               // ✅ RÈGLE PRIORITAIRE : Ignorer les rôles simples exclus
               const isExcluded = isSimpleRoleExcluded(role.roleName, simpleRole.roleName);
               if (isExcluded) return;
               
-              simpleRole.actions.forEach(action => {
+              simpleRole.actions.forEach((action: any) => {
                 const key = `${simpleRole.roleName}|${action.code}`;
                 
                 // ✅ RÈGLE PRIORITAIRE : Ne pas lister les actions SUPPRIMÉES
@@ -200,8 +273,17 @@ export default function SodAnalysisPage() {
       });
     });
     
+    // ✅ Sauvegarder dans le cache avant de retourner
+    restrictedActionsCache.current.set(cacheKey, result);
+    
+    // ✅ Nettoyer le cache si trop grand (garder seulement les 5 dernières entrées)
+    if (restrictedActionsCache.current.size > 5) {
+      const keysToDelete = Array.from(restrictedActionsCache.current.keys()).slice(0, -5);
+      keysToDelete.forEach(key => restrictedActionsCache.current.delete(key));
+    }
+    
     return result;
-  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, isResourceRestricted, version]);
+  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version]);
   
   
   // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
@@ -234,6 +316,79 @@ export default function SodAnalysisPage() {
   const paginatedCompositeRoles = useMemo(() => {
     return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsState);
   }, [paginatedCompositeRolesRaw, actionsState, version]); // ✅ Dépend de version pour se recalculer
+  
+  // ⚡ OPTIMISATION PREFETCH : Prefetch des pages adjacentes pour navigation instantanée
+  // ✅ NOUVEAU : Prefetch intelligent des données de pagination
+  
+  // ⚡ PREFETCH INITIAL : Charger les premières pages au démarrage
+  useEffect(() => {
+    if (sodWorkflow.state.parsing || !sodWorkflow.state.session || simpleRoles.length === 0) return;
+    
+    // ✅ Prefetch initial : charger les 3 premières pages (1, 2, 3) car on est sur page 0
+    const pagesToPrefetch = [1, 2, 3]; // Pages suivantes de la page courante (0)
+    const totalPages = Math.ceil(simpleRoles.length / simpleRolesPerPage);
+    
+    pagesToPrefetch.forEach(page => {
+      if (page < totalPages) {
+        // Utiliser prefetchSodPage directement pour les pages spécifiques
+        queryClient.prefetchQuery({
+          queryKey: ['analysis', 'sod', 'page', page, simpleRolesPerPage],
+          queryFn: async () => {
+            const start = page * simpleRolesPerPage;
+            const end = start + simpleRolesPerPage;
+            return {
+              roles: simpleRoles.slice(start, end),
+              totalCount: simpleRoles.length,
+              page,
+              pageSize: simpleRolesPerPage,
+              totalPages: Math.ceil(simpleRoles.length / simpleRolesPerPage),
+              lastUpdated: new Date().toISOString(),
+            };
+          },
+          staleTime: 5 * 60 * 1000,
+        });
+      }
+    });
+    
+  }, [sodWorkflow.state.parsing, sodWorkflow.state.session, simpleRoles.length, simpleRolesPerPage, queryClient]);
+
+  // ❌ SUPPRIMÉ : Prefetch automatique (causait double prefetch)
+  // Le prefetch est maintenant géré uniquement dans handleSimplePageChange
+  
+  // ⚡ PREFETCH INITIAL COMPOSITE : Charger les premières pages au démarrage
+  useEffect(() => {
+    if (sodWorkflow.state.parsing || !sodWorkflow.state.session || compositeRoles.length === 0) return;
+    
+    // ✅ Prefetch initial : charger les 3 premières pages (1, 2, 3) car on est sur page 0
+    const pagesToPrefetch = [1, 2, 3]; // Pages suivantes de la page courante (0)
+    const totalPages = Math.ceil(compositeRoles.length / compositeRolesPerPage);
+    
+    pagesToPrefetch.forEach(page => {
+      if (page < totalPages) {
+        // Utiliser prefetchSodPage directement pour les pages spécifiques
+        queryClient.prefetchQuery({
+          queryKey: ['analysis', 'sod', 'composite-page', page, compositeRolesPerPage],
+          queryFn: async () => {
+            const start = page * compositeRolesPerPage;
+            const end = start + compositeRolesPerPage;
+            return {
+              roles: compositeRoles.slice(start, end),
+              totalCount: compositeRoles.length,
+              page,
+              pageSize: compositeRolesPerPage,
+              totalPages: Math.ceil(compositeRoles.length / compositeRolesPerPage),
+              lastUpdated: new Date().toISOString(),
+            };
+          },
+          staleTime: 5 * 60 * 1000,
+        });
+      }
+    });
+    
+  }, [sodWorkflow.state.parsing, sodWorkflow.state.session, compositeRoles.length, compositeRolesPerPage, queryClient]);
+
+  // ❌ SUPPRIMÉ : Prefetch automatique (causait double prefetch)
+  // Le prefetch est maintenant géré uniquement dans handleCompositePageChange
   
   // 🚀 OPTIMISATION 3 : Callbacks stables (ne dépendent que des fonctions, pas du contexte entier)
   const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources?: any[]) => {
@@ -393,26 +548,6 @@ export default function SodAnalysisPage() {
     }, 300); // Augmenter le délai initial
   }, [sodWorkflow, simpleRoles, simpleRolesPerPage, simpleRolePage, compositeRoles, compositeRolesPerPage, compositeRolePage]);
   
-  // 🔍 DEBUG 4 : Détecter les changements de callbacks
-  const callbackRefId = useRef(0);
-  const previousCallbackRef = useRef(handleDeleteAction);
-  
-  useEffect(() => {
-    if (previousCallbackRef.current !== handleDeleteAction) {
-      callbackRefId.current++;
-      console.error(`
-╔════════════════════════════════════════════════════════════════
-║ ❌ CALLBACK A CHANGÉ : handleDeleteAction
-╠════════════════════════════════════════════════════════════════
-║ Callback ID: ${callbackRefId.current}
-║ 
-║ CAUSE: Le contexte a changé → useCallback se recalcule
-║ IMPACT: React.memo échoue → Tous les composants se re-rendent
-╚════════════════════════════════════════════════════════════════
-      `);
-    }
-    previousCallbackRef.current = handleDeleteAction;
-  }, [handleDeleteAction]);
 
   // Handler pour la remédiation automatique
   const handleStartRemediation = useCallback(async () => {
@@ -442,6 +577,10 @@ export default function SodAnalysisPage() {
             }}
           >
             Analyse SoD (Segregation of Duties)
+            {isSodAnalysisLoading && <span style={{ marginLeft: '10px', fontSize: '0.8em', color: '#666' }}>🔄 Chargement TanStack Query...</span>}
+            <span style={{ marginLeft: '10px', fontSize: '0.7em', color: '#28a745', fontWeight: 'bold' }}>
+              ⚡ Prefetch: Simple {prefetchStatus.simple} | Composite {prefetchStatus.composite}
+            </span>
           </Typography>
           <Typography 
             variant="subtitle1" 
@@ -465,6 +604,7 @@ export default function SodAnalysisPage() {
         </Alert>
       )}
 
+
       {/* Layout 2 cartes avec proportions ajustées - Toujours visibles */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* Carte 1 : Upload des fichiers - Plus large */}
@@ -475,7 +615,7 @@ export default function SodAnalysisPage() {
             error={sodWorkflow.state.error}
             user={user}
             onImportTypeChange={sodWorkflow.actions.setImportType}
-            onFileUpload={sodWorkflow.actions.startNewAnalysis}
+            onFileUpload={(file) => sodWorkflow.actions.startNewAnalysis(file)}
             onLoadSavedAnalysis={sodWorkflow.actions.loadSavedAnalysis}
             onResumeFromFile={sodWorkflow.actions.resumeFromFile}
           />
@@ -673,48 +813,35 @@ export default function SodAnalysisPage() {
               </Box>
 
               {/* Rôles simples */}
-              {useVirtualization ? (
-                // 🚀 MODE VIRTUALISÉ : Pour de grandes listes (> 50 rôles)
-                <VirtualizedSimpleRoleList
-                  roles={paginatedSimpleRoles}
-                  itemHeight={600}
-                  listHeight={800}
-                  onDeleteAction={handleDeleteAction}
-                  onRestrictAction={handleRestrictAction}
-                  onRestrictResource={handleRestrictResourceWrapped}
-                />
-              ) : (
-                // 📄 MODE STANDARD : Pour des listes plus petites
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {paginatedSimpleRoles.map((role, index) => (
-                    <React.Suspense 
-                      key={`${simpleRolePage}-${index}`}
-                      fallback={
-                        <Box sx={{ 
-                          p: 4, 
-                          textAlign: 'center', 
-                          border: '1px solid rgba(0,0,0,0.1)', 
-                          borderRadius: 3 
-                        }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Chargement du rôle...
-                  </Typography>
-                        </Box>
-                      }
-                    >
-                    <SodSimpleRoleCard
-                      role={role}
-                        onDeleteAction={handleDeleteAction}
-                        onRestrictAction={handleRestrictAction}
-                        onRestrictResource={handleRestrictResourceWrapped}
-                        onDeleteRisk={undefined}
-                        onNextStep={undefined}
-                        showNextStepButton={false}
-                      />
-                    </React.Suspense>
-                  ))}
-                </Box>
-              )}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {paginatedSimpleRoles.map((role, index) => (
+                  <React.Suspense 
+                    key={`${simpleRolePage}-${index}`}
+                    fallback={
+                      <Box sx={{ 
+                        p: 4, 
+                        textAlign: 'center', 
+                        border: '1px solid rgba(0,0,0,0.1)', 
+                        borderRadius: 3 
+                      }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Chargement du rôle...
+                </Typography>
+                      </Box>
+                    }
+                  >
+                  <SodSimpleRoleCardSuspense
+                    role={role}
+                    onDeleteAction={optimisticUpdates.deleteAction}
+                    onRestrictAction={optimisticUpdates.restrictAction}
+                    onRestrictResource={optimisticUpdates.restrictResource}
+                    onDeleteRisk={undefined}
+                    onNextStep={undefined}
+                    showNextStepButton={false}
+                  />
+                  </React.Suspense>
+                ))}
+              </Box>
 
               {/* Pagination en bas */}
               {simpleRoles.length > 5 && (
@@ -760,20 +887,7 @@ export default function SodAnalysisPage() {
               </Box>
 
               {/* Rôles composites */}
-              {useVirtualization ? (
-                // 🚀 MODE VIRTUALISÉ : Pour de grandes listes (> 50 rôles)
-                <VirtualizedCompositeRoleList
-                  roles={paginatedCompositeRoles}
-                  itemHeight={700}
-                  listHeight={800}
-                  onDeleteAction={handleDeleteAction}
-                  onRestrictAction={handleRestrictAction}
-                  onRestrictResource={handleCompositeRestrictResourceWrapped}
-                  onExcludeSimpleRole={handleExcludeSimpleRole}
-                />
-              ) : (
-                // 📄 MODE STANDARD : Pour des listes plus petites
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {paginatedCompositeRoles.map((role, index) => (
                     <React.Suspense 
                       key={`${compositeRolePage}-${index}`}
@@ -786,14 +900,14 @@ export default function SodAnalysisPage() {
                         }}>
                           <Typography variant="body2" color="text.secondary">
                             Chargement du rôle...
-                  </Typography>
+                </Typography>
                         </Box>
                       }
                     >
-                      <SodCompositeRoleCard
+                      <SodCompositeRoleCardSuspense
                         role={role}
-                        onDeleteAction={handleDeleteAction}
-                        onRestrictAction={handleRestrictAction}
+                        onDeleteAction={optimisticUpdates.deleteAction}
+                        onRestrictAction={optimisticUpdates.restrictAction}
                         onRestrictResource={handleCompositeRestrictResourceWrapped}
                         onDeleteRisk={undefined}
                         onNextStep={undefined}
@@ -801,8 +915,7 @@ export default function SodAnalysisPage() {
                       />
                     </React.Suspense>
                   ))}
-                </Box>
-              )}
+              </Box>
 
               {/* Pagination en bas */}
               {compositeRoles.length > 5 && (
@@ -817,9 +930,9 @@ export default function SodAnalysisPage() {
                     rowsPerPageOptions={[5, 10, 25, 50]}
                     labelRowsPerPage="Rôles par page:"
                     labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
-                    showFirstButton
-                    showLastButton
-                  />
+                  showFirstButton
+                  showLastButton
+                />
               </Box>
             )}
           </Box>
@@ -842,15 +955,16 @@ export default function SodAnalysisPage() {
             mode={sodNavigation.state.mode}
             onClose={sodNavigation.actions.closeSlider}
             onModeChange={sodNavigation.actions.setMode}
-            onNavigateToRisk={(roleName, riskCode, targetStep) => 
+            onNavigateToRisk={(roleName: string, riskCode: string, targetStep: number) => {
+              // Naviguer vers le risque avec les callbacks appropriés
               sodNavigation.actions.navigateToRisk(
                 roleName, 
                 riskCode, 
                 targetStep,
                 sodWorkflow.actions.setCurrentStep,
                 handleNavigateToRisk
-              )
-            }
+              );
+            }}
           />
         </>
       )}

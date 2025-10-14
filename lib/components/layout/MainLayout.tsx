@@ -21,7 +21,8 @@ import {
   Badge,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import Link from 'next/link';
+import { OptimizedLink } from 'lib/components/common/OptimizedLink';
+import { usePrefetchNavigation } from 'lib/hooks/sod/usePrefetchNavigation';
 import { useAuth } from 'lib/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -30,6 +31,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import HomeIcon from '@mui/icons-material/Home';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import PersonIcon from '@mui/icons-material/Person';
+import SecurityIcon from '@mui/icons-material/Security';
 
 import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -54,6 +56,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileAnchorEl, setMobileAnchorEl] = useState<null | HTMLElement>(null);
+  
+  // 🚀 Hook pour prefetch les données de navigation
+  const { prefetchForRoute } = usePrefetchNavigation();
 
   useEffect(() => {
     setYear(new Date().getFullYear().toString());
@@ -91,6 +96,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { text: 'Accueil', href: '/', icon: <HomeIcon fontSize="small" /> },
     { text: 'Analyse de Rôles', href: '/dashboard/analysis/roles', icon: <AnalyticsIcon fontSize="small" /> },
     { text: 'Analyse des Utilisateurs', href: '/dashboard/analysis/users', icon: <PersonIcon fontSize="small" /> },
+    { text: 'Analyse SoD', href: '/dashboard/analysis/sod', icon: <SecurityIcon fontSize="small" /> },
   ];
 
   // Fonction pour vérifier si un lien est actif avec une logique plus précise
@@ -112,7 +118,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       return pathname === '/dashboard/analysis/users';
     }
     
-    
+    if (href === '/dashboard/analysis/sod') {
+      return pathname === '/dashboard/analysis/sod';
+    }
     
     // Fallback pour les autres cas
     return pathname === href;
@@ -168,7 +176,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             {navItems.map((item) => {
               const isActive = isActiveLink(item.href);
               return (
-              <Link key={item.href} href={item.href} passHref style={{ textDecoration: 'none' }}>
+              <OptimizedLink 
+                key={item.href} 
+                href={item.href} 
+                prefetch="hover" 
+                onPrefetch={() => prefetchForRoute(item.href)}
+                style={{ textDecoration: 'none' }}
+              >
                   <Box
                     sx={{
                       position: 'relative',
@@ -253,7 +267,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       </Typography>
                     </Box>
                   </Box>
-              </Link>
+              </OptimizedLink>
               );
             })}
           </Box>

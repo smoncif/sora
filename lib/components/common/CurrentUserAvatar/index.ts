@@ -2,7 +2,7 @@
  * Barrel file pour le composant CurrentUserAvatar
  */
 
-export { default } from './CurrentUserAvatar';
-export * from './CurrentUserAvatar'; 
+export { default as CurrentUserAvatar } from './CurrentUserAvatar';
+export type { CurrentUserAvatarProps } from './CurrentUserAvatar'; 
 
 

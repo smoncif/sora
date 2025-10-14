@@ -75,6 +75,7 @@ export const SodFileUploadSection: React.FC<SodFileUploadSectionProps> = ({
         Comment souhaitez-vous commencer ?
       </Typography>
 
+
       {/* Boutons de sélection du mode */}
       <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
         <Button

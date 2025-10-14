@@ -237,3 +237,5 @@ const handleRestrictAllActions = useCallback(() => {
 **Statut** : ✅ Implémenté et testé
 
 
+
+

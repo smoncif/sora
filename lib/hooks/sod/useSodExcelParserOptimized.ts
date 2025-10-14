@@ -34,7 +34,7 @@ export interface UseSodExcelParserOptimizedReturn {
   error: string | null;
   parsedData: SodRawRecord[] | null;
   stats: ParseStats | null;
-  parseFile: (file: File) => Promise<void>;
+  parseFile: (file: File, forceParser?: 'exceljs' | 'xlsx') => Promise<void>;
   cancelParsing: () => void;
   reset: () => void;
 }
@@ -51,14 +51,19 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
 
   /**
    * Parse un fichier Excel avec le worker optimisé ExcelJS
+   * @param file Fichier Excel à parser
    */
-  const parseFile = useCallback(async (file: File, useFallback = false) => {
+  const parseFile = useCallback(async (file: File) => {
     setParsing(true);
     setProgress({ progress: 0, message: 'Initialisation...' });
     setError(null);
     setParsedData(null);
     setStats(null);
-    fallbackAttemptedRef.current = useFallback;
+
+    // Utiliser ExcelJS par défaut, fallback vers XLSX.js si erreur
+    const useFallback = false;
+    const disableFallback = false;
+    fallbackAttemptedRef.current = useFallback || disableFallback;
 
     try {
       // Lire le fichier en ArrayBuffer
@@ -69,7 +74,8 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
         ? '/workers/sodParsingWorker.js'      // XLSX.js Legacy
         : '/workers/sodParsingWorkerExcelJS.js'; // ExcelJS Optimisé
 
-      console.log(`🚀 Utilisation du parser: ${useFallback ? 'XLSX.js (Legacy)' : 'ExcelJS (Optimisé)'}`);
+      const parserName = useFallback ? 'XLSX.js (Legacy)' : 'ExcelJS (Optimisé)';
+      console.log(`🚀 Utilisation du parser: ${parserName}`);
 
       // Créer le Web Worker
       workerRef.current = new Worker(workerPath);
@@ -106,8 +112,8 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
             break;
 
           case 'ERROR':
-            // ⚡ FALLBACK AUTOMATIQUE : Si ExcelJS échoue, réessayer avec XLSX.js
-            if (!fallbackAttemptedRef.current) {
+            // ⚡ FALLBACK AUTOMATIQUE : Si ExcelJS échoue, réessayer avec XLSX.js (sauf si parser forcé)
+            if (!fallbackAttemptedRef.current && !disableFallback) {
               console.warn('⚠️ Erreur avec ExcelJS, fallback vers XLSX.js...', err);
               setProgress({ progress: 0, message: '⚠️ Réessai avec parser legacy...' });
               
@@ -118,7 +124,7 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
               }
               
               // Réessayer avec le fallback
-              parseFile(file, true);
+              parseFile(file, 'xlsx');
             } else {
               // Échec définitif
               setError(err || 'Erreur lors du parsing');
@@ -143,8 +149,8 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
       workerRef.current.onerror = (err) => {
         console.error('Worker error:', err);
         
-        // Fallback automatique si pas encore tenté
-        if (!fallbackAttemptedRef.current) {
+        // Fallback automatique si pas encore tenté (sauf si parser forcé)
+        if (!fallbackAttemptedRef.current && !disableFallback) {
           console.warn('⚠️ Erreur Worker ExcelJS, fallback vers XLSX.js...');
           
           // Nettoyer le worker actuel
@@ -154,7 +160,7 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
           }
           
           // Réessayer avec le fallback
-          parseFile(file, true);
+          parseFile(file, 'xlsx');
         } else {
           setError('Erreur du Web Worker');
           setParsing(false);

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Box, Typography, Container, Link as MuiLink } from '@mui/material';
-import Link from 'next/link';
+import { OptimizedLink } from 'lib/components/common/OptimizedLink';
 
 export interface FooterProps {
   companyName?: string;
@@ -42,16 +42,16 @@ const Footer: React.FC<FooterProps> = ({
           </Typography>
           
           <Box sx={{ display: 'flex', gap: 3 }}>
-            <Link href="/terms" passHref>
+            <OptimizedLink href="/terms" prefetch={false}>
               <MuiLink variant="body2" color="text.secondary" underline="hover">
                 Conditions d'utilisation
               </MuiLink>
-            </Link>
-            <Link href="/privacy" passHref>
+            </OptimizedLink>
+            <OptimizedLink href="/privacy" prefetch={false}>
               <MuiLink variant="body2" color="text.secondary" underline="hover">
                 Politique de confidentialité
               </MuiLink>
-            </Link>
+            </OptimizedLink>
             <Typography variant="body2" color="text.secondary">
               {version}
             </Typography>
