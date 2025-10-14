@@ -89,6 +89,14 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     sessionId: activeSessionId  // ← Clé dynamique
   });
   
+  // 🔧 FIX BOUCLE INFINIE : Mémoriser sodSession pour éviter les re-renders
+  const memoizedSodSession = useMemo(() => sodSession, [
+    sodSession.session?.id,
+    sodSession.isLoading,
+    sodSession.error,
+    activeSessionId
+  ]);
+  
   // Parser Excel (garde la logique actuelle pour l'instant)
   const excelParser = useSodExcelParserOptimized();
   
@@ -159,7 +167,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       console.log('🚀 [EFFECT] Création session en cours...');
       
       // Créer la session et activer son ID
-      sodSession.createSessionFromParsedData(file, data)
+      memoizedSodSession.createSessionFromParsedData(file, data)
         .then((newSession) => {
           if (newSession) {
             console.log('✅ [EFFECT] Session créée, activation:', newSession.id);
@@ -172,16 +180,16 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       
       uploadedFileRef.current = null; // Nettoyer la référence
     }
-  }, [excelParser.parsedData, excelParser.parsing, activeSessionId, sodSession]);
+  }, [excelParser.parsedData, excelParser.parsing, activeSessionId, memoizedSodSession]);
   
   // État dérivé optimisé
   const state: SodWorkflowState = useMemo(() => ({
     importType,
-    loading: sodSession.isLoading || excelParser.parsing,
-    error: sodSession.error || excelParser.error,
+    loading: memoizedSodSession.isLoading || excelParser.parsing,
+    error: memoizedSodSession.error || excelParser.error,
     enableUsageAnalysis,
-    session: sodSession.session,
-    currentStep: sodSession.currentStep,
+    session: memoizedSodSession.session,
+    currentStep: memoizedSodSession.currentStep,
     // État du parsing
     parsing: excelParser.parsing || false,
     parsingProgress: excelParser.progress?.progress || 0,
@@ -190,10 +198,10 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   }), [
     importType,
     enableUsageAnalysis,
-    sodSession.isLoading,
-    sodSession.error,
-    sodSession.session,
-    sodSession.currentStep,
+    memoizedSodSession.isLoading,
+    memoizedSodSession.error,
+    memoizedSodSession.session,
+    memoizedSodSession.currentStep,
     excelParser.parsing,
     excelParser.progress?.progress,
     excelParser.progress?.message,
@@ -228,14 +236,14 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     
     setEnableUsageAnalysis,
     
-    setCurrentStep: sodSession.setCurrentStep || (() => {}),
+    setCurrentStep: memoizedSodSession.setCurrentStep || (() => {}),
     
-    createSessionFromParsedData: sodSession.createSessionFromParsedData,
+    createSessionFromParsedData: memoizedSodSession.createSessionFromParsedData,
     
     startAutomaticRemediation: async () => {
       console.log('🚀 Démarrage de la remédiation automatique...', {
         enableUsageAnalysis,
-        session: sodSession.session,
+        session: memoizedSodSession.session,
       });
       
       // TODO: Implémenter avec mutation TanStack Query
