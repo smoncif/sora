@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSodSession } from './useSodAnalysisQuery';
 import { useSodExcelParserOptimized } from './useSodExcelParserOptimized';
 import type { SodAnalysisSession } from 'lib/types/sodAnalysis';
@@ -88,94 +88,16 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   // Parser Excel (garde la logique actuelle pour l'instant)
   const excelParser = useSodExcelParserOptimized();
   
-  // ✅ SIMPLIFIÉ : Le hook useSodSession gère déjà les mutations
-  
-  // 🔄 MUTATION : Upload et parsing de fichier
-  const uploadFileMutation = useMutation({
-    mutationFn: async (file: File) => {
-      console.log('🚀 Démarrage de l\'analyse pour:', file.name);
-      
-      // Sauvegarder la référence au fichier
-      uploadedFileRef.current = file;
-      
-      // Parser le fichier Excel (asynchrone via Web Worker)
-      await excelParser.parseFile(file);
-      
-      return file;
-    },
-    onSuccess: (file) => {
-      console.log('✅ Fichier parsé avec succès:', file.name);
-      
-      // ✅ SIMPLIFIÉ : Le hook useSodSession gère la création de session automatiquement
-    },
-    onError: (error) => {
-      console.error('❌ Erreur lors du parsing:', error);
-      uploadedFileRef.current = null;
-    },
-  });
-  
-  // 🔄 MUTATION : Charger une analyse sauvegardée
-  const loadSavedAnalysisMutation = useMutation({
-    mutationFn: async () => {
-      console.log('📂 Chargement d\'analyse sauvegardée...');
-      
-      // Simuler l'appel API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      return {
-        id: 'saved_session_123',
-        userId: config.userId,
-        fileName: 'analyse_sauvegardee.xlsx',
-        createdAt: new Date().toISOString(),
-        // ... données de session
-      };
-    },
-    onSuccess: (sessionData) => {
-      console.log('✅ Analyse sauvegardée chargée:', sessionData.id);
-      queryClient.setQueryData(['sod-session', config.userId], sessionData);
-    },
-  });
-  
-  // 🔄 MUTATION : Reprendre depuis fichier
-  const resumeFromFileMutation = useMutation({
-    mutationFn: async () => {
-      console.log('🔄 Reprise depuis fichier...');
-      
-      // Simuler l'appel API
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      return {
-        id: 'resumed_session_456',
-        userId: config.userId,
-        fileName: 'analyse_reprise.xlsx',
-        createdAt: new Date().toISOString(),
-        // ... données de session
-      };
-    },
-    onSuccess: (sessionData) => {
-      console.log('✅ Analyse reprise avec succès:', sessionData.id);
-      queryClient.setQueryData(['sod-session', config.userId], sessionData);
-    },
-  });
+  // ✅ SIMPLIFIÉ : Le hook useSodSession gère toutes les mutations nécessaires
   
   // 🎯 OPTION B : Effet pour créer la session ET activer le sessionId
   useEffect(() => {
-    console.log('🔍 DEBUG useEffect déclenché:', {
-      hasParsedData: !!excelParser.parsedData,
-      isParsing: excelParser.parsing,
-      hasUploadedFile: !!uploadedFileRef.current,
-      activeSessionId: activeSessionId,
-      parsedDataLength: excelParser.parsedData?.length || 0
-    });
-    
     // Créer la session seulement si :
     // 1. Les données sont parsées
     // 2. Le parsing est terminé
     // 3. On a un fichier en attente
     // 4. Aucune session n'est active
     if (excelParser.parsedData && !excelParser.parsing && uploadedFileRef.current && !activeSessionId) {
-      console.log('📊 Création de la session SOD avec les données parsées...');
-      
       const file = uploadedFileRef.current;
       const data = excelParser.parsedData;
       
@@ -183,10 +105,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       sodSession.createSessionFromParsedData(file, data)
         .then((newSession) => {
           if (newSession) {
-            console.log('✅ Session créée, activation de l\'ID:', newSession.id);
             setActiveSessionId(newSession.id);  // 🎯 Active la session créée
-          } else {
-            console.error('❌ Échec de la création de session');
           }
         })
         .catch((error) => {
@@ -200,8 +119,8 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   // État dérivé optimisé
   const state: SodWorkflowState = useMemo(() => ({
     importType,
-    loading: sodSession.isLoading || excelParser.parsing || uploadFileMutation.isPending,
-    error: sodSession.error || excelParser.error || uploadFileMutation.error?.message,
+    loading: sodSession.isLoading || excelParser.parsing,
+    error: sodSession.error || excelParser.error,
     enableUsageAnalysis,
     session: sodSession.session,
     currentStep: sodSession.currentStep,
@@ -221,24 +140,32 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     excelParser.progress?.progress,
     excelParser.progress?.message,
     excelParser.error,
-    uploadFileMutation.isPending,
-    uploadFileMutation.error,
   ]);
   
-  // Actions optimisées avec mutations
+  // Actions optimisées
   const actions: SodWorkflowActions = useMemo(() => ({
     setImportType,
     
     startNewAnalysis: async (file: File) => {
-      uploadFileMutation.mutate(file);
+      console.log('🚀 Démarrage de l\'analyse pour:', file.name);
+      
+      // Sauvegarder la référence au fichier
+      uploadedFileRef.current = file;
+      
+      // Parser le fichier Excel (asynchrone via Web Worker)
+      await excelParser.parseFile(file);
     },
     
     loadSavedAnalysis: async () => {
-      loadSavedAnalysisMutation.mutate();
+      console.log('📂 Chargement d\'analyse sauvegardée...');
+      // TODO: Implémenter le chargement d'analyse sauvegardée
+      setActiveSessionId('saved_session_123');
     },
     
     resumeFromFile: async () => {
-      resumeFromFileMutation.mutate();
+      console.log('🔄 Reprise depuis fichier...');
+      // TODO: Implémenter la reprise depuis fichier
+      setActiveSessionId('resumed_session_456');
     },
     
     setEnableUsageAnalysis,
@@ -274,11 +201,9 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     enableUsageAnalysis,
     sodSession,
     excelParser,
-    uploadFileMutation,
-    loadSavedAnalysisMutation,
-    resumeFromFileMutation,
     queryClient,
     config.userId,
+    setActiveSessionId,
   ]);
   
   return {

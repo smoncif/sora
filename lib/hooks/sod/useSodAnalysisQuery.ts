@@ -282,12 +282,6 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
    * 🎯 OPTION B : Retourne la session créée pour que le workflow puisse mettre à jour le sessionId
    */
   const createSessionFromParsedData = useCallback(async (file: File, parsedRecords: any[]): Promise<SodAnalysisSession | null> => {
-    console.log('🎯 createSessionFromParsedData appelée avec:', {
-      fileName: file.name,
-      recordsCount: parsedRecords.length,
-      userId
-    });
-    
     setIsUploading(true);
     setWarnings([]);
     
@@ -298,19 +292,9 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
       const simpleRoleRecords = parsedRecords.filter(r => !r.compositeBusinessRole || r.compositeBusinessRole.trim() === '');
       const compositeRoleRecords = parsedRecords.filter(r => r.compositeBusinessRole && r.compositeBusinessRole.trim() !== '');
       
-      console.log('📊 Séparation des rôles:', {
-        simples: simpleRoleRecords.length,
-        composites: compositeRoleRecords.length
-      });
-      
       // Construire les hiérarchies
       const simpleRoles = buildSimpleRoleHierarchy(simpleRoleRecords);
       const compositeRoles = buildCompositeRoleHierarchy(compositeRoleRecords);
-      
-      console.log('🏗️ Hiérarchies construites:', {
-        simpleRoles: simpleRoles.length,
-        compositeRoles: compositeRoles.length
-      });
       
       // Calculer les métriques
       const simpleRolesMetrics = calculateSimpleRoleMetrics(simpleRoles);
@@ -363,12 +347,6 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
         },
       };
       
-      console.log('✅ Session créée:', {
-        id: newSession.id,
-        simpleRoles: newSession.simpleRoles.roles.length,
-        compositeRoles: newSession.compositeRoles.roles.length
-      });
-      
       // Utiliser la mutation TanStack Query pour créer la session
       // 🎯 Utiliser mutateAsync pour attendre la réponse
       await createSessionMutation.mutateAsync(newSession);
@@ -380,7 +358,6 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
       
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      console.error('❌ Erreur dans createSessionFromParsedData:', error);
       if (onError) {
         onError(error);
       }
