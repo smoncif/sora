@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // 🔧 TEMPORAIRE : Désactiver React Strict Mode pour mesurer vraies performances
+  // En dev, Strict Mode double tous les renders intentionnellement
+  reactStrictMode: false,
+  
   // Configuration optimisée pour Vercel
   experimental: {
     // Optimisations de performance
