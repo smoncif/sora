@@ -95,8 +95,8 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   // 🔍 LOG : Hook re-render
   console.log('🔧 [HOOK RENDER] useSodWorkflowOptimized render #' + renderCountRef.current, {
     activeSessionId,
-    parsing: excelParser.state.parsing,
-    progress: excelParser.state.progress
+    parsing: excelParser.state?.parsing,
+    progress: excelParser.state?.progress
   });
   
   // ✅ SIMPLIFIÉ : Le hook useSodSession gère toutes les mutations nécessaires
