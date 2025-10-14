@@ -146,16 +146,13 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   
   // ✅ SIMPLIFIÉ : Le hook useSodSession gère toutes les mutations nécessaires
   
+  // 🔧 STABILISER createSessionFromParsedData avec useRef pour éviter boucle infinie
+  const createSessionRef = useRef(createSessionFromParsedData);
+  createSessionRef.current = createSessionFromParsedData;
+  
   // 🎯 OPTION B : Effet pour créer la session ET activer le sessionId
+  // ⚠️ IMPORTANT : Ne PAS mettre createSessionFromParsedData dans les deps !
   useEffect(() => {
-    console.log('🔧 [EFFECT] Session creation effect déclenché', {
-      hasParsedData: !!parsedData,
-      isParsing: parsingState,
-      hasUploadedFile: !!uploadedFileRef.current,
-      activeSessionId,
-      shouldCreateSession: !!(parsedData && !parsingState && uploadedFileRef.current && !activeSessionId)
-    });
-    
     // Créer la session seulement si :
     // 1. Les données sont parsées
     // 2. Le parsing est terminé
@@ -167,8 +164,8 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       
       console.log('🚀 [EFFECT] Création session en cours...');
       
-      // Créer la session et activer son ID
-      createSessionFromParsedData(file, data)
+      // Utiliser la ref pour éviter la dépendance instable
+      createSessionRef.current(file, data)
         .then((newSession) => {
           if (newSession) {
             console.log('✅ [EFFECT] Session créée, activation:', newSession.id);
@@ -181,7 +178,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       
       uploadedFileRef.current = null; // Nettoyer la référence
     }
-  }, [parsedData, parsingState, activeSessionId, createSessionFromParsedData]);
+  }, [parsedData, parsingState, activeSessionId]);
   
   // État dérivé optimisé
   const state: SodWorkflowState = useMemo(() => ({
