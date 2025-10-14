@@ -30,11 +30,36 @@ export default function SodAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
   
-  // 🔍 LOG : Tracker les renders du composant principal
+  // 🔍 LOG : Tracker les renders du composant principal avec causes
   const renderCountRef = useRef(0);
+  const prevPropsRef = useRef<any>({});
+  
   useEffect(() => {
     renderCountRef.current += 1;
-    console.log('🎨 [RENDER] SodAnalysisPage render #' + renderCountRef.current);
+    
+    // Identifier ce qui a changé pour causer ce render
+    const currentProps = {
+      hasSession: !!sodWorkflow.state.session,
+      sessionId: sodWorkflow.state.session?.id,
+      parsing: sodWorkflow.state.parsing,
+      loading: sodWorkflow.state.loading,
+      simpleRolePage,
+      compositeRolePage,
+      version
+    };
+    
+    const changes: string[] = [];
+    Object.keys(currentProps).forEach(key => {
+      if (prevPropsRef.current[key] !== currentProps[key]) {
+        changes.push(`${key}: ${prevPropsRef.current[key]} → ${currentProps[key]}`);
+      }
+    });
+    
+    console.log('🎨 [RENDER] SodAnalysisPage render #' + renderCountRef.current, {
+      causes: changes.length > 0 ? changes : ['Initial render ou cause inconnue']
+    });
+    
+    prevPropsRef.current = currentProps;
   });
 
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
@@ -115,10 +140,14 @@ export default function SodAnalysisPage() {
     const step1Duration = performance.now() - step1Start;
     console.log('⏱️ [STEP 1] setState page:', step1Duration.toFixed(2), 'ms');
     
-    setPrefetchStatus(prev => ({ ...prev, simple: '⚡ Prefetch...' }));
+    // ✅ MESURE DU TEMPS RÉEL DE PAGINATION (avant async ops)
+    const syncDuration = performance.now() - startTime;
+    console.log('✅ [SYNC DONE] Mise à jour synchrone terminée:', syncDuration.toFixed(2), 'ms');
     
-    // ⚡ Prefetch les pages adjacentes après changement (UNE SEULE FOIS)
+    // ⚡ Prefetch asynchrone (non-bloquant pour l'UI)
     setTimeout(() => {
+      setPrefetchStatus(prev => ({ ...prev, simple: '⚡ Prefetch...' }));
+      
       const prefetchStart = performance.now();
       const totalPages = Math.ceil(simpleRoles.length / simpleRolesPerPage);
       
@@ -130,14 +159,9 @@ export default function SodAnalysisPage() {
       }
       
       const prefetchDuration = performance.now() - prefetchStart;
-      console.log('⏱️ [STEP 2] Prefetch pages adjacentes:', prefetchDuration.toFixed(2), 'ms');
+      console.log('⏱️ [ASYNC] Prefetch pages adjacentes:', prefetchDuration.toFixed(2), 'ms');
       
-      // ✅ Marquer comme terminé
-      setTimeout(() => {
-        setPrefetchStatus(prev => ({ ...prev, simple: '✅ Prêt' }));
-        const totalDuration = performance.now() - startTime;
-        console.log('✅ [TOTAL] Changement de page complet:', totalDuration.toFixed(2), 'ms');
-      }, 50);
+      setPrefetchStatus(prev => ({ ...prev, simple: '✅ Prêt' }));
     }, 0);
   }, [simpleRoles, simpleRolesPerPage, prefetchNextPage, prefetchPreviousPage, simpleRolePage]);
   
@@ -217,8 +241,18 @@ export default function SodAnalysisPage() {
   const lastCacheKey = useRef<string>('');
   
   const allRestrictedActions = useMemo(() => {
+    console.log('🔍 [MEMO TRIGGERED] allRestrictedActions useMemo déclenché', {
+      parsing: sodWorkflow.state.parsing,
+      version,
+      simpleRolesCount: simpleRoles.length,
+      compositeRolesCount: compositeRoles.length,
+      restrictedActionsSize: restrictedActions.size,
+      restrictedResourcesSize: restrictedResources.size
+    });
+    
     // ⚡ Skip pendant le parsing pour ne pas ralentir le chargement
     if (sodWorkflow.state.parsing) {
+      console.log('⚠️ [SKIP] Parsing en cours, skip calcul allRestrictedActions');
       return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     }
     
@@ -355,18 +389,22 @@ export default function SodAnalysisPage() {
   
   // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
   // Slice ultra-rapide (< 1ms) sur les données brutes
+  const sliceCountRef = useRef(0);
+  
   const paginatedSimpleRolesRaw = useMemo(() => {
+    sliceCountRef.current += 1;
     const sliceStart = performance.now();
     const start = simpleRolePage * simpleRolesPerPage;
     const end = start + simpleRolesPerPage;
     const result = simpleRoles.slice(start, end);
     const sliceDuration = performance.now() - sliceStart;
-    console.log('🔍 [SLICE] paginatedSimpleRolesRaw:', {
+    console.log(`🔍 [SLICE #${sliceCountRef.current}] paginatedSimpleRolesRaw:`, {
       page: simpleRolePage,
       pageSize: simpleRolesPerPage,
       sliceRange: `${start}-${end}`,
       resultCount: result.length,
-      duration: sliceDuration.toFixed(2) + 'ms'
+      duration: sliceDuration.toFixed(2) + 'ms',
+      simpleRolesRefStable: '?'  // On verra si recalcul fréquent
     });
     return result;
   }, [simpleRoles, simpleRolePage, simpleRolesPerPage]);
@@ -387,16 +425,19 @@ export default function SodAnalysisPage() {
   }), [isActionDeleted, isActionRestricted, isResourceRestricted]);
   
   // ✅ Mémoisation optimale : Se recalcule UNIQUEMENT si les rôles de la page ou version changent
+  const applyCountRef = useRef(0);
+  
   const paginatedSimpleRoles = useMemo(() => {
+    applyCountRef.current += 1;
     const applyStart = performance.now();
     const result = applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsState);
     const applyDuration = performance.now() - applyStart;
-    console.log('🔍 [APPLY] applyStateToSimpleRoles:', {
+    console.log(`🔍 [APPLY #${applyCountRef.current}] applyStateToSimpleRoles:`, {
       inputCount: paginatedSimpleRolesRaw.length,
       outputCount: result.length,
       version: version,
       duration: applyDuration.toFixed(2) + 'ms',
-      isRecalculated: true
+      rawRolesRefStable: '?'
     });
     return result;
   }, [paginatedSimpleRolesRaw, actionsState, version]);
@@ -406,10 +447,16 @@ export default function SodAnalysisPage() {
   }, [paginatedCompositeRolesRaw, actionsState, version]);
   
   // 🔍 LOG GLOBAL : Résumé de l'état actuel de la pagination
+  const lastRenderTime = useRef(performance.now());
+  
   useEffect(() => {
     if (paginatedSimpleRoles.length > 0) {
+      const now = performance.now();
+      const timeSinceLastRender = now - lastRenderTime.current;
+      
       console.log('📊 [RÉSUMÉ PAGINATION]', {
         render: renderCountRef.current,
+        timeSinceLastRender: timeSinceLastRender.toFixed(2) + 'ms',
         simpleRolesTotal: simpleRoles.length,
         compositeRolesTotal: compositeRoles.length,
         currentPage: simpleRolePage + 1,
@@ -417,6 +464,16 @@ export default function SodAnalysisPage() {
         rolesOnPage: paginatedSimpleRoles.length,
         cacheStatus: lastCacheKey.current ? 'ACTIVE' : 'VIDE'
       });
+      
+      // 🚨 ALERTE si renders trop rapprochés (< 10ms = boucle infinie)
+      if (timeSinceLastRender < 10 && renderCountRef.current > 2) {
+        console.error('🚨 [ALERTE] Renders trop rapprochés ! Possible boucle infinie:', {
+          timeSinceLastRender: timeSinceLastRender.toFixed(2) + 'ms',
+          renderCount: renderCountRef.current
+        });
+      }
+      
+      lastRenderTime.current = now;
     }
   }, [simpleRolePage, paginatedSimpleRoles, simpleRoles.length, compositeRoles.length, simpleRolesPerPage]);
   
