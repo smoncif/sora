@@ -92,17 +92,61 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   // Parser Excel (garde la logique actuelle pour l'instant)
   const excelParser = useSodExcelParserOptimized();
   
-  // 🔍 LOG : Hook re-render
-  console.log('🔧 [HOOK RENDER] useSodWorkflowOptimized render #' + renderCountRef.current, {
+  // 🔍 LOG : Hook re-render avec détection de cause
+  const prevHookState = useRef({
     activeSessionId,
     parsing: excelParser.state?.parsing,
-    progress: excelParser.state?.progress
+    progress: excelParser.state?.progress,
+    importType,
+    enableUsageAnalysis
   });
+  
+  const hookChanges: string[] = [];
+  if (prevHookState.current.activeSessionId !== activeSessionId) {
+    hookChanges.push(`activeSessionId: ${prevHookState.current.activeSessionId} → ${activeSessionId}`);
+  }
+  if (prevHookState.current.parsing !== excelParser.state?.parsing) {
+    hookChanges.push(`parsing: ${prevHookState.current.parsing} → ${excelParser.state?.parsing}`);
+  }
+  if (prevHookState.current.progress !== excelParser.state?.progress) {
+    hookChanges.push(`progress: ${prevHookState.current.progress} → ${excelParser.state?.progress}`);
+  }
+  if (prevHookState.current.importType !== importType) {
+    hookChanges.push(`importType: ${prevHookState.current.importType} → ${importType}`);
+  }
+  if (prevHookState.current.enableUsageAnalysis !== enableUsageAnalysis) {
+    hookChanges.push(`enableUsageAnalysis: ${prevHookState.current.enableUsageAnalysis} → ${enableUsageAnalysis}`);
+  }
+  
+  console.log('🔧 [HOOK RENDER] useSodWorkflowOptimized render #' + renderCountRef.current, {
+    changes: hookChanges.length > 0 ? hookChanges : ['Hook re-render sans changement détecté'],
+    activeSessionId,
+    parsing: excelParser.state?.parsing,
+    progress: excelParser.state?.progress,
+    importType,
+    enableUsageAnalysis
+  });
+  
+  prevHookState.current = {
+    activeSessionId,
+    parsing: excelParser.state?.parsing,
+    progress: excelParser.state?.progress,
+    importType,
+    enableUsageAnalysis
+  };
   
   // ✅ SIMPLIFIÉ : Le hook useSodSession gère toutes les mutations nécessaires
   
   // 🎯 OPTION B : Effet pour créer la session ET activer le sessionId
   useEffect(() => {
+    console.log('🔧 [EFFECT] Session creation effect déclenché', {
+      hasParsedData: !!excelParser.parsedData,
+      isParsing: excelParser.parsing,
+      hasUploadedFile: !!uploadedFileRef.current,
+      activeSessionId,
+      shouldCreateSession: !!(excelParser.parsedData && !excelParser.parsing && uploadedFileRef.current && !activeSessionId)
+    });
+    
     // Créer la session seulement si :
     // 1. Les données sont parsées
     // 2. Le parsing est terminé
@@ -112,10 +156,13 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       const file = uploadedFileRef.current;
       const data = excelParser.parsedData;
       
+      console.log('🚀 [EFFECT] Création session en cours...');
+      
       // Créer la session et activer son ID
       sodSession.createSessionFromParsedData(file, data)
         .then((newSession) => {
           if (newSession) {
+            console.log('✅ [EFFECT] Session créée, activation:', newSession.id);
             setActiveSessionId(newSession.id);  // 🎯 Active la session créée
           }
         })
