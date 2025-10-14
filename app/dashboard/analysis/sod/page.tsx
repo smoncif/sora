@@ -37,26 +37,74 @@ export default function SodAnalysisPage() {
   useEffect(() => {
     renderCountRef.current += 1;
     
-    // Identifier ce qui a changé pour causer ce render
+    // Identifier TOUT ce qui a changé pour causer ce render
     const currentProps = {
+      // État principal
       hasSession: !!sodWorkflow.state.session,
       sessionId: sodWorkflow.state.session?.id,
       parsing: sodWorkflow.state.parsing,
       loading: sodWorkflow.state.loading,
+      error: sodWorkflow.state.error,
+      
+      // Pagination
       simpleRolePage,
       compositeRolePage,
-      version
+      
+      // Version et cache
+      version,
+      
+      // Données (pour détecter les changements de contenu)
+      simpleRolesCount: simpleRoles.length,
+      compositeRolesCount: compositeRoles.length,
+      restrictedActionsSize: restrictedActions.size,
+      restrictedResourcesSize: restrictedResources.size,
+      
+      // État du parser (nouveau)
+      parserProgress: sodWorkflow.state.parserProgress,
+      parserError: sodWorkflow.state.parserError,
+      parserMode: sodWorkflow.state.parserMode,
+      
+      // État des mutations TanStack Query
+      createSessionStatus: sodWorkflow.actions.createSession?.status,
+      updateSessionStatus: sodWorkflow.actions.updateSession?.status,
     };
     
     const changes: string[] = [];
     Object.keys(currentProps).forEach(key => {
-      if (prevPropsRef.current[key] !== currentProps[key]) {
-        changes.push(`${key}: ${prevPropsRef.current[key]} → ${currentProps[key]}`);
+      const oldValue = prevPropsRef.current[key];
+      const newValue = currentProps[key];
+      
+      if (oldValue !== newValue) {
+        changes.push(`${key}: ${oldValue} → ${newValue}`);
       }
     });
     
+    // Détecter les changements dans les objets complexes
+    if (sodWorkflow.state.session) {
+      const oldSessionId = prevPropsRef.current.sessionId;
+      const newSessionId = sodWorkflow.state.session.id;
+      if (oldSessionId !== newSessionId) {
+        changes.push(`session.id: ${oldSessionId} → ${newSessionId}`);
+      }
+    }
+    
+    // 🔍 DÉTECTION SPÉCIALE : Parser Progress (cause probable des 55 renders)
+    if (sodWorkflow.state.parserProgress) {
+      const oldProgress = prevPropsRef.current.parserProgress;
+      const newProgress = sodWorkflow.state.parserProgress;
+      if (oldProgress?.percentage !== newProgress?.percentage) {
+        changes.push(`parserProgress: ${oldProgress?.percentage}% → ${newProgress?.percentage}%`);
+      }
+      if (oldProgress?.phase !== newProgress?.phase) {
+        changes.push(`parserPhase: ${oldProgress?.phase} → ${newProgress?.phase}`);
+      }
+    }
+    
     console.log('🎨 [RENDER] SodAnalysisPage render #' + renderCountRef.current, {
-      causes: changes.length > 0 ? changes : ['Initial render ou cause inconnue']
+      causes: changes.length > 0 ? changes : ['Initial render ou cause inconnue'],
+      timestamp: new Date().toISOString(),
+      parsing: sodWorkflow.state.parsing,
+      hasSession: !!sodWorkflow.state.session
     });
     
     prevPropsRef.current = currentProps;

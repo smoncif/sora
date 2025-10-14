@@ -66,6 +66,10 @@ export interface SodWorkflow {
 }
 
 export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow => {
+  // 🔍 LOG : Détecter les re-renders du hook
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  
   const queryClient = useQueryClient();
   
   // État local pour les préférences utilisateur (ne nécessite pas de cache)
@@ -87,6 +91,13 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   
   // Parser Excel (garde la logique actuelle pour l'instant)
   const excelParser = useSodExcelParserOptimized();
+  
+  // 🔍 LOG : Hook re-render
+  console.log('🔧 [HOOK RENDER] useSodWorkflowOptimized render #' + renderCountRef.current, {
+    activeSessionId,
+    parsing: excelParser.state.parsing,
+    progress: excelParser.state.progress
+  });
   
   // ✅ SIMPLIFIÉ : Le hook useSodSession gère toutes les mutations nécessaires
   
