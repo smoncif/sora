@@ -31,83 +31,6 @@ import { useSodPagedCompositeRoles } from 'lib/hooks/sod/useSodPagedCompositeRol
 export default function SodAnalysisPage() {
   const { user } = useAuth();
   const theme = useTheme();
-  
-  // 🔍 LOG : Tracker les renders du composant principal avec causes
-  const renderCountRef = useRef(0);
-  const prevPropsRef = useRef<any>({});
-  
-  useEffect(() => {
-    renderCountRef.current += 1;
-    
-    // Identifier TOUT ce qui a changé pour causer ce render
-    const currentProps = {
-      // État principal
-      hasSession: !!sodWorkflow.state.session,
-      sessionId: sodWorkflow.state.session?.id,
-      parsing: sodWorkflow.state.parsing,
-      loading: sodWorkflow.state.loading,
-      error: sodWorkflow.state.error,
-      
-      // Pagination
-      simpleRolePage,
-      compositeRolePage,
-      
-      // Version et cache
-      version,
-      
-      // Données (pour détecter les changements de contenu)
-      simpleRolesCount: simpleRoles.length,
-      compositeRolesCount: compositeRoles.length,
-      restrictedActionsSize: restrictedActions.size,
-      restrictedResourcesSize: restrictedResources.size,
-      
-      // État du parser (nouveau)
-      parserProgress: sodWorkflow.state.parsingProgress,
-      parserError: sodWorkflow.state.parsingError,
-      parserMessage: sodWorkflow.state.parsingMessage,
-      
-      // État des mutations TanStack Query (simplifié)
-      // createSessionStatus: sodWorkflow.actions.createSession?.status,
-      // updateSessionStatus: sodWorkflow.actions.updateSession?.status,
-    };
-    
-    const changes: string[] = [];
-    (Object.keys(currentProps) as Array<keyof typeof currentProps>).forEach(key => {
-      const oldValue = prevPropsRef.current[key];
-      const newValue = currentProps[key];
-      
-      if (oldValue !== newValue) {
-        changes.push(`${key}: ${oldValue} → ${newValue}`);
-      }
-    });
-    
-    // Détecter les changements dans les objets complexes
-    if (sodWorkflow.state.session) {
-      const oldSessionId = prevPropsRef.current.sessionId;
-      const newSessionId = sodWorkflow.state.session.id;
-      if (oldSessionId !== newSessionId) {
-        changes.push(`session.id: ${oldSessionId} → ${newSessionId}`);
-      }
-    }
-    
-    // 🔍 DÉTECTION SPÉCIALE : Parser Progress (cause probable des 55 renders)
-    if (sodWorkflow.state.parsingProgress) {
-      const oldProgress = prevPropsRef.current.parserProgress;
-      const newProgress = sodWorkflow.state.parsingProgress;
-      if (oldProgress !== newProgress) {
-        changes.push(`parserProgress: ${oldProgress} → ${newProgress}`);
-      }
-    }
-    
-    console.log('🎨 [RENDER] SodAnalysisPage render #' + renderCountRef.current, {
-      causes: changes.length > 0 ? changes : ['Initial render ou cause inconnue'],
-      timestamp: new Date().toISOString(),
-      parsing: sodWorkflow.state.parsing,
-      hasSession: !!sodWorkflow.state.session
-    });
-    
-    prevPropsRef.current = currentProps;
-  });
 
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
   const sodWorkflow = useSodWorkflowOptimized({ userId: user?.id || 'anonymous' });
@@ -218,23 +141,10 @@ export default function SodAnalysisPage() {
   
   // ✅ Callbacks de pagination mémorisés avec prefetch TanStack Query
   const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
-    const startTime = performance.now();
-    console.log('🔍 [PAGINATION] Changement page simple:', { 
-      from: simpleRolePage, 
-      to: newPage,
-      timestamp: new Date().toISOString() 
-    });
-    
-    // Étape 1 : Mise à jour de l'état de page
     setSimpleRolePage(newPage);
-    
-    // ✅ MESURE DU TEMPS RÉEL DE PAGINATION
-    const syncDuration = performance.now() - startTime;
-    console.log('✅ [SYNC DONE] Mise à jour synchrone terminée:', syncDuration.toFixed(2), 'ms');
-    
     // ⚡ Les données sont déjà en cache TanStack Query !
     // Le hook useSodPagedRoles gère automatiquement le prefetch
-  }, [simpleRolePage]);
+  }, []);
   
   const handleSimpleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const newPageSize = parseInt(event.target.value, 10);
@@ -244,20 +154,9 @@ export default function SodAnalysisPage() {
   }, []);
   
   const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
-    const startTime = performance.now();
-    console.log('🔍 [PAGINATION] Changement page composite:', { 
-      from: compositeRolePage, 
-      to: newPage,
-      timestamp: new Date().toISOString() 
-    });
-    
     setCompositeRolePage(newPage);
-    
-    const syncDuration = performance.now() - startTime;
-    console.log('✅ [SYNC DONE COMPOSITE] Mise à jour synchrone terminée:', syncDuration.toFixed(2), 'ms');
-    
     // ⚡ Les données sont déjà en cache TanStack Query !
-  }, [compositeRolePage]);
+  }, []);
   
   const handleCompositeRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const newPageSize = parseInt(event.target.value, 10);
@@ -281,18 +180,8 @@ export default function SodAnalysisPage() {
   const lastCacheKey = useRef<string>('');
   
   const allRestrictedActions = useMemo(() => {
-    console.log('🔍 [MEMO TRIGGERED] allRestrictedActions useMemo déclenché', {
-      parsing: sodWorkflow.state.parsing,
-      version,
-      simpleRolesCount: simpleRoles.length,
-      compositeRolesCount: compositeRoles.length,
-      restrictedActionsSize: restrictedActions.size,
-      restrictedResourcesSize: restrictedResources.size
-    });
-    
     // ⚡ Skip pendant le parsing pour ne pas ralentir le chargement
     if (sodWorkflow.state.parsing) {
-      console.log('⚠️ [SKIP] Parsing en cours, skip calcul allRestrictedActions');
       return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     }
     
@@ -301,21 +190,10 @@ export default function SodAnalysisPage() {
     
     // ✅ Retour ultra-rapide si cache valide (évite recalcul ~390 opérations)
     if (cacheKey === lastCacheKey.current && restrictedActionsCache.current.has(cacheKey)) {
-      console.log('⚡ [CACHE HIT] allRestrictedActions depuis cache:', {
-        cacheKey,
-        cacheSize: restrictedActionsCache.current.get(cacheKey)!.size,
-        duration: '< 0.01ms'
-      });
       return restrictedActionsCache.current.get(cacheKey)!;
     }
     
-    console.log('🔄 [CACHE MISS] allRestrictedActions recalcul nécessaire:', {
-      oldKey: lastCacheKey.current,
-      newKey: cacheKey
-    });
-    
     lastCacheKey.current = cacheKey;
-    const calcStart = performance.now();
     
     const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     
@@ -406,14 +284,6 @@ export default function SodAnalysisPage() {
       });
     });
     
-    const calcDuration = performance.now() - calcStart;
-    console.log('✅ [CALC] allRestrictedActions calculé:', {
-      totalRoles: simpleRoles.length + compositeRoles.length,
-      restrictedActionsFound: result.size,
-      duration: calcDuration.toFixed(2) + 'ms',
-      cacheKey
-    });
-    
     // ✅ Sauvegarder dans le cache avant de retourner
     restrictedActionsCache.current.set(cacheKey, result);
     
@@ -433,38 +303,7 @@ export default function SodAnalysisPage() {
   // - Application de l'état (applyStateToSimpleRoles)
   // - Cache TanStack Query
   // - Prefetch des pages adjacentes
-  // - Logs de performance (CACHE HIT/MISS)
-  
-  // 🔍 LOG GLOBAL : Résumé de l'état actuel de la pagination
-  const lastRenderTime = useRef(performance.now());
-  
-  useEffect(() => {
-    if (paginatedSimpleRoles.length > 0) {
-      const now = performance.now();
-      const timeSinceLastRender = now - lastRenderTime.current;
-      
-      console.log('📊 [RÉSUMÉ PAGINATION]', {
-        render: renderCountRef.current,
-        timeSinceLastRender: timeSinceLastRender.toFixed(2) + 'ms',
-        simpleRolesTotal: simpleRoles.length,
-        compositeRolesTotal: compositeRoles.length,
-        currentPage: simpleRolePage + 1,
-        pageSize: simpleRolesPerPage,
-        rolesOnPage: paginatedSimpleRoles.length,
-        cacheStatus: lastCacheKey.current ? 'ACTIVE' : 'VIDE'
-      });
-      
-      // 🚨 ALERTE si renders trop rapprochés (< 10ms = boucle infinie)
-      if (timeSinceLastRender < 10 && renderCountRef.current > 2) {
-        console.error('🚨 [ALERTE] Renders trop rapprochés ! Possible boucle infinie:', {
-          timeSinceLastRender: timeSinceLastRender.toFixed(2) + 'ms',
-          renderCount: renderCountRef.current
-        });
-      }
-      
-      lastRenderTime.current = now;
-    }
-  }, [simpleRolePage, paginatedSimpleRoles, simpleRoles.length, compositeRoles.length, simpleRolesPerPage]);
+  // - Logs de performance (CACHE HIT/MISS dans les hooks)
   
   // ⚡ OPTIMISATION PREFETCH : Prefetch des pages adjacentes pour navigation instantanée
   // ✅ NOUVEAU : Prefetch intelligent des données de pagination
