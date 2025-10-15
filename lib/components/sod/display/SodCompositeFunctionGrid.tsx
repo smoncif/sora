@@ -26,6 +26,8 @@ import { SodCompositeRoleFunction } from 'lib/types/sodAnalysis';
 import { SodSimpleRoleInCompositeItem } from './SodSimpleRoleInCompositeItem';
 import { useLazyFunctionRendering } from 'lib/hooks/sod/useLazyFunctionRendering';
 import { SodFunctionSkeleton } from '../skeleton/SodFunctionSkeleton';
+import { useLazySimpleRoleRendering } from 'lib/hooks/sod/useLazySimpleRoleRendering';
+import { SodSimpleRoleSkeleton } from '../skeleton/SodSimpleRoleSkeleton';
 
 export interface SodCompositeFunctionGridProps {
   /** Fonctions à afficher */
@@ -66,6 +68,30 @@ const SodCompositeFunctionCard: React.FC<{
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { code, description, system, simpleRoles, simpleRoleCount, totalActionCount } = func;
+  
+  // 🚀 LAZY LOADING : Chargement progressif des rôles simples dans la fonction composite
+  const {
+    visibleSimpleRoles,
+    hasMore: hasMoreSimpleRoles,
+    observerRef: simpleRoleObserverRef,
+    remainingCount: remainingSimpleRoles,
+    isLazyActive: isSimpleRoleLazyActive,
+  } = useLazySimpleRoleRendering({
+    allSimpleRoles: simpleRoles,
+    initialBatchSize: 5,   // ⚡ 5 rôles immédiats
+    scrollBatchSize: 3,    // ⚡ +3 rôles au scroll
+    lazyThreshold: 8,      // ⚡ Activer si > 8 rôles
+  });
+  
+  // 🔍 DEBUG : Logs pour diagnostiquer
+  console.log('🔍 [SIMPLE ROLE DEBUG]', {
+    functionCode: code,
+    totalSimpleRoles: simpleRoles.length,
+    visibleSimpleRoles: visibleSimpleRoles.length,
+    hasMoreSimpleRoles,
+    remainingSimpleRoles,
+    isSimpleRoleLazyActive,
+  });
   
   return (
     <Paper
@@ -185,20 +211,42 @@ const SodCompositeFunctionCard: React.FC<{
               Aucun rôle simple
             </Typography>
           ) : (
-            simpleRoles.map((simpleRole, index: number) => (
-              <SodSimpleRoleInCompositeItem
-                key={index}
-                simpleRole={simpleRole}
-                functionCode={code}
-                level={0}
-                defaultExpanded={false}
-                compositeRoleName={compositeRoleName}
-                riskId={riskId}
-                onDeleteAction={onDeleteAction}
-                onRestrictAction={onRestrictAction}
-                onRestrictResource={onRestrictResource}
-              />
-            ))
+            <>
+              {/* Rôles simples visibles */}
+              {visibleSimpleRoles.map((simpleRole, index: number) => (
+                <SodSimpleRoleInCompositeItem
+                  key={index}
+                  simpleRole={simpleRole}
+                  functionCode={code}
+                  level={0}
+                  defaultExpanded={false}
+                  compositeRoleName={compositeRoleName}
+                  riskId={riskId}
+                  onDeleteAction={onDeleteAction}
+                  onRestrictAction={onRestrictAction}
+                  onRestrictResource={onRestrictResource}
+                />
+              ))}
+              
+              {/* Skeletons pour rôles simples non encore chargés */}
+              {hasMoreSimpleRoles && (
+                <>
+                  {Array.from({ length: Math.min(remainingSimpleRoles, 3) }).map((_, i) => (
+                    <SodSimpleRoleSkeleton key={`skeleton-simple-role-${i}`} />
+                  ))}
+                  
+                  {/* Sentinel pour Intersection Observer */}
+                  <div 
+                    ref={simpleRoleObserverRef} 
+                    style={{ 
+                      height: '1px', 
+                      width: '100%' 
+                    }} 
+                    aria-hidden="true"
+                  />
+                </>
+              )}
+            </>
           )}
         </Box>
       </Collapse>

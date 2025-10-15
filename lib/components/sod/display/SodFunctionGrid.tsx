@@ -25,6 +25,8 @@ import { SodActionItem } from './SodActionItem';
 import { detectDuplicateActionsInRisk, extractActionSignature } from 'lib/utils/sodConflictDetection';
 import { useLazyFunctionRendering } from 'lib/hooks/sod/useLazyFunctionRendering';
 import { SodFunctionSkeleton } from '../skeleton/SodFunctionSkeleton';
+import { useLazyActionRendering } from 'lib/hooks/sod/useLazyActionRendering';
+import { SodActionSkeleton } from '../skeleton/SodActionSkeleton';
 
 export interface SodFunctionGridProps {
   /** Fonctions à afficher */
@@ -71,6 +73,30 @@ const SodFunctionCard: React.FC<{
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { code, description, system, actions } = func;
+  
+  // 🚀 LAZY LOADING : Chargement progressif des actions dans la fonction
+  const {
+    visibleActions,
+    hasMore: hasMoreActions,
+    observerRef: actionObserverRef,
+    remainingCount: remainingActions,
+    isLazyActive: isActionLazyActive,
+  } = useLazyActionRendering({
+    allActions: actions,
+    initialBatchSize: 5,   // ⚡ 5 actions immédiates
+    scrollBatchSize: 3,    // ⚡ +3 actions au scroll
+    lazyThreshold: 8,      // ⚡ Activer si > 8 actions
+  });
+  
+  // 🔍 DEBUG : Logs pour diagnostiquer
+  console.log('🔍 [ACTION DEBUG]', {
+    functionCode: code,
+    totalActions: actions.length,
+    visibleActions: visibleActions.length,
+    hasMoreActions,
+    remainingActions,
+    isActionLazyActive,
+  });
   
   return (
     <Paper
@@ -169,27 +195,49 @@ const SodFunctionCard: React.FC<{
               Aucune action
             </Typography>
           ) : (
-            actions.map((action, index: number) => {
-              // Utiliser le duplicateMap pré-calculé (plus de détection à chaque fois !)
-              const actionKey = extractActionSignature(action);
-              const entry = duplicateMap?.get(actionKey);
-              const isDuplicate = entry ? entry.isDuplicate && entry.functionIndices.includes(functionIndex) : false;
+            <>
+              {/* Actions visibles */}
+              {visibleActions.map((action, index: number) => {
+                // Utiliser le duplicateMap pré-calculé (plus de détection à chaque fois !)
+                const actionKey = extractActionSignature(action);
+                const entry = duplicateMap?.get(actionKey);
+                const isDuplicate = entry ? entry.isDuplicate && entry.functionIndices.includes(functionIndex) : false;
+                
+                return (
+                  <SodActionItem
+                    key={index}
+                    action={action}
+                    level={0}
+                    defaultExpanded={false}
+                    isDuplicate={isDuplicate}
+                    onDelete={(code, resources) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
+                    onRestrict={(code, resources) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
+                    onRestrictResource={(actionCode, resourceCode, externalResourceCode, values) => 
+                      roleName && riskId && onRestrictResource?.(roleName, riskId, actionCode, resourceCode, externalResourceCode, values)
+                    }
+                  />
+                );
+              })}
               
-              return (
-                <SodActionItem
-                  key={index}
-                  action={action}
-                  level={0}
-                  defaultExpanded={false}
-                  isDuplicate={isDuplicate}
-                  onDelete={(code, resources) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
-                  onRestrict={(code, resources) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
-                  onRestrictResource={(actionCode, resourceCode, externalResourceCode, values) => 
-                    roleName && riskId && onRestrictResource?.(roleName, riskId, actionCode, resourceCode, externalResourceCode, values)
-                  }
-                />
-              );
-            })
+              {/* Skeletons pour actions non encore chargées */}
+              {hasMoreActions && (
+                <>
+                  {Array.from({ length: Math.min(remainingActions, 3) }).map((_, i) => (
+                    <SodActionSkeleton key={`skeleton-action-${i}`} />
+                  ))}
+                  
+                  {/* Sentinel pour Intersection Observer */}
+                  <div 
+                    ref={actionObserverRef} 
+                    style={{ 
+                      height: '1px', 
+                      width: '100%' 
+                    }} 
+                    aria-hidden="true"
+                  />
+                </>
+              )}
+            </>
           )}
         </Box>
       </Collapse>
