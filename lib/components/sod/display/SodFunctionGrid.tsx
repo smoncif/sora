@@ -251,9 +251,19 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
     isLazyActive,
   } = useLazyFunctionRendering({
     allFunctions: functions,
-    initialBatchSize: 4,   // ⚡ 4 fonctions immédiates (2 colonnes)
-    scrollBatchSize: 2,    // ⚡ +2 fonctions au scroll (1 ligne)
-    lazyThreshold: 6,      // ⚡ Activer si > 6 fonctions
+    initialBatchSize: 2,   // ⚡ 2 fonctions immédiates pour test
+    scrollBatchSize: 2,    // ⚡ +2 fonctions au scroll
+    lazyThreshold: 3,      // ⚡ Activer si > 3 fonctions (pour test)
+  });
+  
+  // 🔍 DEBUG : Logs pour diagnostiquer
+  console.log('🔍 [FUNCTION GRID DEBUG]', {
+    totalFunctions: functions.length,
+    visibleFunctions: visibleFunctions.length,
+    hasMore,
+    remainingCount,
+    isLazyActive,
+    shouldShowSkeletons: hasMore && remainingCount > 0,
   });
   
   if (functions.length === 0) {
