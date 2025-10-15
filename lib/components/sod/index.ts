@@ -46,4 +46,15 @@ export { SodCompositeRoleCard } from './display/SodCompositeRoleCard';
 // Suspense Components (Optimized)
 export { SodSimpleRoleCardSuspense, SodCompositeRoleCardSuspense } from './suspense/SodAnalysisResultsSuspense';
 
+// Skeleton Components (Performance)
+export { 
+  SodSimpleRoleCardSkeleton, 
+  SodCompositeRoleCardSkeleton,
+  SodActionSkeleton,
+  SodSimpleRoleSkeleton,
+  SkeletonGrid,
+  useSkeletonProps,
+  SkeletonGridWithMessage
+} from './skeleton';
+
 
