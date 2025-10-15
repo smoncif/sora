@@ -499,9 +499,75 @@ const handleDeleteAction = useCallback((
 
 ---
 
-## 🎭 Phase 6 : Suspense (1 heure)
+## 🧹 Phase 6 : Nettoyage du Code (TERMINÉ ✅)
 
-### **6.1 Ajouter Suspense pour résultats**
+### **6.1 Suppression des Anciens Hooks de Pagination** ✅
+
+**État :** COMPLET  
+**Fichier :** `app/dashboard/analysis/sod/page.tsx`
+
+- ✅ Supprimé `useState` pour `simpleRolePage` et `simpleRolesPerPage`
+- ✅ Supprimé `useState` pour `compositeRolePage` et `compositeRolesPerPage`
+- ✅ Supprimé `handleSimplePageChange` et `handleSimpleRowsPerPageChange`
+- ✅ Supprimé `handleCompositePageChange` et `handleCompositeRowsPerPageChange`
+- ✅ Remplacé par `useOptimisticPagination` pour les deux types de rôles
+
+**Résultat :** Code plus propre et maintenable
+
+---
+
+### **6.2 Vérification des Fichiers Supprimés** ✅
+
+**État :** COMPLET
+
+#### **Hooks Supprimés (Précédemment) :**
+- ✅ `lib/hooks/sod/useSodPaginationPrefetch.ts`
+- ✅ `lib/hooks/sod/useSodWorkflow.ts`
+- ✅ `lib/hooks/sod/useSodExcelParserDetailed.ts`
+- ✅ `lib/hooks/sod/useLazyFunctionRendering.ts`
+
+#### **Composants Supprimés (Précédemment) :**
+- ✅ `lib/components/sod/virtualized/*` (3 fichiers)
+- ✅ `lib/components/sod/skeleton/SodFunctionSkeleton.tsx`
+- ✅ `lib/components/sod/analysis/SodParsingModeSelector.tsx`
+- ✅ `app/test-prefetch/page.tsx`
+- ✅ `public/workers/sodParsingWorkerExcelJSDetailed.js`
+
+**Résultat :** ~1,500 lignes de code supprimées
+
+---
+
+### **6.3 Mise à Jour des Commentaires** ✅
+
+**État :** COMPLET  
+**Fichier :** `app/dashboard/analysis/sod/page.tsx`
+
+- ✅ Commentaires obsolètes mis à jour
+- ✅ Références aux anciens handlers corrigées
+- ✅ Documentation inline améliorée
+
+**Résultat :** Code bien documenté et cohérent
+
+---
+
+### **6.4 Rapport de Nettoyage** ✅
+
+**État :** COMPLET  
+**Fichier :** `docs/NETTOYAGE_PAGINATION_OPTIMISTE.md`
+
+- ✅ Rapport détaillé créé
+- ✅ Architecture finale documentée
+- ✅ Métriques de nettoyage fournies
+
+**Résultat :** Documentation complète du nettoyage
+
+---
+
+## 🎭 Phase 7 : Suspense (DÉJÀ IMPLÉMENTÉ ✅)
+
+### **7.1 Ajouter Suspense pour résultats** ✅
+
+**État :** DÉJÀ IMPLÉMENTÉ
 
 **Fichier :** `app/dashboard/analysis/sod/page.tsx`
 
