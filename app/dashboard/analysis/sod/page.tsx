@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, alpha, useTheme, Fade, CircularProgress } from '@mui/material';
+import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, alpha, useTheme, Fade } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import { useAuth } from 'lib/hooks/useAuth';
@@ -26,11 +26,9 @@ import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
 // 🚀 NOUVEAUX HOOKS : Pagination avec cache TanStack Query
 import { useSodPagedRoles } from 'lib/hooks/sod/useSodPagedRoles';
 import { useSodPagedCompositeRoles } from 'lib/hooks/sod/useSodPagedCompositeRoles';
-// 🚀 NOUVEAUX HOOKS : Infinite scroll avec cache TanStack Query
-import { useSodInfiniteRoles } from 'lib/hooks/sod/useSodInfiniteRoles';
-import { useSodInfiniteCompositeRoles } from 'lib/hooks/sod/useSodInfiniteCompositeRoles';
-// 🚀 NOUVEAUX COMPOSANTS : Listes infinies
-import { SodInfiniteRoleList, SodInfiniteCompositeRoleList } from 'lib/components/sod/infinite';
+import { useLazyRoleRendering } from 'lib/hooks/sod/useLazyRoleRendering';
+// 🎨 NOUVEAUX COMPOSANTS : Skeletons pour lazy loading
+import { SodSimpleRoleCardSkeleton, SodCompositeRoleCardSkeleton } from 'lib/components/sod/skeleton';
 
 
 export default function SodAnalysisPage() {
@@ -74,9 +72,6 @@ export default function SodAnalysisPage() {
     restrictedResources
   } = actionsContext;
 
-  // 🎚️ MODE D'AFFICHAGE : Pagination classique ou Infinite scroll
-  const [displayMode, setDisplayMode] = useState<'pagination' | 'infinite'>('pagination');
-  
   // Pagination pour rôles simples (index 0-based pour TablePagination)
   const [simpleRolePage, setSimpleRolePage] = useState(0);
   const [simpleRolesPerPage, setSimpleRolesPerPage] = useState(5);
@@ -124,21 +119,6 @@ export default function SodAnalysisPage() {
     version,
   });
 
-  // 🚀 HOOKS INFINITE SCROLL : Pour affichage avec scroll to load
-  const infiniteSimpleRoles = useSodInfiniteRoles({
-    sessionId: sodWorkflow.state.session?.id,
-    pageSize: 10, // Charger 10 rôles à la fois en mode infinite
-    actionsState,
-    version,
-  });
-
-  const infiniteCompositeRoles = useSodInfiniteCompositeRoles({
-    sessionId: sodWorkflow.state.session?.id,
-    pageSize: 10,
-    actionsState,
-    version,
-  });
-
   // 📊 Pour la compatibilité avec le code existant (allRestrictedActions, etc.)
   const simpleRoles = useMemo(() => {
     return (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
@@ -147,17 +127,6 @@ export default function SodAnalysisPage() {
   const compositeRoles = useMemo(() => {
     return (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
   }, [sodWorkflow.state.session?.compositeRoles?.roles]);
-  
-  // ⚡ AUTO-SWITCH : Basculer vers infinite scroll pour grandes listes (> 20 rôles)
-  useEffect(() => {
-    if (simpleRoles.length > 20 && displayMode === 'pagination') {
-      console.log('⚡ [AUTO-SWITCH] Basculement vers infinite scroll', {
-        totalRoles: simpleRoles.length,
-        reason: 'Plus de 20 rôles détectés',
-      });
-      setDisplayMode('infinite');
-    }
-  }, [simpleRoles.length, displayMode]);
 
   // ⚡ Prefetch automatique des pages adjacentes au changement de page
   useEffect(() => {
@@ -171,6 +140,33 @@ export default function SodAnalysisPage() {
       prefetchCompositePages();
     }
   }, [compositeRolePage, prefetchCompositePages, sodWorkflow.state.session?.id]);
+
+  // 🚀 LAZY LOADING : Chargement progressif pour pages avec beaucoup de rôles
+  const {
+    visibleRoles: visibleSimpleRoles,
+    hasMore: hasMoreSimple,
+    observerRef: simpleObserverRef,
+    remainingCount: remainingSimpleCount,
+    isLazyActive: isSimpleLazyActive,
+  } = useLazyRoleRendering({
+    allRoles: paginatedSimpleRoles,
+    initialBatchSize: 2,  // Charger 2 rôles immédiatement
+    scrollBatchSize: 1,   // +1 rôle au scroll
+    lazyThreshold: 3,     // Activer si > 3 rôles dans la page
+  });
+
+  const {
+    visibleRoles: visibleCompositeRoles,
+    hasMore: hasMoreComposite,
+    observerRef: compositeObserverRef,
+    remainingCount: remainingCompositeCount,
+    isLazyActive: isCompositeLazyActive,
+  } = useLazyRoleRendering({
+    allRoles: paginatedCompositeRoles,
+    initialBatchSize: 2,
+    scrollBatchSize: 1,
+    lazyThreshold: 3,
+  });
 
   
   // ✅ Callbacks de pagination mémorisés avec prefetch TanStack Query
@@ -811,37 +807,67 @@ export default function SodAnalysisPage() {
           loading={sodWorkflow.state.loading}
           renderSimpleRoles={() => (
             <Box sx={{ mt: 3 }}>
-              {/* 🎚️ TOGGLE : Basculer entre pagination et infinite scroll */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box>
+          <Box>
                   <Typography variant="body2" color="text.secondary">
-                    {simpleRoles.length} rôle(s) simple(s)
-                    {displayMode === 'pagination' && ` • Affichage de {paginatedSimpleRoles.length} rôle(s) par page`}
-                    {displayMode === 'infinite' && ` • ${infiniteSimpleRoles.roles.length} chargés`}
+                    {simpleRoles.length} rôle(s) simple(s) • Affichage de {paginatedSimpleRoles.length} rôle(s) par page
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  {/* Toggle mode d'affichage */}
-                  <Button
-                    size="small"
-                    variant={displayMode === 'pagination' ? 'contained' : 'outlined'}
-                    onClick={() => setDisplayMode('pagination')}
-                  >
-                    📄 Pagination
-                  </Button>
-                  <Button
-                    size="small"
-                    variant={displayMode === 'infinite' ? 'contained' : 'outlined'}
-                    onClick={() => setDisplayMode('infinite')}
-                  >
-                    ∞ Scroll Infini
-                  </Button>
-                </Box>
+                <TablePagination
+                  component="div"
+                  count={simpleRoles.length}
+                  page={simpleRolePage}
+                  onPageChange={handleSimplePageChange}
+                  rowsPerPage={simpleRolesPerPage}
+                  onRowsPerPageChange={handleSimpleRowsPerPageChange}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="Rôles par page:"
+                  labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
+                  showFirstButton
+                  showLastButton
+                />
               </Box>
 
-              {/* 📄 MODE PAGINATION */}
-              {displayMode === 'pagination' && (
-                <>
+              {/* Rôles simples - Lazy loading progressif */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Rôles visibles (chargés) */}
+                {visibleSimpleRoles.map((role) => (
+                  <React.Suspense 
+                    key={role.roleName}
+                    fallback={<SodSimpleRoleCardSkeleton />}
+                  >
+                    <SodSimpleRoleCardSuspense
+                      role={role}
+                      onDeleteAction={optimisticUpdates.deleteAction}
+                      onRestrictAction={optimisticUpdates.restrictAction}
+                      onRestrictResource={optimisticUpdates.restrictResource}
+                      onDeleteRisk={undefined}
+                      onNextStep={undefined}
+                      showNextStepButton={false}
+                    />
+                  </React.Suspense>
+                ))}
+                
+                {/* Placeholders pour rôles non encore chargés */}
+                {hasMoreSimple && (
+                  <>
+                    {Array.from({ length: remainingSimpleCount }).map((_, i) => (
+                      <SodSimpleRoleCardSkeleton key={`skeleton-simple-${i}`} />
+                    ))}
+                    
+                    {/* Sentinel pour Intersection Observer */}
+                    <div 
+                      ref={simpleObserverRef} 
+                      style={{ height: '1px', width: '100%' }} 
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
+              </Box>
+
+              {/* Pagination en bas */}
+              {simpleRoles.length > 5 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                   <TablePagination
                     component="div"
                     count={simpleRoles.length}
@@ -855,90 +881,73 @@ export default function SodAnalysisPage() {
                     showFirstButton
                     showLastButton
                   />
-
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-                    {paginatedSimpleRoles.map((role) => (
-                      <React.Suspense key={role.roleName} fallback={<Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress size={24} /></Box>}>
-                        <SodSimpleRoleCardSuspense
-                          role={role}
-                          onDeleteAction={optimisticUpdates.deleteAction}
-                          onRestrictAction={optimisticUpdates.restrictAction}
-                          onRestrictResource={optimisticUpdates.restrictResource}
-                          onDeleteRisk={undefined}
-                          onNextStep={undefined}
-                          showNextStepButton={false}
-                        />
-                      </React.Suspense>
-                    ))}
-                  </Box>
-
-                  {simpleRoles.length > 5 && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                      <TablePagination
-                        component="div"
-                        count={simpleRoles.length}
-                        page={simpleRolePage}
-                        onPageChange={handleSimplePageChange}
-                        rowsPerPage={simpleRolesPerPage}
-                        onRowsPerPageChange={handleSimpleRowsPerPageChange}
-                        rowsPerPageOptions={[5, 10, 25, 50]}
-                        labelRowsPerPage="Rôles par page:"
-                        labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
-                        showFirstButton
-                        showLastButton
-                      />
-                    </Box>
-                  )}
-                </>
+                </Box>
               )}
-
-              {/* ∞ MODE INFINITE SCROLL */}
-              {displayMode === 'infinite' && (
-                <SodInfiniteRoleList
-                  roles={infiniteSimpleRoles.roles}
-                  loadMore={infiniteSimpleRoles.loadMore}
-                  hasMore={infiniteSimpleRoles.hasMore}
-                  isLoadingMore={infiniteSimpleRoles.isLoadingMore}
-                  totalCount={infiniteSimpleRoles.totalCount}
-                  onDeleteAction={optimisticUpdates.deleteAction}
-                  onRestrictAction={optimisticUpdates.restrictAction}
-                  onRestrictResource={undefined}
-                />
-              )}
-            </Box>
-          )}
+              </Box>
+            )}
           renderCompositeRoles={() => (
             <Box sx={{ mt: 3 }}>
-              {/* 🎚️ TOGGLE : Basculer entre pagination et infinite scroll */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    {compositeRoles.length} rôle(s) composite(s)
-                    {displayMode === 'pagination' && ` • Affichage de ${paginatedCompositeRoles.length} rôle(s) par page`}
-                    {displayMode === 'infinite' && ` • ${infiniteCompositeRoles.roles.length} chargés`}
-                  </Typography>
+                    {compositeRoles.length} rôle(s) composite(s) • Affichage de {paginatedCompositeRoles.length} rôle(s) par page
+                </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <Button
-                    size="small"
-                    variant={displayMode === 'pagination' ? 'contained' : 'outlined'}
-                    onClick={() => setDisplayMode('pagination')}
-                  >
-                    📄 Pagination
-                  </Button>
-                  <Button
-                    size="small"
-                    variant={displayMode === 'infinite' ? 'contained' : 'outlined'}
-                    onClick={() => setDisplayMode('infinite')}
-                  >
-                    ∞ Scroll Infini
-                  </Button>
-                </Box>
+                <TablePagination
+                  component="div"
+                  count={compositeRoles.length}
+                  page={compositeRolePage}
+                  onPageChange={handleCompositePageChange}
+                  rowsPerPage={compositeRolesPerPage}
+                  onRowsPerPageChange={handleCompositeRowsPerPageChange}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="Rôles par page:"
+                  labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
+                  showFirstButton
+                  showLastButton
+                />
               </Box>
 
-              {/* 📄 MODE PAGINATION */}
-              {displayMode === 'pagination' && (
-                <>
+              {/* Rôles composites - Lazy loading progressif */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Rôles visibles (chargés) */}
+                {visibleCompositeRoles.map((role) => (
+                  <React.Suspense 
+                    key={role.roleName}
+                    fallback={<SodCompositeRoleCardSkeleton />}
+                  >
+                    <SodCompositeRoleCardSuspense
+                      role={role}
+                      onDeleteAction={optimisticUpdates.deleteAction}
+                      onRestrictAction={optimisticUpdates.restrictAction}
+                      onRestrictResource={handleCompositeRestrictResourceWrapped}
+                      onDeleteRisk={undefined}
+                      onNextStep={undefined}
+                      showNextStepButton={false}
+                    />
+                  </React.Suspense>
+                ))}
+                
+                {/* Placeholders pour rôles non encore chargés */}
+                {hasMoreComposite && (
+                  <>
+                    {Array.from({ length: remainingCompositeCount }).map((_, i) => (
+                      <SodCompositeRoleCardSkeleton key={`skeleton-composite-${i}`} />
+                    ))}
+                    
+                    {/* Sentinel pour Intersection Observer */}
+                    <div 
+                      ref={compositeObserverRef} 
+                      style={{ height: '1px', width: '100%' }} 
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
+              </Box>
+
+              {/* Pagination en bas */}
+              {compositeRoles.length > 5 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                   <TablePagination
                     component="div"
                     count={compositeRoles.length}
@@ -949,60 +958,12 @@ export default function SodAnalysisPage() {
                     rowsPerPageOptions={[5, 10, 25, 50]}
                     labelRowsPerPage="Rôles par page:"
                     labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} • Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
-                    showFirstButton
-                    showLastButton
-                  />
-
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-                    {paginatedCompositeRoles.map((role) => (
-                      <React.Suspense key={role.roleName} fallback={<Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress size={24} /></Box>}>
-                        <SodCompositeRoleCardSuspense
-                          role={role}
-                          onDeleteAction={optimisticUpdates.deleteAction}
-                          onRestrictAction={optimisticUpdates.restrictAction}
-                          onRestrictResource={handleCompositeRestrictResourceWrapped}
-                          onDeleteRisk={undefined}
-                          onNextStep={undefined}
-                          showNextStepButton={false}
-                        />
-                      </React.Suspense>
-                    ))}
-                  </Box>
-
-                  {compositeRoles.length > 5 && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                      <TablePagination
-                        component="div"
-                        count={compositeRoles.length}
-                        page={compositeRolePage}
-                        onPageChange={handleCompositePageChange}
-                        rowsPerPage={compositeRolesPerPage}
-                        onRowsPerPageChange={handleCompositeRowsPerPageChange}
-                        rowsPerPageOptions={[5, 10, 25, 50]}
-                        labelRowsPerPage="Rôles par page:"
-                        labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count}`}
-                        showFirstButton
-                        showLastButton
-                      />
-                    </Box>
-                  )}
-                </>
-              )}
-
-              {/* ∞ MODE INFINITE SCROLL */}
-              {displayMode === 'infinite' && (
-                <SodInfiniteCompositeRoleList
-                  roles={infiniteCompositeRoles.roles}
-                  loadMore={infiniteCompositeRoles.loadMore}
-                  hasMore={infiniteCompositeRoles.hasMore}
-                  isLoadingMore={infiniteCompositeRoles.isLoadingMore}
-                  totalCount={infiniteCompositeRoles.totalCount}
-                  onDeleteAction={optimisticUpdates.deleteAction}
-                  onRestrictAction={optimisticUpdates.restrictAction}
-                  onRestrictResource={undefined}
+                  showFirstButton
+                  showLastButton
                 />
-              )}
-            </Box>
+              </Box>
+            )}
+          </Box>
           )}
         />
       )}
