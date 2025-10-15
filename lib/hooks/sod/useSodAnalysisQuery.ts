@@ -351,6 +351,10 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
       // 🎯 Utiliser mutateAsync pour attendre la réponse
       await createSessionMutation.mutateAsync(newSession);
       
+      // ✅ CRITIQUE : Mettre explicitement la session en cache (en plus de la mutation)
+      queryClient.setQueryData(['sod', 'session', newSession.id], newSession);
+      console.log('✅ [CACHE] Session mise en cache TanStack Query:', newSession.id);
+      
       setCurrentStep(1);
       
       // 🎯 Retourner la session créée

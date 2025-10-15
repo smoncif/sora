@@ -18,12 +18,14 @@ import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { useSodNavigation } from 'lib/hooks/sod/useSodNavigation';
 import { usePrefetchSodSession } from 'lib/hooks/sod/useSodAnalysisQuery';
 import { useSodAnalysisData } from 'lib/hooks/sod/useSodAnalysisDataQuery';
-import { useSodPaginationPrefetch } from 'lib/hooks/sod/useSodPaginationPrefetch';
 import { useSodOptimisticUpdates } from 'lib/hooks/sod/useSodOptimisticUpdates';
 import { useQueryClient } from '@tanstack/react-query';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
+// 🚀 NOUVEAUX HOOKS : Pagination avec cache TanStack Query
+import { useSodPagedRoles } from 'lib/hooks/sod/useSodPagedRoles';
+import { useSodPagedCompositeRoles } from 'lib/hooks/sod/useSodPagedCompositeRoles';
 
 
 export default function SodAnalysisPage() {
@@ -124,136 +126,9 @@ export default function SodAnalysisPage() {
   // 🚀 NOUVEAU : Hook TanStack Query pour l'analyse SoD (cohérent avec les autres pages)
   const { data: sodAnalysisData, isLoading: isSodAnalysisLoading, error: sodAnalysisError } = useSodAnalysisData();
 
-  // ⚡ NOUVEAU : Hook pour prefetch de pagination
-  const { prefetchNextPage, prefetchPreviousPage, prefetchAdjacentPages } = useSodPaginationPrefetch();
   const queryClient = useQueryClient();
 
-  // 🧪 DEBUG : État du prefetch pour monitoring
-  const [prefetchStatus, setPrefetchStatus] = useState<{ simple: string; composite: string }>({
-    simple: 'Prêt',
-    composite: 'Prêt'
-  });
-
-
-  // ⚡ OPTIMISATION CRITIQUE 1 : Mémoiser les rôles pour éviter les re-renders inutiles
-  // 🎯 Impact : 5-8x plus rapide, références stables pour useMemo et React.memo
-  const simpleRoles = useMemo(() => {
-    const start = performance.now();
-    const roles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
-    const duration = performance.now() - start;
-    console.log('🔍 [MEMO] simpleRoles recalculé:', {
-      count: roles.length,
-      duration: duration.toFixed(2) + 'ms',
-      timestamp: new Date().toISOString()
-    });
-    return roles;
-  }, [sodWorkflow.state.session?.simpleRoles?.roles]);
-  
-  const compositeRoles = useMemo(() => {
-    const start = performance.now();
-    const roles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
-    const duration = performance.now() - start;
-    console.log('🔍 [MEMO] compositeRoles recalculé:', {
-      count: roles.length,
-      duration: duration.toFixed(2) + 'ms'
-    });
-    return roles;
-  }, [sodWorkflow.state.session?.compositeRoles?.roles]);
-
-
-  // Pagination pour rôles simples (index 0-based pour TablePagination)
-  const [simpleRolePage, setSimpleRolePage] = useState(0);
-  const [simpleRolesPerPage, setSimpleRolesPerPage] = useState(5);
-  
-  // Pagination pour rôles composites (index 0-based pour TablePagination)
-  const [compositeRolePage, setCompositeRolePage] = useState(0);
-  const [compositeRolesPerPage, setCompositeRolesPerPage] = useState(5);
-
-  
-  // ✅ Callbacks de pagination mémorisés avec prefetch
-  const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
-    const startTime = performance.now();
-    console.log('🔍 [PAGINATION] Changement page simple:', { 
-      from: simpleRolePage, 
-      to: newPage,
-      timestamp: new Date().toISOString() 
-    });
-    
-    // Étape 1 : Mise à jour de l'état de page
-    const step1Start = performance.now();
-    setSimpleRolePage(newPage);
-    const step1Duration = performance.now() - step1Start;
-    console.log('⏱️ [STEP 1] setState page:', step1Duration.toFixed(2), 'ms');
-    
-    // ✅ MESURE DU TEMPS RÉEL DE PAGINATION (avant async ops)
-    const syncDuration = performance.now() - startTime;
-    console.log('✅ [SYNC DONE] Mise à jour synchrone terminée:', syncDuration.toFixed(2), 'ms');
-    
-    // ⚡ Prefetch asynchrone (non-bloquant pour l'UI)
-    setTimeout(() => {
-      setPrefetchStatus(prev => ({ ...prev, simple: '⚡ Prefetch...' }));
-      
-      const prefetchStart = performance.now();
-      const totalPages = Math.ceil(simpleRoles.length / simpleRolesPerPage);
-      
-      if (newPage + 1 < totalPages) {
-        prefetchNextPage(newPage, simpleRolesPerPage, simpleRoles);
-      }
-      if (newPage > 0) {
-        prefetchPreviousPage(newPage, simpleRolesPerPage, simpleRoles);
-      }
-      
-      const prefetchDuration = performance.now() - prefetchStart;
-      console.log('⏱️ [ASYNC] Prefetch pages adjacentes:', prefetchDuration.toFixed(2), 'ms');
-      
-      setPrefetchStatus(prev => ({ ...prev, simple: '✅ Prêt' }));
-    }, 0);
-  }, [simpleRoles, simpleRolesPerPage, prefetchNextPage, prefetchPreviousPage, simpleRolePage]);
-  
-  const handleSimpleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const newPageSize = parseInt(event.target.value, 10);
-    setSimpleRolesPerPage(newPageSize);
-    setSimpleRolePage(0);
-    
-    // ⚡ Prefetch la première page avec la nouvelle taille
-    setTimeout(() => {
-      prefetchNextPage(0, newPageSize, simpleRoles);
-    }, 0);
-  }, [prefetchNextPage, simpleRoles]);
-  
-  const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
-    setCompositeRolePage(newPage);
-    setPrefetchStatus(prev => ({ ...prev, composite: '⚡ Prefetch...' }));
-    
-    // ⚡ Prefetch les pages adjacentes après changement
-    setTimeout(() => {
-      const totalPages = Math.ceil(compositeRoles.length / compositeRolesPerPage);
-      if (newPage + 1 < totalPages) {
-        prefetchNextPage(newPage, compositeRolesPerPage, compositeRoles);
-      }
-      if (newPage > 0) {
-        prefetchPreviousPage(newPage, compositeRolesPerPage, compositeRoles);
-      }
-      
-      // ✅ Marquer comme terminé
-      setTimeout(() => {
-        setPrefetchStatus(prev => ({ ...prev, composite: '✅ Prêt' }));
-      }, 50);
-    }, 0);
-  }, [compositeRoles, compositeRolesPerPage, prefetchNextPage, prefetchPreviousPage]);
-  
-  const handleCompositeRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const newPageSize = parseInt(event.target.value, 10);
-    setCompositeRolesPerPage(newPageSize);
-    setCompositeRolePage(0);
-    
-    // ⚡ Prefetch la première page avec la nouvelle taille
-    setTimeout(() => {
-      prefetchNextPage(0, newPageSize, compositeRoles);
-    }, 0);
-  }, [prefetchNextPage, compositeRoles]);
-  
-  // ✅ Déstructurer le contexte pour avoir des références stables
+  // ✅ DÉSTRUCTURER LE CONTEXTE EN PREMIER (avant utilisation)
   const actionsContext = useSodActionsContext();
   const { 
     buildActionResourcesMap,
@@ -264,12 +139,132 @@ export default function SodAnalysisPage() {
     isActionRestricted,
     isResourceRestricted,
     isSimpleRoleExcluded,
-    resetState, // ✅ Ajouter resetState pour l'upload
-    version, // Pour forcer le re-calcul des useMemo
+    resetState,
+    version,
     deletedActions,
     restrictedActions,
     restrictedResources
   } = actionsContext;
+
+  // Pagination pour rôles simples (index 0-based pour TablePagination)
+  const [simpleRolePage, setSimpleRolePage] = useState(0);
+  const [simpleRolesPerPage, setSimpleRolesPerPage] = useState(5);
+  
+  // Pagination pour rôles composites (index 0-based pour TablePagination)
+  const [compositeRolePage, setCompositeRolePage] = useState(0);
+  const [compositeRolesPerPage, setCompositeRolesPerPage] = useState(5);
+  
+  // ⚡ État des actions pour le cache (doit être stable)
+  const actionsState = useMemo(() => ({
+    isActionDeleted,
+    isActionRestricted,
+    isResourceRestricted,
+  }), [isActionDeleted, isActionRestricted, isResourceRestricted]);
+
+  // 🚀 NOUVEAU : Pagination avec cache TanStack Query pour rôles simples
+  const {
+    roles: paginatedSimpleRoles,
+    totalCount: simpleRolesTotalCount,
+    totalPages: simpleRolesTotalPages,
+    isLoading: isSimplePaginationLoading,
+    isFetching: isSimplePaginationFetching,
+    prefetchAdjacentPages: prefetchSimplePages,
+  } = useSodPagedRoles({
+    sessionId: sodWorkflow.state.session?.id,
+    page: simpleRolePage,
+    pageSize: simpleRolesPerPage,
+    actionsState,
+    version,
+  });
+
+  // 🚀 NOUVEAU : Pagination avec cache TanStack Query pour rôles composites
+  const {
+    roles: paginatedCompositeRoles,
+    totalCount: compositeRolesTotalCount,
+    totalPages: compositeRolesTotalPages,
+    isLoading: isCompositePaginationLoading,
+    isFetching: isCompositePaginationFetching,
+    prefetchAdjacentPages: prefetchCompositePages,
+  } = useSodPagedCompositeRoles({
+    sessionId: sodWorkflow.state.session?.id,
+    page: compositeRolePage,
+    pageSize: compositeRolesPerPage,
+    actionsState,
+    version,
+  });
+
+  // 📊 Pour la compatibilité avec le code existant (allRestrictedActions, etc.)
+  const simpleRoles = useMemo(() => {
+    return (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
+  }, [sodWorkflow.state.session?.simpleRoles?.roles]);
+  
+  const compositeRoles = useMemo(() => {
+    return (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
+  }, [sodWorkflow.state.session?.compositeRoles?.roles]);
+
+  // ⚡ Prefetch automatique des pages adjacentes au changement de page
+  useEffect(() => {
+    if (sodWorkflow.state.session?.id) {
+      prefetchSimplePages();
+    }
+  }, [simpleRolePage, prefetchSimplePages, sodWorkflow.state.session?.id]);
+
+  useEffect(() => {
+    if (sodWorkflow.state.session?.id) {
+      prefetchCompositePages();
+    }
+  }, [compositeRolePage, prefetchCompositePages, sodWorkflow.state.session?.id]);
+
+  
+  // ✅ Callbacks de pagination mémorisés avec prefetch TanStack Query
+  const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
+    const startTime = performance.now();
+    console.log('🔍 [PAGINATION] Changement page simple:', { 
+      from: simpleRolePage, 
+      to: newPage,
+      timestamp: new Date().toISOString() 
+    });
+    
+    // Étape 1 : Mise à jour de l'état de page
+    setSimpleRolePage(newPage);
+    
+    // ✅ MESURE DU TEMPS RÉEL DE PAGINATION
+    const syncDuration = performance.now() - startTime;
+    console.log('✅ [SYNC DONE] Mise à jour synchrone terminée:', syncDuration.toFixed(2), 'ms');
+    
+    // ⚡ Les données sont déjà en cache TanStack Query !
+    // Le hook useSodPagedRoles gère automatiquement le prefetch
+  }, [simpleRolePage]);
+  
+  const handleSimpleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const newPageSize = parseInt(event.target.value, 10);
+    setSimpleRolesPerPage(newPageSize);
+    setSimpleRolePage(0);
+    // ⚡ Le prefetch sera automatique au prochain render avec la nouvelle taille
+  }, []);
+  
+  const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
+    const startTime = performance.now();
+    console.log('🔍 [PAGINATION] Changement page composite:', { 
+      from: compositeRolePage, 
+      to: newPage,
+      timestamp: new Date().toISOString() 
+    });
+    
+    setCompositeRolePage(newPage);
+    
+    const syncDuration = performance.now() - startTime;
+    console.log('✅ [SYNC DONE COMPOSITE] Mise à jour synchrone terminée:', syncDuration.toFixed(2), 'ms');
+    
+    // ⚡ Les données sont déjà en cache TanStack Query !
+  }, [compositeRolePage]);
+  
+  const handleCompositeRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const newPageSize = parseInt(event.target.value, 10);
+    setCompositeRolesPerPage(newPageSize);
+    setCompositeRolePage(0);
+    // ⚡ Le prefetch sera automatique au prochain render avec la nouvelle taille
+  }, []);
   
   // 🗺️ Construire la Map globale des ressources par action (UNE SEULE FOIS)
   // ✅ OPTIMISÉ : Construction de la Map globale des ressources au chargement
@@ -432,64 +427,13 @@ export default function SodAnalysisPage() {
   }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version]);
   
   
-  // 🚀 OPTIMISATION 1 : Pagination AVANT d'appliquer l'état
-  // Slice ultra-rapide (< 1ms) sur les données brutes
-  const sliceCountRef = useRef(0);
-  
-  const paginatedSimpleRolesRaw = useMemo(() => {
-    sliceCountRef.current += 1;
-    const sliceStart = performance.now();
-    const start = simpleRolePage * simpleRolesPerPage;
-    const end = start + simpleRolesPerPage;
-    const result = simpleRoles.slice(start, end);
-    const sliceDuration = performance.now() - sliceStart;
-    console.log(`🔍 [SLICE #${sliceCountRef.current}] paginatedSimpleRolesRaw:`, {
-      page: simpleRolePage,
-      pageSize: simpleRolesPerPage,
-      sliceRange: `${start}-${end}`,
-      resultCount: result.length,
-      duration: sliceDuration.toFixed(2) + 'ms',
-      simpleRolesRefStable: '?'  // On verra si recalcul fréquent
-    });
-    return result;
-  }, [simpleRoles, simpleRolePage, simpleRolesPerPage]);
-
-  const paginatedCompositeRolesRaw = useMemo(() => {
-    const start = compositeRolePage * compositeRolesPerPage;
-    const end = start + compositeRolesPerPage;
-    return compositeRoles.slice(start, end);
-  }, [compositeRoles, compositeRolePage, compositeRolesPerPage]);
-  
-  // ⚡ OPTIMISATION CRITIQUE 3 : Mémoiser applyStateToSimpleRoles
-  // 🎯 Impact : 70% plus rapide, calcul lourd fait 1 seule fois par page
-  // ✅ NOUVEAU : Cache stable avec dépendances optimisées
-  const actionsState = useMemo(() => ({
-    isActionDeleted,
-    isActionRestricted,
-    isResourceRestricted,
-  }), [isActionDeleted, isActionRestricted, isResourceRestricted]);
-  
-  // ✅ Mémoisation optimale : Se recalcule UNIQUEMENT si les rôles de la page ou version changent
-  const applyCountRef = useRef(0);
-  
-  const paginatedSimpleRoles = useMemo(() => {
-    applyCountRef.current += 1;
-    const applyStart = performance.now();
-    const result = applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsState);
-    const applyDuration = performance.now() - applyStart;
-    console.log(`🔍 [APPLY #${applyCountRef.current}] applyStateToSimpleRoles:`, {
-      inputCount: paginatedSimpleRolesRaw.length,
-      outputCount: result.length,
-      version: version,
-      duration: applyDuration.toFixed(2) + 'ms',
-      rawRolesRefStable: '?'
-    });
-    return result;
-  }, [paginatedSimpleRolesRaw, actionsState, version]);
-
-  const paginatedCompositeRoles = useMemo(() => {
-    return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsState);
-  }, [paginatedCompositeRolesRaw, actionsState, version]);
+  // ✅ ANCIENS useMemo SUPPRIMÉS : Remplacés par useSodPagedRoles et useSodPagedCompositeRoles
+  // Ces hooks gèrent automatiquement :
+  // - Pagination avec slice
+  // - Application de l'état (applyStateToSimpleRoles)
+  // - Cache TanStack Query
+  // - Prefetch des pages adjacentes
+  // - Logs de performance (CACHE HIT/MISS)
   
   // 🔍 LOG GLOBAL : Résumé de l'état actuel de la pagination
   const lastRenderTime = useRef(performance.now());
@@ -783,9 +727,7 @@ export default function SodAnalysisPage() {
           >
             Analyse SoD (Segregation of Duties)
             {isSodAnalysisLoading && <span style={{ marginLeft: '10px', fontSize: '0.8em', color: '#666' }}>🔄 Chargement TanStack Query...</span>}
-            <span style={{ marginLeft: '10px', fontSize: '0.7em', color: '#28a745', fontWeight: 'bold' }}>
-              ⚡ Prefetch: Simple {prefetchStatus.simple} | Composite {prefetchStatus.composite}
-            </span>
+            {isSimplePaginationFetching && <span style={{ marginLeft: '10px', fontSize: '0.7em', color: '#28a745', fontWeight: 'bold' }}>⚡ Cache TanStack Query</span>}
           </Typography>
           <Typography 
             variant="subtitle1" 
