@@ -825,24 +825,24 @@ export default function SodAnalysisPage() {
                   />
                 </Box>
               ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {/* Rôles visibles (chargés) */}
                     {visibleSimpleRoles.map((role) => (
-                      <React.Suspense 
+                  <React.Suspense 
                         key={role.roleName}
                         fallback={<SodSimpleRoleCardSkeleton />}
                       >
                         <SodSimpleRoleCardSuspense
-                          role={role}
+                    role={role}
                           onDeleteAction={optimisticUpdates.deleteAction}
                           onRestrictAction={optimisticUpdates.restrictAction}
                           onRestrictResource={optimisticUpdates.restrictResource}
-                          onDeleteRisk={undefined}
-                          onNextStep={undefined}
-                          showNextStepButton={false}
-                        />
-                      </React.Suspense>
-                    ))}
+                      onDeleteRisk={undefined}
+                      onNextStep={undefined}
+                      showNextStepButton={false}
+                    />
+                  </React.Suspense>
+                ))}
                     
                     {/* Placeholders pour rôles non encore chargés (lazy loading) */}
                     {hasMoreSimple && (
@@ -859,7 +859,7 @@ export default function SodAnalysisPage() {
                         />
                       </>
                     )}
-                  </Box>
+              </Box>
               )}
 
               {/* Pagination en bas */}
@@ -916,24 +916,24 @@ export default function SodAnalysisPage() {
                   />
                 </Box>
               ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {/* Rôles visibles (chargés) */}
                     {visibleCompositeRoles.map((role) => (
-                      <React.Suspense 
+                    <React.Suspense 
                         key={role.roleName}
                         fallback={<SodCompositeRoleCardSkeleton />}
                       >
                         <SodCompositeRoleCardSuspense
-                          role={role}
+                        role={role}
                           onDeleteAction={optimisticUpdates.deleteAction}
                           onRestrictAction={optimisticUpdates.restrictAction}
-                          onRestrictResource={handleCompositeRestrictResourceWrapped}
-                          onDeleteRisk={undefined}
-                          onNextStep={undefined}
-                          showNextStepButton={false}
-                        />
-                      </React.Suspense>
-                    ))}
+                        onRestrictResource={handleCompositeRestrictResourceWrapped}
+                        onDeleteRisk={undefined}
+                        onNextStep={undefined}
+                        showNextStepButton={false}
+                      />
+                    </React.Suspense>
+                  ))}
                     
                     {/* Placeholders pour rôles non encore chargés (lazy loading) */}
                     {hasMoreComposite && (
@@ -950,7 +950,7 @@ export default function SodAnalysisPage() {
                         />
                       </>
                     )}
-                  </Box>
+              </Box>
               )}
 
               {/* Pagination en bas */}

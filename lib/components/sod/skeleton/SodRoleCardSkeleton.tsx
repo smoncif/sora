@@ -1,8 +1,12 @@
 /**
- * Composants Skeleton pour les cartes de rôles SoD
+ * Composant Skeleton générique pour les cartes de rôles
  * 
- * Utilisés comme placeholders gris animés pendant le chargement progressif (lazy loading)
- * Design cohérent avec Material-UI et les vraies cartes de rôles
+ * Format uniforme pour tous les types :
+ * - SoD (rôles simples, composites)
+ * - Rôles utilisateurs
+ * - Groupes
+ * 
+ * Structure : Header (expand + icône + nom + badge) + contenu
  */
 
 'use client';
@@ -10,108 +14,128 @@
 import { Box, Skeleton, Paper, useTheme, alpha } from '@mui/material';
 
 /**
- * Skeleton sobre pour SodSimpleRoleCard
- * Version minimaliste et rapide
+ * Skeleton générique qui reproduit le format des vraies cartes
+ * Utilisable pour tous les types de cartes (SoD, utilisateurs, groupes)
  */
 export const SodSimpleRoleCardSkeleton = () => {
   const theme = useTheme();
   
   return (
-    <Paper 
+    <Paper
       elevation={0}
-      sx={{ 
-        p: 3, 
-        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`, 
+      sx={{
         borderRadius: 3,
-        mb: 3,
-        background: alpha(theme.palette.action.hover, 0.02),
+        overflow: 'hidden',
+        mb: 4,
+        backgroundColor: theme.palette.background.paper,
+        border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+        boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.08)}`,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      {/* Header simplifié */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      {/* En-tête du rôle - FORMAT UNIFORME */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 3,
+          p: 3,
+          background: alpha(theme.palette.grey[100], 0.3),
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+          cursor: 'pointer',
+        }}
+      >
+        {/* Placeholder pour icône expandable */}
+        <Skeleton 
+          variant="circular" 
+          width={24} 
+          height={24} 
+        />
+        
+        {/* Placeholder pour icône de rôle */}
         <Skeleton 
           variant="circular" 
           width={32} 
           height={32} 
-          sx={{ mr: 2 }} 
         />
-        <Skeleton 
-          variant="text" 
-          width="50%" 
-          height={24} 
+        
+        {/* Nom du rôle */}
+        <Box sx={{ flex: 1 }}>
+          <Skeleton 
+            variant="text" 
+            width="60%" 
+            height={28}
+            sx={{ fontSize: '1.125rem' }}
+          />
+          <Skeleton 
+            variant="text" 
+            width="40%" 
+            height={20}
+            sx={{ mt: 1, fontSize: '0.875rem' }}
+          />
+        </Box>
+        
+        {/* Badge de progression */}
+        <Skeleton
+          variant="rounded"
+          width={120}
+          height={24}
+          sx={{ borderRadius: 12 }}
         />
       </Box>
       
-      {/* Badges minimaux */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Skeleton variant="rounded" width={70} height={24} />
-        <Skeleton variant="rounded" width={80} height={24} />
+      {/* Contenu principal - DEUX COLONNES comme l'interface réelle */}
+      <Box sx={{ p: 3 }}>
+        {/* Section des fonctions en deux colonnes */}
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: '1fr 1fr', 
+          gap: 3,
+          mb: 2 
+        }}>
+          {/* Colonne gauche - Fonction 1 */}
+          <Box sx={{
+            p: 2,
+            borderRadius: 2,
+            backgroundColor: alpha(theme.palette.grey[50], 0.5),
+            border: `1px solid ${alpha(theme.palette.divider, 0.2)}`
+          }}>
+            <Skeleton variant="text" width="80%" height={16} sx={{ mb: 1.5 }} />
+            <Skeleton variant="text" width="60%" height={14} sx={{ mb: 2 }} />
+            
+            {/* Actions de la fonction - seulement les lignes */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Skeleton variant="text" width="70%" height={14} />
+              <Skeleton variant="text" width="60%" height={14} />
+            </Box>
+          </Box>
+
+          {/* Colonne droite - Fonction 2 */}
+          <Box sx={{
+            p: 2,
+            borderRadius: 2,
+            backgroundColor: alpha(theme.palette.grey[50], 0.5),
+            border: `1px solid ${alpha(theme.palette.divider, 0.2)}`
+          }}>
+            <Skeleton variant="text" width="85%" height={16} sx={{ mb: 1.5 }} />
+            <Skeleton variant="text" width="65%" height={14} sx={{ mb: 2 }} />
+            
+            {/* Actions de la fonction - seulement les lignes */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Skeleton variant="text" width="75%" height={14} />
+              <Skeleton variant="text" width="65%" height={14} />
+              <Skeleton variant="text" width="55%" height={14} />
+            </Box>
+          </Box>
+        </Box>
       </Box>
-      
-      {/* Contenu principal sobre */}
-      <Skeleton 
-        variant="rectangular" 
-        width="100%" 
-        height={80} 
-        sx={{ borderRadius: 1.5 }} 
-      />
     </Paper>
   );
 };
 
 /**
- * Skeleton sobre pour SodCompositeRoleCard
- * Version minimaliste avec badge composite
+ * Alias pour la compatibilité - même skeleton pour tous
  */
-export const SodCompositeRoleCardSkeleton = () => {
-  const theme = useTheme();
-  
-  return (
-    <Paper 
-      elevation={0}
-      sx={{ 
-        p: 3, 
-        border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`, 
-        borderRadius: 3,
-        mb: 3,
-        background: alpha(theme.palette.primary.main, 0.02),
-      }}
-    >
-      {/* Header simplifié */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Skeleton 
-          variant="circular" 
-          width={36} 
-          height={36} 
-          sx={{ mr: 2 }} 
-        />
-        <Skeleton 
-          variant="text" 
-          width="55%" 
-          height={26} 
-        />
-        <Skeleton 
-          variant="rounded" 
-          width={85} 
-          height={24} 
-          sx={{ ml: 'auto' }}
-        />
-      </Box>
-      
-      {/* Badges minimaux */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Skeleton variant="rounded" width={75} height={24} />
-        <Skeleton variant="rounded" width={90} height={24} />
-      </Box>
-      
-      {/* Contenu principal sobre */}
-      <Skeleton 
-        variant="rectangular" 
-        width="100%" 
-        height={100} 
-        sx={{ borderRadius: 1.5 }} 
-      />
-    </Paper>
-  );
-};
-
+export const SodCompositeRoleCardSkeleton = SodSimpleRoleCardSkeleton;
+export const UserCardSkeleton = SodSimpleRoleCardSkeleton;
+export const GroupCardSkeleton = SodSimpleRoleCardSkeleton;
