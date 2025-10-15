@@ -23,8 +23,6 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { SodSimpleRoleFunction, SodSimpleRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
 import { detectDuplicateActionsInRisk, extractActionSignature } from 'lib/utils/sodConflictDetection';
-import { useLazyFunctionRendering } from 'lib/hooks/sod/useLazyFunctionRendering';
-import { SodFunctionSkeleton } from '../skeleton/SodFunctionSkeleton';
 import { useLazyActionRendering } from 'lib/hooks/sod/useLazyActionRendering';
 import { SodActionSkeleton } from '../skeleton/SodActionSkeleton';
 
@@ -88,15 +86,6 @@ const SodFunctionCard: React.FC<{
     lazyThreshold: 8,      // ⚡ Activer si > 8 actions
   });
   
-  // 🔍 DEBUG : Logs pour diagnostiquer
-  console.log('🔍 [ACTION DEBUG]', {
-    functionCode: code,
-    totalActions: actions.length,
-    visibleActions: visibleActions.length,
-    hasMoreActions,
-    remainingActions,
-    isActionLazyActive,
-  });
   
   return (
     <Paper
@@ -290,29 +279,7 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
     return risk && roleName ? detectDuplicateActionsInRisk(risk, roleName) : new Map();
   }, [risk, roleName]);
   
-  // 🚀 LAZY LOADING : Chargement progressif des fonctions
-  const {
-    visibleFunctions,
-    hasMore,
-    observerRef,
-    remainingCount,
-    isLazyActive,
-  } = useLazyFunctionRendering({
-    allFunctions: functions,
-    initialBatchSize: 2,   // ⚡ 2 fonctions immédiates pour test
-    scrollBatchSize: 2,    // ⚡ +2 fonctions au scroll
-    lazyThreshold: 3,      // ⚡ Activer si > 3 fonctions (pour test)
-  });
   
-  // 🔍 DEBUG : Logs pour diagnostiquer
-  console.log('🔍 [FUNCTION GRID DEBUG]', {
-    totalFunctions: functions.length,
-    visibleFunctions: visibleFunctions.length,
-    hasMore,
-    remainingCount,
-    isLazyActive,
-    shouldShowSkeletons: hasMore && remainingCount > 0,
-  });
   
   if (functions.length === 0) {
     return (
@@ -334,8 +301,7 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
       
       {/* Grid 2 colonnes */}
       <Grid container spacing={2}>
-        {/* Fonctions visibles */}
-        {visibleFunctions.map((func, index) => (
+        {functions.map((func, index) => (
           <Grid key={index} size={{ xs: 12, md: 6 }}>
             <SodFunctionCard
               func={func}
@@ -351,28 +317,6 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
             />
           </Grid>
         ))}
-        
-        {/* Skeletons pour fonctions non encore chargées */}
-        {hasMore && (
-          <>
-            {Array.from({ length: Math.min(remainingCount, 4) }).map((_, i) => (
-              <Grid key={`skeleton-func-${i}`} size={{ xs: 12, md: 6 }}>
-                <SodFunctionSkeleton />
-              </Grid>
-            ))}
-            
-            {/* Sentinel pour Intersection Observer */}
-            <div 
-              ref={observerRef} 
-              style={{ 
-                gridColumn: '1 / -1',
-                height: '1px', 
-                width: '100%' 
-              }} 
-              aria-hidden="true"
-            />
-          </>
-        )}
       </Grid>
     </Box>
   );

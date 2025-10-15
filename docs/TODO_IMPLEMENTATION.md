@@ -28,9 +28,208 @@ Ce document détaille le plan d'implémentation étape par étape pour optimiser
 
 ---
 
-## ⚡ Phase 2 : Quick Wins (30 minutes)
+## ⚡ Phase 2 : Quick Wins (30 minutes) ✅ COMPLÉTÉ
 
-### **2.1 Setup de base (5 min)** 🎯 PROCHAINE ÉTAPE
+### **2.1 Setup de base (5 min)** ✅ COMPLÉTÉ
+
+---
+
+## 🚀 Phase 3 : Pagination Instantanée avec Skeletons (NOUVEAU)
+
+### **3.1 Créer le composant SkeletonGrid** ✅ COMPLÉTÉ
+
+**Fichier :** `lib/components/sod/skeleton/SkeletonGrid.tsx`
+
+**Objectif :** Composant générique pour afficher des grilles de skeletons pendant le chargement
+
+```tsx
+// lib/components/sod/skeleton/SkeletonGrid.tsx
+import React from 'react';
+import { Box } from '@mui/material';
+import { SodSimpleRoleCardSkeleton, SodCompositeRoleCardSkeleton } from './SodRoleCardSkeleton';
+
+interface SkeletonGridProps {
+  count: number;
+  type?: 'simple' | 'composite';
+  spacing?: number;
+}
+
+export const SkeletonGrid: React.FC<SkeletonGridProps> = ({ 
+  count, 
+  type = 'simple',
+  spacing = 3 
+}) => {
+  const SkeletonComponent = type === 'simple' 
+    ? SodSimpleRoleCardSkeleton 
+    : SodCompositeRoleCardSkeleton;
+    
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: spacing }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonComponent key={`skeleton-${type}-${i}`} />
+      ))}
+    </Box>
+  );
+};
+```
+
+### **3.2 Modifier les callbacks de pagination** ✅ COMPLÉTÉ
+
+**Fichier :** `app/dashboard/analysis/sod/page.tsx`
+
+**Objectif :** Ajouter les mesures de performance et optimiser les callbacks
+
+```tsx
+// Callbacks optimisés avec métriques
+const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
+  const startTime = performance.now();
+  
+  setSimpleRolePage(newPage); // ⚡ INSTANTANÉ
+  
+  const endTime = performance.now();
+  console.log(`⚡ Simple page change UI: ${endTime - startTime}ms`);
+}, []);
+
+const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
+  const startTime = performance.now();
+  
+  setCompositeRolePage(newPage); // ⚡ INSTANTANÉ
+  
+  const endTime = performance.now();
+  console.log(`⚡ Composite page change UI: ${endTime - startTime}ms`);
+}, []);
+```
+
+### **3.3 Intégrer les skeletons dans le rendu** ✅ COMPLÉTÉ
+
+**Fichier :** `app/dashboard/analysis/sod/page.tsx`
+
+**Objectif :** Remplacer les conditions de chargement par des skeletons intelligents
+
+```tsx
+// Rendu avec skeletons pendant le chargement
+{isSimplePaginationLoading ? (
+  <SkeletonGrid 
+    count={simpleRolesPerPage} 
+    type="simple" 
+  />
+) : (
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    {visibleSimpleRoles.map((role) => (
+      <React.Suspense 
+        key={role.roleName}
+        fallback={<SodSimpleRoleCardSkeleton />}
+      >
+        <SodSimpleRoleCardSuspense
+          role={role}
+          onDeleteAction={optimisticUpdates.deleteAction}
+          onRestrictAction={optimisticUpdates.restrictAction}
+          onRestrictResource={optimisticUpdates.restrictResource}
+          onDeleteRisk={undefined}
+          onNextStep={undefined}
+          showNextStepButton={false}
+        />
+      </React.Suspense>
+    ))}
+    
+    {/* Lazy loading skeletons */}
+    {hasMoreSimple && (
+      <>
+        {Array.from({ length: remainingSimpleCount }).map((_, i) => (
+          <SodSimpleRoleCardSkeleton key={`skeleton-simple-${i}`} />
+        ))}
+        <div 
+          ref={simpleObserverRef} 
+          style={{ height: '1px', width: '100%' }} 
+          aria-hidden="true"
+        />
+      </>
+    )}
+  </Box>
+)}
+```
+
+### **3.4 Nettoyer l'ancien code de pagination** ✅ COMPLÉTÉ
+
+**Fichiers à nettoyer :**
+- `lib/hooks/sod/useSodPaginationPrefetch.ts` ✅ DÉJÀ SUPPRIMÉ
+- `lib/hooks/sod/useSodWorkflow.ts` ✅ DÉJÀ SUPPRIMÉ
+- Anciens composants de progression ✅ DÉJÀ SUPPRIMÉS
+
+**Actions de nettoyage :**
+- Supprimer les imports inutilisés
+- Supprimer les variables non utilisées
+- Supprimer les commentaires obsolètes
+- Vérifier les exports inutilisés
+
+### **3.5 Optimiser les transitions** ✅ COMPLÉTÉ
+
+**Objectif :** Ajouter des animations fluides entre les pages
+
+```tsx
+// Animation de transition
+import { Fade, Slide } from '@mui/material';
+
+<Fade in={!isSimplePaginationLoading} timeout={300}>
+  <Box>
+    {/* Contenu des rôles */}
+  </Box>
+</Fade>
+
+{isSimplePaginationLoading && (
+  <Slide direction="up" in={isSimplePaginationLoading} timeout={200}>
+    <Box>
+      <SkeletonGrid count={simpleRolesPerPage} type="simple" />
+    </Box>
+  </Slide>
+)}
+```
+
+### **3.6 Tests et validation** 🎯 ÉTAPE 6
+
+**Tests à effectuer :**
+- ✅ Changement de page < 16ms
+- ✅ Skeletons affichés pendant le chargement
+- ✅ Transitions fluides
+- ✅ Cache TanStack Query fonctionnel
+- ✅ Lazy loading préservé
+- ✅ Performance globale améliorée
+
+---
+
+## 🧹 Phase 4 : Nettoyage et Optimisation (NOUVEAU)
+
+### **4.1 Supprimer les imports inutilisés** 🎯 ÉTAPE 1
+
+**Fichier :** `app/dashboard/analysis/sod/page.tsx`
+
+**Actions :**
+- Supprimer les imports de composants supprimés
+- Supprimer les imports de hooks obsolètes
+- Nettoyer les types inutilisés
+
+### **4.2 Supprimer les variables obsolètes** 🎯 ÉTAPE 2
+
+**Actions :**
+- Supprimer les variables de debug non utilisées
+- Supprimer les états obsolètes
+- Nettoyer les commentaires de debug
+
+### **4.3 Optimiser les exports** 🎯 ÉTAPE 3
+
+**Fichier :** `lib/components/sod/index.ts`
+
+**Actions :**
+- Supprimer les exports de composants supprimés
+- Ajouter les nouveaux exports
+- Organiser les exports par catégorie
+
+### **4.4 Documentation finale** 🎯 ÉTAPE 4
+
+**Actions :**
+- Mettre à jour la documentation
+- Créer un guide de migration
+- Documenter les nouvelles fonctionnalités
 
 **Fichier :** `app/layout.tsx`
 

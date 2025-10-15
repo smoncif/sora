@@ -24,8 +24,6 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 // import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'; // Supprimé
 import { SodCompositeRoleFunction } from 'lib/types/sodAnalysis';
 import { SodSimpleRoleInCompositeItem } from './SodSimpleRoleInCompositeItem';
-import { useLazyFunctionRendering } from 'lib/hooks/sod/useLazyFunctionRendering';
-import { SodFunctionSkeleton } from '../skeleton/SodFunctionSkeleton';
 import { useLazySimpleRoleRendering } from 'lib/hooks/sod/useLazySimpleRoleRendering';
 import { SodSimpleRoleSkeleton } from '../skeleton/SodSimpleRoleSkeleton';
 
@@ -83,15 +81,6 @@ const SodCompositeFunctionCard: React.FC<{
     lazyThreshold: 8,      // ⚡ Activer si > 8 rôles
   });
   
-  // 🔍 DEBUG : Logs pour diagnostiquer
-  console.log('🔍 [SIMPLE ROLE DEBUG]', {
-    functionCode: code,
-    totalSimpleRoles: simpleRoles.length,
-    visibleSimpleRoles: visibleSimpleRoles.length,
-    hasMoreSimpleRoles,
-    remainingSimpleRoles,
-    isSimpleRoleLazyActive,
-  });
   
   return (
     <Paper
@@ -292,29 +281,7 @@ export const SodCompositeFunctionGrid: React.FC<SodCompositeFunctionGridProps> =
 }) => {
   const theme = useTheme();
   
-  // 🚀 LAZY LOADING : Chargement progressif des fonctions composites
-  const {
-    visibleFunctions,
-    hasMore,
-    observerRef,
-    remainingCount,
-    isLazyActive,
-  } = useLazyFunctionRendering({
-    allFunctions: functions,
-    initialBatchSize: 2,   // ⚡ 2 fonctions immédiates pour test
-    scrollBatchSize: 2,    // ⚡ +2 fonctions au scroll
-    lazyThreshold: 3,      // ⚡ Activer si > 3 fonctions (pour test)
-  });
   
-  // 🔍 DEBUG : Logs pour diagnostiquer
-  console.log('🔍 [COMPOSITE FUNCTION GRID DEBUG]', {
-    totalFunctions: functions.length,
-    visibleFunctions: visibleFunctions.length,
-    hasMore,
-    remainingCount,
-    isLazyActive,
-    shouldShowSkeletons: hasMore && remainingCount > 0,
-  });
   
   if (functions.length === 0) {
     return (
@@ -336,8 +303,7 @@ export const SodCompositeFunctionGrid: React.FC<SodCompositeFunctionGridProps> =
       
       {/* Grid 2 colonnes */}
       <Grid container spacing={2}>
-        {/* Fonctions visibles */}
-        {visibleFunctions.map((func, index: number) => (
+        {functions.map((func, index: number) => (
           <Grid key={index} size={{ xs: 12, md: 6 }}>
             <SodCompositeFunctionCard
               func={func}
@@ -350,28 +316,6 @@ export const SodCompositeFunctionGrid: React.FC<SodCompositeFunctionGridProps> =
             />
           </Grid>
         ))}
-        
-        {/* Skeletons pour fonctions non encore chargées */}
-        {hasMore && (
-          <>
-            {Array.from({ length: Math.min(remainingCount, 4) }).map((_, i) => (
-              <Grid key={`skeleton-composite-func-${i}`} size={{ xs: 12, md: 6 }}>
-                <SodFunctionSkeleton />
-              </Grid>
-            ))}
-            
-            {/* Sentinel pour Intersection Observer */}
-            <div 
-              ref={observerRef} 
-              style={{ 
-                gridColumn: '1 / -1',
-                height: '1px', 
-                width: '100%' 
-              }} 
-              aria-hidden="true"
-            />
-          </>
-        )}
       </Grid>
     </Box>
   );

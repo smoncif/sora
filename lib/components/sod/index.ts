@@ -16,6 +16,7 @@ export { SodFileUploadSection } from './upload/SodFileUploadSection';
 
 // Progress
 export { SodParsingProgress as SodParsingProgressNew } from './progress/SodParsingProgress';
+export { SodParsingProgressDetailed } from './progress/SodParsingProgressDetailed';
 
 // Auto-selection
 export { SodAutoSelectionSection } from './autoselection/SodAutoSelectionSection';

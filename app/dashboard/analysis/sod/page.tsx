@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, alpha, useTheme, Fade } from '@mui/material';
+import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, alpha, useTheme, Fade, Slide } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import { useAuth } from 'lib/hooks/useAuth';
@@ -9,7 +9,7 @@ import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
 import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSection';
 import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
-import { SodParsingProgress as SodParsingProgressNew } from 'lib/components/sod/progress/SodParsingProgress';
+import { SodParsingProgressDetailed } from 'lib/components/sod/progress/SodParsingProgressDetailed';
 import { SodAnalysisResults } from 'lib/components/sod/results/SodAnalysisResults';
 import { SodNavigationButton, SodNavigationSlider } from 'lib/components/sod';
 import { SodSimpleRoleCardSuspense, SodCompositeRoleCardSuspense } from 'lib/components/sod/suspense/SodAnalysisResultsSuspense';
@@ -28,7 +28,7 @@ import { useSodPagedRoles } from 'lib/hooks/sod/useSodPagedRoles';
 import { useSodPagedCompositeRoles } from 'lib/hooks/sod/useSodPagedCompositeRoles';
 import { useLazyRoleRendering } from 'lib/hooks/sod/useLazyRoleRendering';
 // 🎨 NOUVEAUX COMPOSANTS : Skeletons pour lazy loading
-import { SodSimpleRoleCardSkeleton, SodCompositeRoleCardSkeleton } from 'lib/components/sod/skeleton';
+import { SodSimpleRoleCardSkeleton, SodCompositeRoleCardSkeleton, SkeletonGrid } from 'lib/components/sod/skeleton';
 
 
 export default function SodAnalysisPage() {
@@ -171,7 +171,13 @@ export default function SodAnalysisPage() {
   
   // ✅ Callbacks de pagination mémorisés avec prefetch TanStack Query
   const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
-    setSimpleRolePage(newPage);
+    const startTime = performance.now();
+    
+    setSimpleRolePage(newPage); // ⚡ INSTANTANÉ
+    
+    const endTime = performance.now();
+    console.log(`⚡ Simple page change UI: ${endTime - startTime}ms`);
+    
     // ⚡ Les données sont déjà en cache TanStack Query !
     // Le hook useSodPagedRoles gère automatiquement le prefetch
   }, []);
@@ -184,7 +190,13 @@ export default function SodAnalysisPage() {
   }, []);
   
   const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
-    setCompositeRolePage(newPage);
+    const startTime = performance.now();
+    
+    setCompositeRolePage(newPage); // ⚡ INSTANTANÉ
+    
+    const endTime = performance.now();
+    console.log(`⚡ Composite page change UI: ${endTime - startTime}ms`);
+    
     // ⚡ Les données sont déjà en cache TanStack Query !
   }, []);
   
@@ -648,8 +660,8 @@ export default function SodAnalysisPage() {
         </Grid>
       </Grid>
 
-      {/* Barre de progression pendant le parsing */}
-      <SodParsingProgressNew
+      {/* Barre de progression détaillée pendant le parsing */}
+      <SodParsingProgressDetailed
         parsing={sodWorkflow.state.parsing}
         progress={sodWorkflow.state.parsingProgress}
         message={sodWorkflow.state.parsingMessage}
@@ -828,42 +840,57 @@ export default function SodAnalysisPage() {
                 />
               </Box>
 
-              {/* Rôles simples - Lazy loading progressif */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Rôles visibles (chargés) */}
-                {visibleSimpleRoles.map((role) => (
-                  <React.Suspense 
-                    key={role.roleName}
-                    fallback={<SodSimpleRoleCardSkeleton />}
-                  >
-                    <SodSimpleRoleCardSuspense
-                      role={role}
-                      onDeleteAction={optimisticUpdates.deleteAction}
-                      onRestrictAction={optimisticUpdates.restrictAction}
-                      onRestrictResource={optimisticUpdates.restrictResource}
-                      onDeleteRisk={undefined}
-                      onNextStep={undefined}
-                      showNextStepButton={false}
+              {/* Rôles simples - Pagination instantanée avec skeletons */}
+              {isSimplePaginationLoading ? (
+                <Slide direction="up" in={isSimplePaginationLoading} timeout={200}>
+                  <Box>
+                    <SkeletonGrid 
+                      count={simpleRolesPerPage} 
+                      type="simple"
+                      animated={true}
+                      variant="default"
                     />
-                  </React.Suspense>
-                ))}
-                
-                {/* Placeholders pour rôles non encore chargés */}
-                {hasMoreSimple && (
-                  <>
-                    {Array.from({ length: remainingSimpleCount }).map((_, i) => (
-                      <SodSimpleRoleCardSkeleton key={`skeleton-simple-${i}`} />
+                  </Box>
+                </Slide>
+              ) : (
+                <Fade in={!isSimplePaginationLoading} timeout={300}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {/* Rôles visibles (chargés) */}
+                    {visibleSimpleRoles.map((role) => (
+                      <React.Suspense 
+                        key={role.roleName}
+                        fallback={<SodSimpleRoleCardSkeleton />}
+                      >
+                        <SodSimpleRoleCardSuspense
+                          role={role}
+                          onDeleteAction={optimisticUpdates.deleteAction}
+                          onRestrictAction={optimisticUpdates.restrictAction}
+                          onRestrictResource={optimisticUpdates.restrictResource}
+                          onDeleteRisk={undefined}
+                          onNextStep={undefined}
+                          showNextStepButton={false}
+                        />
+                      </React.Suspense>
                     ))}
                     
-                    {/* Sentinel pour Intersection Observer */}
-                    <div 
-                      ref={simpleObserverRef} 
-                      style={{ height: '1px', width: '100%' }} 
-                      aria-hidden="true"
-                    />
-                  </>
-                )}
-              </Box>
+                    {/* Placeholders pour rôles non encore chargés (lazy loading) */}
+                    {hasMoreSimple && (
+                      <>
+                        {Array.from({ length: remainingSimpleCount }).map((_, i) => (
+                          <SodSimpleRoleCardSkeleton key={`skeleton-simple-${i}`} />
+                        ))}
+                        
+                        {/* Sentinel pour Intersection Observer */}
+                        <div 
+                          ref={simpleObserverRef} 
+                          style={{ height: '1px', width: '100%' }} 
+                          aria-hidden="true"
+                        />
+                      </>
+                    )}
+                  </Box>
+                </Fade>
+              )}
 
               {/* Pagination en bas */}
               {simpleRoles.length > 5 && (
@@ -908,42 +935,57 @@ export default function SodAnalysisPage() {
                 />
               </Box>
 
-              {/* Rôles composites - Lazy loading progressif */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Rôles visibles (chargés) */}
-                {visibleCompositeRoles.map((role) => (
-                  <React.Suspense 
-                    key={role.roleName}
-                    fallback={<SodCompositeRoleCardSkeleton />}
-                  >
-                    <SodCompositeRoleCardSuspense
-                      role={role}
-                      onDeleteAction={optimisticUpdates.deleteAction}
-                      onRestrictAction={optimisticUpdates.restrictAction}
-                      onRestrictResource={handleCompositeRestrictResourceWrapped}
-                      onDeleteRisk={undefined}
-                      onNextStep={undefined}
-                      showNextStepButton={false}
+              {/* Rôles composites - Pagination instantanée avec skeletons */}
+              {isCompositePaginationLoading ? (
+                <Slide direction="up" in={isCompositePaginationLoading} timeout={200}>
+                  <Box>
+                    <SkeletonGrid 
+                      count={compositeRolesPerPage} 
+                      type="composite"
+                      animated={true}
+                      variant="default"
                     />
-                  </React.Suspense>
-                ))}
-                
-                {/* Placeholders pour rôles non encore chargés */}
-                {hasMoreComposite && (
-                  <>
-                    {Array.from({ length: remainingCompositeCount }).map((_, i) => (
-                      <SodCompositeRoleCardSkeleton key={`skeleton-composite-${i}`} />
+                  </Box>
+                </Slide>
+              ) : (
+                <Fade in={!isCompositePaginationLoading} timeout={300}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {/* Rôles visibles (chargés) */}
+                    {visibleCompositeRoles.map((role) => (
+                      <React.Suspense 
+                        key={role.roleName}
+                        fallback={<SodCompositeRoleCardSkeleton />}
+                      >
+                        <SodCompositeRoleCardSuspense
+                          role={role}
+                          onDeleteAction={optimisticUpdates.deleteAction}
+                          onRestrictAction={optimisticUpdates.restrictAction}
+                          onRestrictResource={handleCompositeRestrictResourceWrapped}
+                          onDeleteRisk={undefined}
+                          onNextStep={undefined}
+                          showNextStepButton={false}
+                        />
+                      </React.Suspense>
                     ))}
                     
-                    {/* Sentinel pour Intersection Observer */}
-                    <div 
-                      ref={compositeObserverRef} 
-                      style={{ height: '1px', width: '100%' }} 
-                      aria-hidden="true"
-                    />
-                  </>
-                )}
-              </Box>
+                    {/* Placeholders pour rôles non encore chargés (lazy loading) */}
+                    {hasMoreComposite && (
+                      <>
+                        {Array.from({ length: remainingCompositeCount }).map((_, i) => (
+                          <SodCompositeRoleCardSkeleton key={`skeleton-composite-${i}`} />
+                        ))}
+                        
+                        {/* Sentinel pour Intersection Observer */}
+                        <div 
+                          ref={compositeObserverRef} 
+                          style={{ height: '1px', width: '100%' }} 
+                          aria-hidden="true"
+                        />
+                      </>
+                    )}
+                  </Box>
+                </Fade>
+              )}
 
               {/* Pagination en bas */}
               {compositeRoles.length > 5 && (

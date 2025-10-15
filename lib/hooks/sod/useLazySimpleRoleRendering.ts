@@ -77,11 +77,6 @@ export function useLazySimpleRoleRendering<T>({
         if (entries[0].isIntersecting && visibleCount < allSimpleRoles.length) {
           const toLoad = Math.min(scrollBatchSize, allSimpleRoles.length - visibleCount);
           
-          console.log('📥 [LAZY SIMPLE ROLES] Chargement batch:', {
-            currentVisible: visibleCount,
-            toLoad,
-            remaining: allSimpleRoles.length - visibleCount,
-          });
           
           setVisibleCount(prev => Math.min(prev + scrollBatchSize, allSimpleRoles.length));
         }

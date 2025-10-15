@@ -77,11 +77,6 @@ export function useLazyActionRendering<T>({
         if (entries[0].isIntersecting && visibleCount < allActions.length) {
           const toLoad = Math.min(scrollBatchSize, allActions.length - visibleCount);
           
-          console.log('📥 [LAZY ACTIONS] Chargement batch:', {
-            currentVisible: visibleCount,
-            toLoad,
-            remaining: allActions.length - visibleCount,
-          });
           
           setVisibleCount(prev => Math.min(prev + scrollBatchSize, allActions.length));
         }
