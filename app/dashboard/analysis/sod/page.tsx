@@ -141,7 +141,7 @@ export default function SodAnalysisPage() {
     }
   }, [compositeRolePage, prefetchCompositePages, sodWorkflow.state.session?.id]);
 
-  // 🚀 LAZY LOADING : Chargement progressif pour pages avec beaucoup de rôles
+  // 🚀 LAZY LOADING : Chargement progressif RAPIDE pour pages avec beaucoup de rôles
   const {
     visibleRoles: visibleSimpleRoles,
     hasMore: hasMoreSimple,
@@ -150,9 +150,9 @@ export default function SodAnalysisPage() {
     isLazyActive: isSimpleLazyActive,
   } = useLazyRoleRendering({
     allRoles: paginatedSimpleRoles,
-    initialBatchSize: 2,  // Charger 2 rôles immédiatement
-    scrollBatchSize: 1,   // +1 rôle au scroll
-    lazyThreshold: 3,     // Activer si > 3 rôles dans la page
+    initialBatchSize: 3,  // ⚡ 3 rôles immédiats (au lieu de 2)
+    scrollBatchSize: 2,   // ⚡ +2 rôles au scroll (au lieu de 1)
+    lazyThreshold: 4,     // ⚡ Activer si > 4 rôles (au lieu de 3)
   });
 
   const {
@@ -163,9 +163,9 @@ export default function SodAnalysisPage() {
     isLazyActive: isCompositeLazyActive,
   } = useLazyRoleRendering({
     allRoles: paginatedCompositeRoles,
-    initialBatchSize: 2,
-    scrollBatchSize: 1,
-    lazyThreshold: 3,
+    initialBatchSize: 3,  // ⚡ Plus rapide
+    scrollBatchSize: 2,   // ⚡ +2 rôles au scroll
+    lazyThreshold: 4,     // ⚡ Threshold plus élevé
   });
 
   

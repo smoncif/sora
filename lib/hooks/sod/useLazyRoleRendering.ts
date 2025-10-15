@@ -107,8 +107,8 @@ export function useLazyRoleRendering<T>({
         }
       },
       { 
-        threshold: 0.1,        // Trigger quand 10% du sentinel est visible
-        rootMargin: '200px'    // Charger 200px AVANT d'atteindre le sentinel
+        threshold: 0,          // ⚡ Trigger dès que visible (plus réactif)
+        rootMargin: '400px'    // ⚡ Charger 400px AVANT (encore plus anticipé)
       }
     );
 
