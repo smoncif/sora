@@ -23,6 +23,8 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { SodSimpleRoleFunction, SodSimpleRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
 import { detectDuplicateActionsInRisk, extractActionSignature } from 'lib/utils/sodConflictDetection';
+import { useLazyFunctionRendering } from 'lib/hooks/sod/useLazyFunctionRendering';
+import { SodFunctionSkeleton } from '../skeleton/SodFunctionSkeleton';
 
 export interface SodFunctionGridProps {
   /** Fonctions à afficher */
@@ -240,6 +242,20 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
     return risk && roleName ? detectDuplicateActionsInRisk(risk, roleName) : new Map();
   }, [risk, roleName]);
   
+  // 🚀 LAZY LOADING : Chargement progressif des fonctions
+  const {
+    visibleFunctions,
+    hasMore,
+    observerRef,
+    remainingCount,
+    isLazyActive,
+  } = useLazyFunctionRendering({
+    allFunctions: functions,
+    initialBatchSize: 4,   // ⚡ 4 fonctions immédiates (2 colonnes)
+    scrollBatchSize: 2,    // ⚡ +2 fonctions au scroll (1 ligne)
+    lazyThreshold: 6,      // ⚡ Activer si > 6 fonctions
+  });
+  
   if (functions.length === 0) {
     return (
       <Box
@@ -260,7 +276,8 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
       
       {/* Grid 2 colonnes */}
       <Grid container spacing={2}>
-        {functions.map((func, index) => (
+        {/* Fonctions visibles */}
+        {visibleFunctions.map((func, index) => (
           <Grid key={index} size={{ xs: 12, md: 6 }}>
             <SodFunctionCard
               func={func}
@@ -276,6 +293,28 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
             />
           </Grid>
         ))}
+        
+        {/* Skeletons pour fonctions non encore chargées */}
+        {hasMore && (
+          <>
+            {Array.from({ length: Math.min(remainingCount, 4) }).map((_, i) => (
+              <Grid key={`skeleton-func-${i}`} size={{ xs: 12, md: 6 }}>
+                <SodFunctionSkeleton />
+              </Grid>
+            ))}
+            
+            {/* Sentinel pour Intersection Observer */}
+            <div 
+              ref={observerRef} 
+              style={{ 
+                gridColumn: '1 / -1',
+                height: '1px', 
+                width: '100%' 
+              }} 
+              aria-hidden="true"
+            />
+          </>
+        )}
       </Grid>
     </Box>
   );
