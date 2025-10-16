@@ -207,8 +207,8 @@ export default function SodAnalysisPage() {
       return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     }
     
-    // ✅ OPTIMISÉ : Clé de cache plus précise avec hash des dépendances
-    const cacheKey = `${version}-${simpleRoles.length}-${compositeRoles.length}-${restrictedActions.size}-${restrictedResources.size}`;
+    // ✅ CORRIGÉ : Clé de cache incluant actionsContext.version pour invalidation correcte
+    const cacheKey = `${version}-${actionsContext.version}-${simpleRoles.length}-${compositeRoles.length}-${restrictedActions.size}-${restrictedResources.size}`;
     
     // ✅ Retour ultra-rapide si cache valide (évite recalcul ~390 opérations)
     if (cacheKey === lastCacheKey.current && restrictedActionsCache.current.has(cacheKey)) {
@@ -350,7 +350,7 @@ export default function SodAnalysisPage() {
     }
     
     return result;
-  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version]);
+  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version, actionsContext.version]);
   
   
   // ✅ ANCIENS useMemo SUPPRIMÉS : Remplacés par useSodPagedRoles et useSodPagedCompositeRoles
