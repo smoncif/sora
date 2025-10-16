@@ -23,6 +23,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
+// 🚀 NOUVEAUX HOOKS : Mutations et sélecteurs TanStack Query
+import { useSodMutations } from 'lib/hooks/sod/useSodMutations';
+import { useActionState, useRoleState } from 'lib/hooks/sod/useSodSelectors';
 // 🚀 NOUVEAUX HOOKS : Pagination avec cache TanStack Query
 import { useSodPagedRoles } from 'lib/hooks/sod/useSodPagedRoles';
 import { useSodPagedCompositeRoles } from 'lib/hooks/sod/useSodPagedCompositeRoles';
@@ -46,6 +49,11 @@ export default function SodAnalysisPage() {
   const optimisticUpdates = useSodOptimisticUpdates({ 
     userId: user?.id || 'anonymous',
     sessionId: sodWorkflow.state.session?.id 
+  });
+
+  // 🚀 NOUVEAUX HOOKS : Mutations et sélecteurs TanStack Query
+  const sodMutations = useSodMutations({ 
+    sessionId: sodWorkflow.state.session?.id || 'default' 
   });
 
 
@@ -834,9 +842,9 @@ export default function SodAnalysisPage() {
                       >
                         <SodSimpleRoleCardSuspense
                     role={role}
-                          onDeleteAction={optimisticUpdates.deleteAction}
-                          onRestrictAction={optimisticUpdates.restrictAction}
-                          onRestrictResource={optimisticUpdates.restrictResource}
+                          onDeleteAction={sodMutations.deleteAction}
+                          onRestrictAction={sodMutations.restrictAction}
+                          onRestrictResource={sodMutations.restrictResource}
                       onDeleteRisk={undefined}
                       onNextStep={undefined}
                       showNextStepButton={false}
@@ -925,9 +933,10 @@ export default function SodAnalysisPage() {
                       >
                         <SodCompositeRoleCardSuspense
                         role={role}
-                          onDeleteAction={optimisticUpdates.deleteAction}
-                          onRestrictAction={optimisticUpdates.restrictAction}
+                          onDeleteAction={sodMutations.deleteAction}
+                          onRestrictAction={sodMutations.restrictAction}
                         onRestrictResource={handleCompositeRestrictResourceWrapped}
+                        onExcludeRole={sodMutations.excludeRole}
                         onDeleteRisk={undefined}
                         onNextStep={undefined}
                         showNextStepButton={false}
@@ -1007,7 +1016,6 @@ export default function SodAnalysisPage() {
     </Container>
   );
 }
-
 
 
 

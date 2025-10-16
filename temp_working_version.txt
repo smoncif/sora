@@ -1,0 +1,863 @@
+'use client';
+
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, alpha, useTheme, Fade } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import BugReportIcon from '@mui/icons-material/BugReport';
+import { useAuth } from 'lib/hooks/useAuth';
+import { ThemeToggle } from 'lib/components/common/ThemeToggle';
+import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
+import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSection';
+import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
+import { SodParsingProgress as SodParsingProgressNew } from 'lib/components/sod/progress/SodParsingProgress';
+import { SodAnalysisResults } from 'lib/components/sod/results/SodAnalysisResults';
+import { SodSimpleRoleCard, SodCompositeRoleCard, SodNavigationButton, SodNavigationSlider, VirtualizedSimpleRoleList, VirtualizedCompositeRoleList } from 'lib/components/sod';
+import { useSodWorkflow } from 'lib/hooks/sod/useSodWorkflow';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
+import { useSodNavigation } from 'lib/hooks/sod/useSodNavigation';
+import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
+import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
+import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
+
+
+export default function SodAnalysisPage() {
+  const { user } = useAuth();
+  const theme = useTheme();
+
+  // ­ƒÜÇ NOUVEAU WORKFLOW SOD : Utiliser le hook unifi├®
+  const sodWorkflow = useSodWorkflow({ userId: user?.id || 'anonymous' });
+
+  // ­ƒº¡ SYST├êME DE NAVIGATION : Hook pour la navigation des risques
+  const sodNavigation = useSodNavigation();
+
+  // ­ƒÜÇ VIRTUALISATION : Activer la virtualisation pour de grandes listes (> 50 r├┤les)
+  const [useVirtualization, setUseVirtualization] = useState(false);
+
+  // Pagination pour r├┤les simples (index 0-based pour TablePagination)
+  const [simpleRolePage, setSimpleRolePage] = useState(0);
+  const [simpleRolesPerPage, setSimpleRolesPerPage] = useState(5);
+  
+  // Pagination pour r├┤les composites (index 0-based pour TablePagination)
+  const [compositeRolePage, setCompositeRolePage] = useState(0);
+  const [compositeRolesPerPage, setCompositeRolesPerPage] = useState(5);
+  
+  // Ô£à Callbacks de pagination m├®moris├®s
+  const handleSimplePageChange = useCallback((_event: unknown, newPage: number) => {
+    setSimpleRolePage(newPage);
+  }, []);
+  
+  const handleSimpleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setSimpleRolesPerPage(parseInt(event.target.value, 10));
+    setSimpleRolePage(0);
+  }, []);
+  
+  const handleCompositePageChange = useCallback((_event: unknown, newPage: number) => {
+    setCompositeRolePage(newPage);
+  }, []);
+  
+  const handleCompositeRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setCompositeRolesPerPage(parseInt(event.target.value, 10));
+    setCompositeRolePage(0);
+  }, []);
+
+  // ­ƒÜÇ NOUVELLE ARCHITECTURE : ├ëtat global + Pagination pure
+  const simpleRoles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
+  const compositeRoles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
+  
+  // ­ƒÜÇ AUTO-ACTIVATION DE LA VIRTUALISATION : Si > 50 r├┤les, activer automatiquement
+  // Optimis├® : S'ex├®cute uniquement quand la session est charg├®e (pas pendant le parsing)
+  useEffect(() => {
+    // Ne s'ex├®cuter que si une session existe et n'est pas en cours de parsing
+    if (!sodWorkflow.state.session || sodWorkflow.state.parsing) return;
+    
+    const totalRoles = simpleRoles.length + compositeRoles.length;
+    if (totalRoles > 50 && !useVirtualization) {
+      setUseVirtualization(true);
+      console.log(`­ƒÜÇ Virtualisation activ├®e automatiquement (${totalRoles} r├┤les d├®tect├®s)`);
+    }
+  }, [sodWorkflow.state.session, sodWorkflow.state.parsing, simpleRoles.length, compositeRoles.length, useVirtualization]);
+  
+  // Ô£à D├®structurer le contexte pour avoir des r├®f├®rences stables
+  const actionsContext = useSodActionsContext();
+  const { 
+    buildActionResourcesMap,
+    toggleDeleteAction, 
+    toggleRestrictAction, 
+    toggleRestrictResource,
+    isActionDeleted,
+    isActionRestricted,
+    isResourceRestricted,
+    isSimpleRoleExcluded,
+    resetState, // Ô£à Ajouter resetState pour l'upload
+    version, // Pour forcer le re-calcul des useMemo
+    deletedActions,
+    restrictedActions,
+    restrictedResources
+  } = actionsContext;
+  
+  // ­ƒù║´©Å Construire la Map globale des ressources par action (UNE SEULE FOIS)
+  // Ô£à OPTIMIS├ë : Construction de la Map globale des ressources au chargement
+  useEffect(() => {
+    if (simpleRoles.length > 0 || compositeRoles.length > 0) {
+      buildActionResourcesMap(simpleRoles, compositeRoles);
+    }
+  }, [simpleRoles, compositeRoles, buildActionResourcesMap]);
+  
+  // ­ƒÉø Calculer toutes les actions VISUELLEMENT restreintes (en utilisant la m├¬me logique que applyStateToAction)
+  // ­ƒÜÇ OPTIMIS├ë : Ne se calcule pas pendant le parsing pour ├®viter de ralentir le chargement
+  const allRestrictedActions = useMemo(() => {
+    // ÔÜí Skip pendant le parsing pour ne pas ralentir le chargement
+    if (sodWorkflow.state.parsing) {
+      return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
+    }
+    
+    const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
+    
+    // Parcourir tous les r├┤les pour calculer l'├®tat visuel r├®el de chaque action
+    [...simpleRoles, ...compositeRoles].forEach((role: any) => {
+      role.risks.forEach((risk: any) => {
+        risk.functions.forEach((func: any) => {
+          // Pour les r├┤les simples
+          if ('actions' in func) {
+            func.actions.forEach((action: any) => {
+              const key = `${role.roleName}|${action.code}`;
+              
+              // Ô£à R├êGLE PRIORITAIRE : Ne pas lister les actions SUPPRIM├ëES
+              const isDeleted = isActionDeleted(role.roleName, action.code);
+              if (isDeleted) return; // Ignorer les actions supprim├®es
+              
+              // Ô£à Utiliser la M├èME LOGIQUE que applyStateToAction
+              const actionRestriction = isActionRestricted(role.roleName, action.code);
+              const restrictedByAction = actionRestriction.restrictedByAction;
+              
+              // V├®rifier si l'action a des ressources r├®ellement restreintes
+              const hasRestrictedResource = action.resources.some((resource: any) => {
+                if (resource.code === 'S_TCODE') return false;
+                
+                return resource.externalResources?.some((extRes: any) => {
+                  const values = extractExternalResourceValues(extRes);
+                  return isResourceRestricted(role.roleName, resource.code, extRes.code, values);
+                });
+              });
+              
+              // Ô£à Calculer l'├®tat visuel final (m├¬me logique que applyStateToAction)
+              const finalIsRestricted = restrictedByAction 
+                ? hasRestrictedResource 
+                : (actionRestriction.isRestricted || hasRestrictedResource);
+              
+              // N'ajouter que si visuellement restreinte
+              if (finalIsRestricted) {
+                result.set(key, { 
+                  directlyRestricted: restrictedByAction, 
+                  viaResources: hasRestrictedResource 
+                });
+              }
+            });
+          }
+          // Pour les r├┤les composites
+          else if ('simpleRoles' in func) {
+            func.simpleRoles.forEach(simpleRole => {
+              // Ô£à R├êGLE PRIORITAIRE : Ignorer les r├┤les simples exclus
+              const isExcluded = isSimpleRoleExcluded(role.roleName, simpleRole.roleName);
+              if (isExcluded) return;
+              
+              simpleRole.actions.forEach(action => {
+                const key = `${simpleRole.roleName}|${action.code}`;
+                
+                // Ô£à R├êGLE PRIORITAIRE : Ne pas lister les actions SUPPRIM├ëES
+                const isDeleted = isActionDeleted(simpleRole.roleName, action.code);
+                if (isDeleted) return; // Ignorer les actions supprim├®es
+                
+                // Ô£à Utiliser la M├èME LOGIQUE que applyStateToAction
+                const actionRestriction = isActionRestricted(simpleRole.roleName, action.code);
+                const restrictedByAction = actionRestriction.restrictedByAction;
+                
+                const hasRestrictedResource = action.resources.some((resource: any) => {
+                  if (resource.code === 'S_TCODE') return false;
+                  
+                  return resource.externalResources?.some((extRes: any) => {
+                    const values = extractExternalResourceValues(extRes);
+                    return isResourceRestricted(simpleRole.roleName, resource.code, extRes.code, values);
+                  });
+                });
+                
+                // Ô£à Calculer l'├®tat visuel final
+                const finalIsRestricted = restrictedByAction 
+                  ? hasRestrictedResource 
+                  : (actionRestriction.isRestricted || hasRestrictedResource);
+                
+                // N'ajouter que si visuellement restreinte
+                if (finalIsRestricted) {
+                  result.set(key, { 
+                    directlyRestricted: restrictedByAction, 
+                    viaResources: hasRestrictedResource 
+                  });
+                }
+              });
+            });
+          }
+        });
+      });
+    });
+    
+    return result;
+  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, isResourceRestricted, version]);
+  
+  
+  // ­ƒÜÇ OPTIMISATION 1 : Pagination AVANT d'appliquer l'├®tat
+  // Slice ultra-rapide (< 1ms) sur les donn├®es brutes
+  const paginatedSimpleRolesRaw = useMemo(() => {
+    const start = simpleRolePage * simpleRolesPerPage;
+    const end = start + simpleRolesPerPage;
+    return simpleRoles.slice(start, end);
+  }, [simpleRoles, simpleRolePage, simpleRolesPerPage]);
+
+  const paginatedCompositeRolesRaw = useMemo(() => {
+    const start = compositeRolePage * compositeRolesPerPage;
+    const end = start + compositeRolesPerPage;
+    return compositeRoles.slice(start, end);
+  }, [compositeRoles, compositeRolePage, compositeRolesPerPage]);
+  
+  // ­ƒÜÇ OPTIMISATION 2 : Appliquer l'├®tat UNIQUEMENT aux r├┤les de la page actuelle
+  // Seulement 5 r├┤les au lieu de 1000 !
+  // Ô£à Cr├®er l'objet state avec les fonctions n├®cessaires
+  const actionsState = useMemo(() => ({
+    isActionDeleted,
+    isActionRestricted,
+    isResourceRestricted,
+  }), [isActionDeleted, isActionRestricted, isResourceRestricted]);
+  
+  const paginatedSimpleRoles = useMemo(() => {
+    return applyStateToSimpleRoles(paginatedSimpleRolesRaw, actionsState);
+  }, [paginatedSimpleRolesRaw, actionsState, version]); // Ô£à D├®pend de version pour se recalculer
+
+  const paginatedCompositeRoles = useMemo(() => {
+    return applyStateToCompositeRoles(paginatedCompositeRolesRaw, actionsState);
+  }, [paginatedCompositeRolesRaw, actionsState, version]); // Ô£à D├®pend de version pour se recalculer
+  
+  // ­ƒÜÇ OPTIMISATION 3 : Callbacks stables (ne d├®pendent que des fonctions, pas du contexte entier)
+  const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources?: any[]) => {
+    toggleDeleteAction(roleName, actionCode, resources || []);
+  }, [toggleDeleteAction]); // Ô£à Stable : toggleDeleteAction ne change jamais
+
+  const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources?: any[]) => {
+    toggleRestrictAction(roleName, actionCode, resources || []);
+  }, [toggleRestrictAction]); // Ô£à Stable : toggleRestrictAction ne change jamais
+
+  const handleRestrictResourceWrapped = useCallback((
+        roleName: string,
+    _riskId: string,
+    _actionCode: string,
+        resourceCode: string,
+        externalResourceCode: string,
+        values: string[]
+      ) => {
+    toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
+  }, [toggleRestrictResource]); // Ô£à Stable : toggleRestrictResource ne change jamais
+
+  const handleCompositeRestrictResourceWrapped = useCallback((
+        roleName: string,
+    _riskId: string,
+    _actionCode: string,
+        resourceCode: string,
+        externalResourceCode: string,
+        values: string[]
+      ) => {
+    toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
+  }, [toggleRestrictResource]); // Ô£à Stable : toggleRestrictResource ne change jamais
+
+  // ­ƒº¡ CALCUL DES RISQUES NON REM├ëDI├ëS : Pour le badge du bouton de navigation
+  const nonRemediatedRisksCount = useMemo(() => {
+    // ÔÜí Skip pendant le parsing pour ne pas ralentir le chargement
+    if (!sodWorkflow.state.session || sodWorkflow.state.parsing) return 0;
+
+    let count = 0;
+
+    // Compter les risques non rem├®di├®s dans les r├┤les simples
+    if (sodWorkflow.state.session.simpleRoles?.roles) {
+      sodWorkflow.state.session.simpleRoles.roles.forEach((role: any) => {
+        role.risks?.forEach((risk: any) => {
+          const remediation = actionsContext.calculateRiskRemediation(role.roleName, risk.functions);
+          if (!remediation.isRemediated) {
+            count++;
+          }
+        });
+      });
+    }
+
+    // Compter les risques non rem├®di├®s dans les r├┤les composites
+    if (sodWorkflow.state.session.compositeRoles?.roles) {
+      sodWorkflow.state.session.compositeRoles.roles.forEach((role: any) => {
+        role.risks?.forEach((risk: any) => {
+          const remediation = actionsContext.calculateCompositeRiskRemediation(role.roleName, risk.functions);
+          if (!remediation.isRemediated) {
+            count++;
+          }
+        });
+      });
+    }
+
+    return count;
+  }, [sodWorkflow.state.session, sodWorkflow.state.parsing, actionsContext, version]);
+
+  // ­ƒº¡ NAVIGATION VERS RISQUE : Callback pour naviguer vers un r├┤le/risque sp├®cifique
+  const handleNavigateToRisk = useCallback((
+    roleName: string, 
+    riskCode: string, 
+    targetStep: number
+  ) => {
+    // Corriger targetStep si undefined
+    const correctedTargetStep = targetStep || sodWorkflow.state.currentStep;
+    
+    // Changer l'├®tape si n├®cessaire
+    if (sodWorkflow.state.currentStep !== correctedTargetStep) {
+      sodWorkflow.actions.setCurrentStep(correctedTargetStep);
+    }
+
+    // G├®rer la pagination : trouver la page qui contient le r├┤le
+    if (correctedTargetStep === 1) {
+      // ├ëtape 1 : R├┤les simples
+      const roleIndex = simpleRoles.findIndex(role => role.roleName === roleName);
+      if (roleIndex !== -1) {
+        const targetPage = Math.floor(roleIndex / simpleRolesPerPage);
+        if (targetPage !== simpleRolePage) {
+          setSimpleRolePage(targetPage);
+        }
+      }
+    } else if (correctedTargetStep === 2) {
+      // ├ëtape 2 : R├┤les composites
+      const roleIndex = compositeRoles.findIndex(role => role.roleName === roleName);
+      if (roleIndex !== -1) {
+        const targetPage = Math.floor(roleIndex / compositeRolesPerPage);
+        if (targetPage !== compositeRolePage) {
+          setCompositeRolePage(targetPage);
+        }
+      }
+    }
+
+    // Fonction pour chercher l'├®l├®ment avec retry
+    const findElementWithRetry = (selector: string, maxRetries = 10, delay = 200) => {
+      return new Promise<Element | null>((resolve) => {
+        let attempts = 0;
+        
+        const search = () => {
+          attempts++;
+          const element = document.querySelector(selector);
+          
+          if (element) {
+            resolve(element);
+          } else if (attempts < maxRetries) {
+            setTimeout(search, delay);
+          } else {
+            resolve(null);
+          }
+        };
+        
+        search();
+      });
+    };
+
+    // Attendre que l'├®tape change, puis chercher l'├®l├®ment
+    setTimeout(async () => {
+      // S├®lecteur unique : combinaison r├┤le-risque pour ├®viter les conflits
+      const uniqueRiskSelector = `[data-role-risk="${roleName}-${riskCode}"]`;
+      const roleSelector = `[data-role-name="${roleName}"]`;
+      
+      let element = await findElementWithRetry(uniqueRiskSelector);
+      
+      // Si le risque sp├®cifique n'est pas trouv├®, chercher le r├┤le
+      if (!element) {
+        element = await findElementWithRetry(roleSelector);
+      }
+      
+      if (element) {
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        
+        // Highlight temporaire avec styles inline
+        const originalStyle = element.getAttribute('style') || '';
+        element.setAttribute('style', 
+          originalStyle + 
+          'box-shadow: 0 0 20px rgba(25, 118, 210, 0.5) !important; ' +
+          'border: 2px solid #1976d2 !important; ' +
+          'border-radius: 8px !important; ' +
+          'transition: all 0.3s ease !important;'
+        );
+        
+        setTimeout(() => {
+          element.setAttribute('style', originalStyle);
+        }, 2000);
+      }
+    }, 300); // Augmenter le d├®lai initial
+  }, [sodWorkflow, simpleRoles, simpleRolesPerPage, simpleRolePage, compositeRoles, compositeRolesPerPage, compositeRolePage]);
+  
+  // ­ƒöì DEBUG 4 : D├®tecter les changements de callbacks
+  const callbackRefId = useRef(0);
+  const previousCallbackRef = useRef(handleDeleteAction);
+  
+  useEffect(() => {
+    if (previousCallbackRef.current !== handleDeleteAction) {
+      callbackRefId.current++;
+      console.error(`
+ÔòöÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Ôòæ ÔØî CALLBACK A CHANG├ë : handleDeleteAction
+ÔòáÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Ôòæ Callback ID: ${callbackRefId.current}
+Ôòæ 
+Ôòæ CAUSE: Le contexte a chang├® ÔåÆ useCallback se recalcule
+Ôòæ IMPACT: React.memo ├®choue ÔåÆ Tous les composants se re-rendent
+ÔòÜÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+      `);
+    }
+    previousCallbackRef.current = handleDeleteAction;
+  }, [handleDeleteAction]);
+
+  // Handler pour la rem├®diation automatique
+  const handleStartRemediation = useCallback(async () => {
+    await sodWorkflow.actions.startAutomaticRemediation();
+  }, [sodWorkflow.actions]);
+
+  return (
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* En-t├¬te moderne et ├®pur├® */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-start',
+        mb: 6,
+        pb: 3,
+        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+      }}>
+        <Box>
+          <Typography 
+            variant="h3" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 700,
+              color: theme.palette.text.primary,
+              mb: 1,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Analyse SoD (Segregation of Duties)
+          </Typography>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ 
+              color: theme.palette.text.secondary,
+              fontSize: '1.1rem',
+              fontWeight: 400,
+            }}
+          >
+            Rem├®diation automatique des risques de s├®gr├®gation des t├óches
+          </Typography>
+        </Box>
+        <ThemeToggle />
+      </Box>
+
+
+      {/* Affichage des erreurs */}
+      {sodWorkflow.state.error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {sodWorkflow.state.error}
+        </Alert>
+      )}
+
+      {/* Layout 2 cartes avec proportions ajust├®es - Toujours visibles */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Carte 1 : Upload des fichiers - Plus large */}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <SodFileUploadSection
+            importType={sodWorkflow.state.importType}
+            loading={sodWorkflow.state.loading}
+            error={sodWorkflow.state.error}
+            user={user}
+            onImportTypeChange={sodWorkflow.actions.setImportType}
+            onFileUpload={sodWorkflow.actions.startNewAnalysis}
+            onLoadSavedAnalysis={sodWorkflow.actions.loadSavedAnalysis}
+            onResumeFromFile={sodWorkflow.actions.resumeFromFile}
+          />
+        </Grid>
+
+        {/* Carte 2 : S├®lection automatique - Plus ├®troite */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <SodAutoSelectionSection
+            enableUsageAnalysis={sodWorkflow.state.enableUsageAnalysis}
+            onUsageAnalysisChange={sodWorkflow.actions.setEnableUsageAnalysis}
+            disabled={!sodWorkflow.state.session}
+            onStartRemediation={handleStartRemediation}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Barre de progression pendant le parsing */}
+      <SodParsingProgressNew
+        parsing={sodWorkflow.state.parsing}
+        progress={sodWorkflow.state.parsingProgress}
+        message={sodWorkflow.state.parsingMessage}
+        error={sodWorkflow.state.parsingError}
+      />
+
+      {/* ­ƒÉø Section de Debug - ├ëtat des restrictions */}
+      {sodWorkflow.state.session && (
+        <Accordion sx={{ mt: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <BugReportIcon color="info" />
+              <Typography variant="h6">
+                ­ƒÉø Debug - ├ëtat des Restrictions
+              </Typography>
+              <Chip 
+                label={`${deletedActions.size} supprim├®es`} 
+                size="small" 
+                color="error" 
+              />
+              <Chip 
+                label={`${allRestrictedActions.size} actions restreintes`} 
+                size="small" 
+                color="warning" 
+              />
+              <Chip 
+                label={`${restrictedResources.size} ressources restreintes`} 
+                size="small" 
+                color="info" 
+              />
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              
+              {/* Actions supprim├®es */}
+              <Paper sx={{ p: 2, bgcolor: 'error.50' }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  ­ƒùæ´©Å Actions Supprim├®es ({deletedActions.size})
+                </Typography>
+                {deletedActions.size === 0 ? (
+                  <Typography variant="body2" color="text.secondary">Aucune action supprim├®e</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    {Array.from(deletedActions.entries()).map(([key, _value]) => {
+                      const [roleName, actionCode] = key.split('|');
+                      return (
+                        <Chip 
+                          key={key} 
+                          label={`${roleName} ÔåÆ ${actionCode}`}
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                        />
+                      );
+                    })}
+              </Box>
+            )}
+          </Paper>
+
+              {/* Actions restreintes */}
+              <Paper sx={{ p: 2, bgcolor: 'warning.50' }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  ­ƒÜ½ Actions Restreintes ({allRestrictedActions.size})
+                </Typography>
+                {allRestrictedActions.size === 0 ? (
+                  <Typography variant="body2" color="text.secondary">Aucune action restreinte</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                    {Array.from(allRestrictedActions.entries()).map(([key, value]) => {
+                      const [roleName, actionCode] = key.split('|');
+                      return (
+                        <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip 
+                            label={`${roleName} ÔåÆ ${actionCode}`}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                          />
+                          {value.directlyRestricted && (
+                            <Chip 
+                              label="­ƒÜ½ Directe"
+                              size="small"
+                              color="warning"
+                            />
+                          )}
+                          {value.viaResources && (
+                            <Chip 
+                              label="­ƒöù Propagation"
+                              size="small"
+                              color="info"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Paper>
+
+              {/* Ressources restreintes */}
+              <Paper sx={{ p: 2, bgcolor: 'info.50' }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  ­ƒöÆ Ressources Restreintes ({restrictedResources.size})
+                </Typography>
+                {restrictedResources.size === 0 ? (
+                  <Typography variant="body2" color="text.secondary">Aucune ressource restreinte</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                    {Array.from(restrictedResources.entries()).map(([key, valuesSet]) => {
+                      const [roleName, resourceCode, externalResourceCode] = key.split('|');
+                      // Ô£à Afficher UNIQUEMENT les valeurs qui sont dans restrictedResourcesRef
+                      const restrictedValues = Array.from(valuesSet);
+                      
+                      // Ne pas afficher si aucune valeur restreinte
+                      if (restrictedValues.length === 0) return null;
+                      
+                      return (
+                        <Box key={key} sx={{ p: 1, border: '1px solid', borderColor: 'info.main', borderRadius: 1 }}>
+                          <Typography variant="body2" fontWeight="bold">
+                            {roleName} ÔåÆ {resourceCode} ÔåÆ {externalResourceCode === 'NULL' ? '(pas de code externe)' : externalResourceCode}
+              </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                            {restrictedValues.map((value, idx) => (
+                              <Chip 
+                                key={idx}
+                                label={value}
+                                size="small"
+                                color="info"
+                                variant="filled"
+                              />
+                            ))}
+              </Box>
+            </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Paper>
+
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      )}
+
+      {/* R├®sultats d'analyse */}
+      {sodWorkflow.state.session && (
+        <SodAnalysisResults
+          session={sodWorkflow.state.session}
+          currentStep={sodWorkflow.state.currentStep}
+          onStepChange={sodWorkflow.actions.setCurrentStep}
+          simpleRoles={simpleRoles}
+          compositeRoles={compositeRoles}
+          loading={sodWorkflow.state.loading}
+          renderSimpleRoles={() => (
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {simpleRoles.length} r├┤le(s) simple(s) ÔÇó Affichage de {paginatedSimpleRoles.length} r├┤le(s) par page
+                  </Typography>
+                </Box>
+                <TablePagination
+                  component="div"
+                  count={simpleRoles.length}
+                  page={simpleRolePage}
+                  onPageChange={handleSimplePageChange}
+                  rowsPerPage={simpleRolesPerPage}
+                  onRowsPerPageChange={handleSimpleRowsPerPageChange}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="R├┤les par page:"
+                  labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} ÔÇó Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+
+              {/* R├┤les simples */}
+              {useVirtualization ? (
+                // ­ƒÜÇ MODE VIRTUALIS├ë : Pour de grandes listes (> 50 r├┤les)
+                <VirtualizedSimpleRoleList
+                  roles={paginatedSimpleRoles}
+                  itemHeight={600}
+                  listHeight={800}
+                  onDeleteAction={handleDeleteAction}
+                  onRestrictAction={handleRestrictAction}
+                  onRestrictResource={handleRestrictResourceWrapped}
+                />
+              ) : (
+                // ­ƒôä MODE STANDARD : Pour des listes plus petites
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {paginatedSimpleRoles.map((role, index) => (
+                    <React.Suspense 
+                      key={`${simpleRolePage}-${index}`}
+                      fallback={
+                        <Box sx={{ 
+                          p: 4, 
+                          textAlign: 'center', 
+                          border: '1px solid rgba(0,0,0,0.1)', 
+                          borderRadius: 3 
+                        }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Chargement du r├┤le...
+                  </Typography>
+                        </Box>
+                      }
+                    >
+                    <SodSimpleRoleCard
+                      role={role}
+                        onDeleteAction={handleDeleteAction}
+                        onRestrictAction={handleRestrictAction}
+                        onRestrictResource={handleRestrictResourceWrapped}
+                        onDeleteRisk={undefined}
+                        onNextStep={undefined}
+                        showNextStepButton={false}
+                      />
+                    </React.Suspense>
+                  ))}
+                </Box>
+              )}
+
+              {/* Pagination en bas */}
+              {simpleRoles.length > 5 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <TablePagination
+                    component="div"
+                    count={simpleRoles.length}
+                    page={simpleRolePage}
+                    onPageChange={handleSimplePageChange}
+                    rowsPerPage={simpleRolesPerPage}
+                    onRowsPerPageChange={handleSimpleRowsPerPageChange}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    labelRowsPerPage="R├┤les par page:"
+                    labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} ÔÇó Page ${simpleRolePage + 1}/${Math.ceil(count / simpleRolesPerPage)}`}
+                    showFirstButton
+                    showLastButton
+                  />
+                </Box>
+              )}
+              </Box>
+            )}
+          renderCompositeRoles={() => (
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {compositeRoles.length} r├┤le(s) composite(s) ÔÇó Affichage de {paginatedCompositeRoles.length} r├┤le(s) par page
+                </Typography>
+                </Box>
+                <TablePagination
+                  component="div"
+                  count={compositeRoles.length}
+                  page={compositeRolePage}
+                  onPageChange={handleCompositePageChange}
+                  rowsPerPage={compositeRolesPerPage}
+                  onRowsPerPageChange={handleCompositeRowsPerPageChange}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="R├┤les par page:"
+                  labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} ÔÇó Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+
+              {/* R├┤les composites */}
+              {useVirtualization ? (
+                // ­ƒÜÇ MODE VIRTUALIS├ë : Pour de grandes listes (> 50 r├┤les)
+                <VirtualizedCompositeRoleList
+                  roles={paginatedCompositeRoles}
+                  itemHeight={700}
+                  listHeight={800}
+                  onDeleteAction={handleDeleteAction}
+                  onRestrictAction={handleRestrictAction}
+                  onRestrictResource={handleCompositeRestrictResourceWrapped}
+                  onExcludeSimpleRole={handleExcludeSimpleRole}
+                />
+              ) : (
+                // ­ƒôä MODE STANDARD : Pour des listes plus petites
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {paginatedCompositeRoles.map((role, index) => (
+                    <React.Suspense 
+                      key={`${compositeRolePage}-${index}`}
+                      fallback={
+                        <Box sx={{ 
+                          p: 4, 
+                          textAlign: 'center', 
+                          border: '1px solid rgba(0,0,0,0.1)', 
+                          borderRadius: 3 
+                        }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Chargement du r├┤le...
+                  </Typography>
+                        </Box>
+                      }
+                    >
+                      <SodCompositeRoleCard
+                        role={role}
+                        onDeleteAction={handleDeleteAction}
+                        onRestrictAction={handleRestrictAction}
+                        onRestrictResource={handleCompositeRestrictResourceWrapped}
+                        onDeleteRisk={undefined}
+                        onNextStep={undefined}
+                        showNextStepButton={false}
+                      />
+                    </React.Suspense>
+                  ))}
+                </Box>
+              )}
+
+              {/* Pagination en bas */}
+              {compositeRoles.length > 5 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <TablePagination
+                    component="div"
+                    count={compositeRoles.length}
+                    page={compositeRolePage}
+                    onPageChange={handleCompositePageChange}
+                    rowsPerPage={compositeRolesPerPage}
+                    onRowsPerPageChange={handleCompositeRowsPerPageChange}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    labelRowsPerPage="R├┤les par page:"
+                    labelDisplayedRows={({ from, to, count }: { from: number; to: number; count: number }) => `${from}-${to} sur ${count} ÔÇó Page ${compositeRolePage + 1}/${Math.ceil(count / compositeRolesPerPage)}`}
+                    showFirstButton
+                    showLastButton
+                  />
+              </Box>
+            )}
+          </Box>
+          )}
+        />
+      )}
+
+      {/* ­ƒº¡ SYST├êME DE NAVIGATION : Bouton flottant et slider */}
+      {sodWorkflow.state.session && (
+        <>
+          <SodNavigationButton
+            nonRemediatedCount={nonRemediatedRisksCount}
+            onOpenSlider={sodNavigation.actions.openSlider}
+            visible={!!sodWorkflow.state.session}
+          />
+          
+          <SodNavigationSlider
+            isOpen={sodNavigation.state.isSliderOpen}
+            session={sodWorkflow.state.session}
+            mode={sodNavigation.state.mode}
+            onClose={sodNavigation.actions.closeSlider}
+            onModeChange={sodNavigation.actions.setMode}
+            onNavigateToRisk={(roleName, riskCode, targetStep) => 
+              sodNavigation.actions.navigateToRisk(
+                roleName, 
+                riskCode, 
+                targetStep,
+                sodWorkflow.actions.setCurrentStep,
+                handleNavigateToRisk
+              )
+            }
+          />
+        </>
+      )}
+    </Container>
+  );
+}
+
+
+
+

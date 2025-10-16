@@ -80,16 +80,16 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
     if (!roleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0 };
     
     // Essayer d'obtenir depuis le cache
-    const cached = remediationCache.get(roleName, riskId, 'simple', actionsContext.version);
+    const cached = remediationCache.get(roleName, riskId, 'simple', 0); // ✅ OPTIMISÉ : Version fixe pour éviter les re-renders
     if (cached) {
       return cached;
     }
     
     // Calculer si pas en cache
     const result = actionsContext.calculateRiskRemediation(roleName, functions);
-    remediationCache.set(roleName, riskId, 'simple', result, actionsContext.version);
+    remediationCache.set(roleName, riskId, 'simple', result, 0); // ✅ OPTIMISÉ : Version fixe
     return result;
-  }, [roleName, riskId, functions, actionsContext.version]); // ✅ OPTIMISATION : Dépendances stables
+  }, [roleName, riskId, functions]); // ✅ OPTIMISÉ : Suppression de version pour éviter les re-renders
   
   return (
     <Paper

@@ -25,6 +25,7 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { SodSimpleRoleInComposite } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
+import { useActionState, useRoleState } from 'lib/hooks/sod/useSodSelectors';
 
 export interface SodSimpleRoleInCompositeItemProps {
   /** Rôle simple */
@@ -53,6 +54,9 @@ export interface SodSimpleRoleInCompositeItemProps {
   
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  
+  /** Callback pour exclure un rôle simple dans un rôle composite */
+  onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
 }
 
 /**
@@ -68,6 +72,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
+  onExcludeRole,
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -75,14 +80,11 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
   
   const { roleName, roleDescription, actions, actionCount: totalActionCount } = simpleRole;
   
-  // ✅ Vérifier si le rôle simple est exclu de l'analyse
-  // L'exclusion est au niveau du composite (toutes fonctions confondues)
-  // ✅ OPTIMISÉ : Mémoïsé pour éviter les recalculs inutiles
-  const isRoleExcluded = useMemo(() => {
-    return compositeRoleName 
-      ? actionsContext.isSimpleRoleExcluded(compositeRoleName, roleName)
-      : false;
-  }, [compositeRoleName, roleName, actionsContext.isSimpleRoleExcluded, actionsContext.version]);
+  // ✅ OPTIMISÉ : Utiliser TanStack Query comme seule source de vérité
+  // Pas d'état local - utilisation directe de SodActionsContext
+  const isRoleExcluded = compositeRoleName 
+    ? actionsContext.isSimpleRoleExcluded(compositeRoleName, roleName)
+    : false;
   
   // ✅ Calculer si le rôle contient des actions (T-Code) et/ou des permissions
   // ✅ OPTIMISÉ : Mémoïsé pour éviter de parcourir les actions à chaque rendu
@@ -192,9 +194,9 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
   // ✅ OPTIMISÉ : useCallback pour éviter de recréer les fonctions à chaque rendu
   const handleDeleteRole = useCallback(() => {
     if (!compositeRoleName) return;
-    // Exclure/restaurer le rôle de l'analyse (dans toutes les fonctions du composite)
-    actionsContext.toggleExcludeSimpleRole(compositeRoleName, roleName);
-  }, [compositeRoleName, roleName, actionsContext.toggleExcludeSimpleRole]);
+    // ✅ OPTIMISÉ : Utiliser TanStack Query au lieu de actionsContext direct
+    onExcludeRole?.(compositeRoleName, roleName);
+  }, [compositeRoleName, roleName, onExcludeRole]);
   
   const handleDeleteAllActions = useCallback(() => {
     if (!riskId || !actions) return;
@@ -207,6 +209,9 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     });
   }, [roleName, riskId, actions, onDeleteAction]);
   
+  // ✅ OPTIMISÉ : Utiliser SodActionsContext directement - pas d'état local
+  // Les restrictions d'actions sont gérées par SodActionsContext synchronisé avec TanStack Query
+
   // ✅ GESTIONNAIRE POUR LE BOUTON "RESTREINDRE/DÉRESTREINDRE TOUT"
   const handleRestrictAllActions = useCallback(() => {
     if (!actions) return;
@@ -218,12 +223,16 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     
     if (restrainableActions.length === 0) return;
     
-    // ✅ ÉTAPE 1: DÉTECTER LE MODE GLOBAL
+    // ✅ ÉTAPE 1: DÉTECTER LE MODE GLOBAL avec les données de session
+    // Utiliser les données directement au lieu de SodActionsContext pour éviter les re-renders
     const actionStates = restrainableActions.map(action => {
-      const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      // ✅ OPTIMISÉ : Utiliser les données de session directement
+      const hasRestrictedResource = action.resources.some(resource => 
+        resource.code !== 'S_TCODE' && resource.isRestricted
+      );
       return {
         code: action.code,
-        isRestricted
+        isRestricted: hasRestrictedResource
       };
     });
     
@@ -232,18 +241,20 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     
     // ✅ SIMULER LES CLIQUES SUR LES BOUTONS INDIVIDUELS
     restrainableActions.forEach((action) => {
-      const { isRestricted } = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      const hasRestrictedResource = action.resources.some(resource => 
+        resource.code !== 'S_TCODE' && resource.isRestricted
+      );
       
-      if (mode === "RESTREINDRE" && !isRestricted) {
-        // Mode RESTREINDRE : Utiliser restrictAction (force la restriction sans toggle)
-        actionsContext.restrictAction(roleName, action.code, action.resources);
-      } else if (mode === "DÉRESTREINDRE" && isRestricted) {
-        // Mode DÉRESTREINDRE : Utiliser unrestrictAction (force la dérestriction sans toggle)
-        actionsContext.unrestrictAction(roleName, action.code, action.resources);
+      if (mode === "RESTREINDRE" && !hasRestrictedResource) {
+        // ✅ OPTIMISÉ : Utiliser TanStack Query uniquement
+        onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
+      } else if (mode === "DÉRESTREINDRE" && hasRestrictedResource) {
+        // ✅ OPTIMISÉ : Utiliser TanStack Query uniquement
+        onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
       }
       // Sinon ignorer l'action (déjà dans le bon état)
     });
-  }, [roleName, riskId, actions, actionsContext, onRestrictAction]);
+  }, [roleName, riskId, actions, onRestrictAction]);
   
   // ✅ CALCULER LE MODE GLOBAL POUR L'INTERFACE DYNAMIQUE
   const buttonMode = useMemo(() => {
@@ -253,9 +264,8 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       action.resources?.some(r => r.code !== 'S_TCODE')
     );
     
-    // ✅ UTILISER LA MÊME LOGIQUE QUE LE VISUEL ET LE COMPTEUR
+    // ✅ OPTIMISÉ : Utiliser les données de session directement
     const hasAnyRestricted = restrainableActions.some(action => {
-      // Vérifier si au moins une ressource non-S_TCODE est restreinte dans ce rôle
       return action.resources.some(resource => 
         resource.code !== 'S_TCODE' && resource.isRestricted
       );
@@ -280,8 +290,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
         return;
       }
       
-      // ✅ UTILISER LA MÊME LOGIQUE QUE LE VISUEL
-      // Vérifier si au moins une ressource non-S_TCODE est restreinte dans ce rôle
+      // ✅ OPTIMISÉ : Utiliser les données de session directement
       const hasRestrictedResource = action.resources.some(resource => 
         resource.code !== 'S_TCODE' && resource.isRestricted
       );

@@ -48,6 +48,9 @@ export interface SodCompositeFunctionGridProps {
   
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  
+  /** Callback pour exclure un rôle simple dans un rôle composite */
+  onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
 }
 
 /**
@@ -61,7 +64,8 @@ const SodCompositeFunctionCard: React.FC<{
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
-}> = ({ func, defaultExpanded = true, compositeRoleName, riskId, onDeleteAction, onRestrictAction, onRestrictResource }) => {
+  onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
+}> = ({ func, defaultExpanded = true, compositeRoleName, riskId, onDeleteAction, onRestrictAction, onRestrictResource, onExcludeRole }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
   
@@ -214,6 +218,7 @@ const SodCompositeFunctionCard: React.FC<{
                   onDeleteAction={onDeleteAction}
                   onRestrictAction={onRestrictAction}
                   onRestrictResource={onRestrictResource}
+                  onExcludeRole={onExcludeRole}
                 />
               ))}
               
@@ -278,6 +283,7 @@ export const SodCompositeFunctionGrid: React.FC<SodCompositeFunctionGridProps> =
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
+  onExcludeRole,
 }) => {
   const theme = useTheme();
   
@@ -313,6 +319,7 @@ export const SodCompositeFunctionGrid: React.FC<SodCompositeFunctionGridProps> =
               onDeleteAction={onDeleteAction}
               onRestrictAction={onRestrictAction}
               onRestrictResource={onRestrictResource}
+              onExcludeRole={onExcludeRole}
             />
           </Grid>
         ))}

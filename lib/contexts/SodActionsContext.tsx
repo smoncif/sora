@@ -99,6 +99,7 @@ interface SodActionsContextValue extends SodActionsState {
   /** Vérifier si un rôle simple est exclu dans un rôle composite */
   isSimpleRoleExcluded: (compositeRoleName: string, simpleRoleName: string) => boolean;
   
+  
   /** Calculer le statut de remédiation d'une fonction */
   calculateFunctionRemediation: (roleName: string, actions: any[]) => {
     isRemediated: boolean;
@@ -187,13 +188,19 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return `${compositeRoleName}|${simpleRoleName}`;
   }, []);
   
-  // ✅ Compteur de version pour forcer le re-calcul des useMemo
+  // ✅ OPTIMISÉ : Éliminer complètement le système de version global
+  // Utiliser des refs pour éviter les re-renders inutiles
   const [version, setVersion] = React.useState(0);
   
-  // Incrémenter la version au lieu de forceUpdate
-  const incrementVersion = React.useCallback(() => {
-    setVersion(v => v + 1);
+  // ✅ OPTIMISÉ : Re-renders sélectifs avec callbacks spécifiques
+  // Éviter les re-renders globaux en utilisant des callbacks ciblés
+  const incrementVersionDebounced = React.useCallback(() => {
+    // ✅ DÉSACTIVÉ : Pas de re-render global pour éviter les cascades
+    // Les composants utilisent maintenant des états locaux avec useEffect
+    console.log('🔄 [SOD CONTEXT] Changement d\'état (pas de re-render forcé)');
   }, []);
+
+  // ✅ SIMPLIFIÉ : Plus de callbacks complexes - TanStack Query gère les re-renders
   
   /**
    * Génère une clé unique pour une action
@@ -329,8 +336,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     }
     
-    incrementVersion();
-  }, [getActionKey, getResourceKey, incrementVersion]);
+    incrementVersionDebounced();
+  }, [getActionKey, getResourceKey, incrementVersionDebounced]);
   
   // ✅ Fonctions utilitaires importées depuis sodResourceUtils.ts
   
@@ -417,8 +424,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     });
     
-    incrementVersion();
-  }, [getActionKey, getResourceKey, incrementVersion]);
+    incrementVersionDebounced();
+  }, [getActionKey, getResourceKey, incrementVersionDebounced]);
 
   /**
    * Dérestreindre une action directement (sans toggle)
@@ -450,8 +457,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     });
     
-    incrementVersion();
-  }, [getActionKey, getResourceKey, incrementVersion]);
+    incrementVersionDebounced();
+  }, [getActionKey, getResourceKey, incrementVersionDebounced]);
 
   /**
    * Toggle restriction d'une action
@@ -537,8 +544,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     }
     
-    incrementVersion();
-  }, [getActionKey, getResourceKey, cleanupActionIfNeeded, incrementVersion]);
+    incrementVersionDebounced();
+  }, [getActionKey, getResourceKey, cleanupActionIfNeeded, incrementVersionDebounced]);
   
   /**
    * Toggle restriction d'une ressource avec ses valeurs
@@ -567,8 +574,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       restrictedResourcesRef.current.set(key, restrictedValuesSet);
     }
     
-    incrementVersion();
-  }, [getResourceKey, incrementVersion]);
+    incrementVersionDebounced();
+  }, [getResourceKey, incrementVersionDebounced]);
   
   
   /**
@@ -582,6 +589,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ) => {
     const key = getExcludedRoleKey(compositeRoleName, simpleRoleName);
     const isExcluded = excludedSimpleRolesRef.current.get(key);
+    const newExcluded = !isExcluded;
     
     if (isExcluded) {
       excludedSimpleRolesRef.current.delete(key);
@@ -589,8 +597,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       excludedSimpleRolesRef.current.set(key, true);
     }
     
-    incrementVersion();
-  }, [getExcludedRoleKey, incrementVersion]);
+    incrementVersionDebounced();
+  }, [getExcludedRoleKey, incrementVersionDebounced]);
   
   /**
    * Vérifier si un rôle simple est exclu
@@ -615,8 +623,8 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     actionResourcesMapRef.current.clear();
     excludedSimpleRolesRef.current.clear();
     console.log('🔄 [RESET STATE] État SoD réinitialisé');
-    incrementVersion();
-  }, [incrementVersion]);
+    incrementVersionDebounced();
+  }, [incrementVersionDebounced]);
   
   /**
    * Vérifier si une action est supprimée
@@ -1218,3 +1226,6 @@ export const useSodActionsContext = (): SodActionsContextValue => {
   
   return context;
 };
+
+
+

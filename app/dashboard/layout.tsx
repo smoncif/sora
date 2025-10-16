@@ -11,7 +11,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { loading } = useAuth();
+  const { loading, user } = useAuth();
 
   // Si l'authentification est en cours de chargement, on peut afficher un état de chargement
   if (loading) {
@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <MUIProvider>
-      <SodActionsProvider>
+      <SodActionsProvider sessionId={user?.id || 'default'}>
         <MainLayout>
           {children}
         </MainLayout>

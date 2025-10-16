@@ -1,0 +1,116 @@
+[33mcommit 210aaa965a576ecd8c543fea0bf735d7b04a4a95[m
+Author: smoncif <s.moncif@hotmail.fr>
+Date:   Tue Oct 14 22:50:46 2025 +0200
+
+    feat: Implémentation Option B - Architecture propre avec TanStack Query
+    
+     Architecture Propre avec SessionId Dynamique
+    - Implémentation complète de l'Option B pour une gestion d'état optimale
+    - Single Source of Truth avec TanStack Query
+    - Gestion dynamique du sessionId pour activer les sessions
+    
+     Modifications Principales
+    
+    1. useSodAnalysisQuery.ts (Hook Unifié)
+       - createSessionFromParsedData retourne Promise<SodAnalysisSession | null>
+       - Utilise mutateAsync pour attendre la réponse
+       - Logs détaillés pour debugging
+       - Interface mise à jour
+    
+    2. useSodWorkflowOptimized.ts (Orchestration)
+       - Nouvel état: activeSessionId pour tracker la session active
+       - Passe sessionId dynamiquement à useSodSession
+       - useEffect refactorisé pour activer sessionId après création
+       - resetWorkflow réinitialise activeSessionId
+    
+    3. Suppression Mode Détaillé
+       - useSodExcelParserDetailed.ts supprimé
+       - SodParsingModeSelector.tsx supprimé
+       - sodParsingWorkerExcelJSDetailed.js supprimé
+       - Tous imports et références nettoyés
+    
+     Documentation
+       - docs/OPTION_B_IMPLEMENTATION.md: Guide complet d'implémentation
+       - Architecture expliquée avec diagrammes
+       - Flux de données détaillé
+       - Checklist de test
+       - Logs de debugging documentés
+    
+     Optimisations Performance
+       - OptimizedLink pour prefetch au hover
+       - QueryProvider avec TanStack Query v5
+       - Hooks d'analyse avec cache intelligent
+       - Pagination prefetch pour navigation fluide
+       - Suspense components pour lazy loading
+    
+     Nettoyage
+       - Composants virtualisés supprimés (dégradaient l'affichage)
+       - Logs de debugging React.memo supprimés
+       - Code redondant nettoyé
+       - Structure de fichiers simplifiée
+    
+     Avantages
+       - Single Source of Truth: TanStack Query uniquement
+       - Type-safe: TypeScript valide tout le flux
+       - Maintenable: Code clair et séparé
+       - Performant: Cache automatique
+       - Scalable: Facile d'ajouter des features
+       - Debuggable: Logs détaillés + React Query DevTools
+    
+     Breaking Changes
+       - createSessionFromParsedData est maintenant async avec retour
+       - useSodWorkflowOptimized gère maintenant activeSessionId
+       - Mode détaillé supprimé (simplifié en mode unique optimisé)
+    
+    Co-authored-by: Claude AI <assistant@anthropic.com>
+
+OPTIMISATION_COMPLETE.md
+app/api/sod/sessions/[id]/route.ts
+app/api/sod/sessions/active/route.ts
+app/api/sod/sessions/route.ts
+app/dashboard/analysis/roles/page.tsx
+app/dashboard/analysis/sod/page.tsx
+app/dashboard/analysis/users/page.tsx
+docs/COMPOSITE_FUNCTION_FIX.md
+docs/GUIDE_DE_TEST.md
+docs/IMPLEMENTATION_COMPLETED.md
+docs/INSTALLATION_SUMMARY.md
+docs/MIGRATION_EXAMPLE.md
+docs/OPTIMIZATIONS_IMPLEMENTED.md
+docs/OPTION_B_IMPLEMENTATION.md
+docs/PARSING_PERFORMANCE_ANALYSIS.md
+docs/PERFORMANCE_OPTIMIZATION_GUIDE.md
+docs/PERFORMANCE_README.md
+docs/QUICK_START_OPTIMIZATION.md
+docs/RECOMMENDATIONS_SORA.md
+docs/RESTRICT_BUTTON_FIX.md
+docs/TODO_IMPLEMENTATION.md
+lib/components/common/CurrentUserAvatar/index.ts
+lib/components/common/OptimizedLink.tsx
+lib/components/common/index.ts
+lib/components/layout/ClientProviders/ClientProviders.tsx
+lib/components/layout/DashboardNavigation/DashboardNavigation.tsx
+lib/components/layout/Footer/Footer.tsx
+lib/components/layout/MainLayout.tsx
+lib/components/providers/QueryProvider.tsx
+lib/components/sod/display/SodSimpleRoleCard.tsx
+lib/components/sod/index.ts
+lib/components/sod/suspense/SodAnalysisResultsSuspense.tsx
+lib/components/sod/upload/SodFileUploadSection.tsx
+lib/components/sod/virtualized/VirtualizedCompositeRoleList.tsx
+lib/components/sod/virtualized/VirtualizedSimpleRoleList.tsx
+lib/components/sod/virtualized/index.ts
+lib/hooks/analysis/useRoleAnalysisQuery.ts
+lib/hooks/analysis/useUserAnalysisQuery.ts
+lib/hooks/sod/usePrefetchNavigation.ts
+lib/hooks/sod/useSodAnalysisDataQuery.ts
+lib/hooks/sod/useSodAnalysisQuery.ts
+lib/hooks/sod/useSodExcelParserOptimized.ts
+lib/hooks/sod/useSodNavigation.ts
+lib/hooks/sod/useSodOptimisticUpdates.ts
+lib/hooks/sod/useSodPaginationPrefetch.ts
+lib/hooks/sod/useSodWorkflow.ts
+lib/hooks/sod/useSodWorkflowOptimized.ts
+package-lock.json
+package.json
+public/workers/sodParsingWorkerExcelJS.js

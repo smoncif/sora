@@ -74,7 +74,7 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
   // ✅ Calculer le statut de remédiation du rôle
   const remediationStatus = useMemo(
     () => actionsContext.calculateRoleRemediation(roleName, risks),
-    [roleName, risks, actionsContext.version, actionsContext.calculateRoleRemediation]
+    [roleName, risks, actionsContext.calculateRoleRemediation]
   );
   
   

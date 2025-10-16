@@ -23,6 +23,7 @@
     "@hookform/resolvers": "^5.0.1",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
+    "@mui/material-nextjs": "^7.3.3",
     "@mui/x-charts": "^8.1.0",
     "@mui/x-data-grid": "^8.4.0",
     "@mui/x-date-pickers": "^8.1.0",

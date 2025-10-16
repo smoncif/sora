@@ -449,4 +449,3 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
 });
 
 SodActionItem.displayName = 'SodActionItem';
-

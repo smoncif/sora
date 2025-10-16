@@ -48,6 +48,9 @@ export interface SodCompositeRiskSectionProps {
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
   
+  /** Callback pour exclure un rôle simple dans un rôle composite */
+  onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
+  
   /** Callback pour passer à l'étape suivante */
   onNextStep?: () => void;
   
@@ -65,6 +68,7 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
+  onExcludeRole,
   onNextStep,
   showNextStepButton = false,
 }) => {
@@ -80,16 +84,16 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
     if (!compositeRoleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0 };
     
     // Essayer d'obtenir depuis le cache
-    const cached = remediationCache.get(compositeRoleName, riskId, 'composite', actionsContext.version);
+    const cached = remediationCache.get(compositeRoleName, riskId, 'composite', 0); // ✅ OPTIMISÉ : Version fixe
     if (cached) {
       return cached;
     }
     
     // Calculer si pas en cache
     const result = actionsContext.calculateCompositeRiskRemediation(compositeRoleName, functions);
-    remediationCache.set(compositeRoleName, riskId, 'composite', result, actionsContext.version);
+    remediationCache.set(compositeRoleName, riskId, 'composite', result, 0); // ✅ OPTIMISÉ : Version fixe
     return result;
-  }, [compositeRoleName, riskId, functions, actionsContext.version]); // ✅ OPTIMISATION : Dépendances stables
+  }, [compositeRoleName, riskId, functions]); // ✅ OPTIMISÉ : Suppression de version
   
   return (
     <Paper
@@ -309,6 +313,7 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
             onDeleteAction={onDeleteAction}
             onRestrictAction={onRestrictAction}
             onRestrictResource={onRestrictResource}
+            onExcludeRole={onExcludeRole}
           />
         </Box>
       </Collapse>

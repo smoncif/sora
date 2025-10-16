@@ -44,6 +44,9 @@ export interface SodCompositeRoleCardProps {
   /** Callback pour restreindre une ressource spécifique */
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
   
+  /** Callback pour exclure un rôle simple dans un rôle composite */
+  onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
+  
   /** Callback pour passer à l'étape suivante */
   onNextStep?: () => void;
   
@@ -62,6 +65,7 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
+  onExcludeRole,
   onNextStep,
   showNextStepButton = false,
 }) => {
@@ -85,7 +89,7 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
       compositeRoleName,
       risks
     ),
-    [compositeRoleName, risks, actionsContext.version, actionsContext.calculateCompositeRoleRemediation]
+    [compositeRoleName, risks, actionsContext.calculateCompositeRoleRemediation]
   );
   
   return (
@@ -280,6 +284,7 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
                     onDeleteAction={onDeleteAction}
                     onRestrictAction={onRestrictAction}
                     onRestrictResource={onRestrictResource}
+                    onExcludeRole={onExcludeRole}
                     onNextStep={onNextStep}
                     showNextStepButton={showNextStepButton}
                   />

@@ -55,7 +55,7 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
   // ✅ OPTIMISATION : Utiliser le cache et des dépendances stables
   const rolesData = React.useMemo((): RoleData[] => {
     const roles: RoleData[] = [];
-    const currentVersion = actionsContext.version;
+    const currentVersion = 0; // ✅ OPTIMISÉ : Version fixe pour éviter les re-renders
     
     if (mode === 'simple' && session.simpleRoles?.roles) {
       
@@ -121,7 +121,7 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
     }
     
     return roles;
-  }, [session, mode, actionsContext.version]); // ✅ OPTIMISATION : Dépendance stable (version au lieu de actionsContext)
+  }, [session, mode]); // ✅ OPTIMISÉ : Suppression de version pour éviter les re-renders
 
   // Obtenir la couleur d'un carré selon la logique de remédiation et criticité
   const getSquareColor = (risk: RiskState) => {
