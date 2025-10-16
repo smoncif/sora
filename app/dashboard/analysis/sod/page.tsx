@@ -201,14 +201,17 @@ export default function SodAnalysisPage() {
   const restrictedActionsCache = useRef(new Map<string, Map<string, { directlyRestricted: boolean; viaResources: boolean }>>());
   const lastCacheKey = useRef<string>('');
   
+  // ✅ FORCER : État pour forcer le recalcul du compteur (React ne peut pas détecter les changements dans les Maps)
+  const [forceRecalc, setForceRecalc] = React.useState(0);
+  
   const allRestrictedActions = useMemo(() => {
     // ⚡ Skip pendant le parsing pour ne pas ralentir le chargement
     if (sodWorkflow.state.parsing) {
       return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     }
     
-    // ✅ CORRIGÉ : Clé de cache utilisant les Maps directement (version désactivée)
-    const cacheKey = `${version}-${simpleRoles.length}-${compositeRoles.length}-${restrictedActions.size}-${restrictedResources.size}-${actionsContext.deletedActions.size}-${actionsContext.restrictedActions.size}-${actionsContext.restrictedResources.size}`;
+    // ✅ FORCER : Clé de cache incluant forceRecalc pour forcer le recalcul
+    const cacheKey = `${version}-${forceRecalc}-${simpleRoles.length}-${compositeRoles.length}-${restrictedActions.size}-${restrictedResources.size}-${actionsContext.deletedActions.size}-${actionsContext.restrictedActions.size}-${actionsContext.restrictedResources.size}`;
     
     // ✅ Retour ultra-rapide si cache valide (évite recalcul ~390 opérations)
     if (cacheKey === lastCacheKey.current && restrictedActionsCache.current.has(cacheKey)) {
@@ -350,8 +353,13 @@ export default function SodAnalysisPage() {
     }
     
     return result;
-  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version, actionsContext.deletedActions, actionsContext.restrictedActions, actionsContext.restrictedResources]);
+  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version, forceRecalc, actionsContext.deletedActions.size, actionsContext.restrictedActions.size, actionsContext.restrictedResources.size]);
   
+  // ✅ FORCER : Forcer le recalcul du compteur quand SodActionsContext change
+  React.useEffect(() => {
+    // Incrémenter forceRecalc pour forcer le recalcul
+    setForceRecalc(prev => prev + 1);
+  }, [actionsContext.deletedActions.size, actionsContext.restrictedActions.size, actionsContext.restrictedResources.size]);
   
   // ✅ ANCIENS useMemo SUPPRIMÉS : Remplacés par useSodPagedRoles et useSodPagedCompositeRoles
   // Ces hooks gèrent automatiquement :
