@@ -23,10 +23,14 @@ import WarningIcon from '@mui/icons-material/Warning';
 // import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'; // Supprimé
 import { SodAction } from 'lib/types/sodAnalysis';
 import { SodResourceItem } from './SodResourceItem';
+import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodActionItemProps {
   /** Action */
   action: SodAction;
+  
+  /** Nom du rôle (requis pour SodActionsContext) */
+  roleName: string;
   
   /** Niveau d'indentation */
   level?: number;
@@ -59,6 +63,7 @@ export interface SodActionItemProps {
  */
 export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
   action,
+  roleName,
   level = 0,
   defaultExpanded = false,
   variant = 'default',
@@ -70,8 +75,17 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const actionsContext = useSodActionsContext();
   
   const { code, description, resources, isDeleted, isRestricted, restrictedByAction } = action as SodAction & { restrictedByAction?: boolean };
+
+  // ✅ OPTIMISÉ : Vérifier l'état réel via SodActionsContext
+  const realActionState = actionsContext.isActionDeleted(roleName, code);
+  const realRestrictionState = actionsContext.isActionRestricted(roleName, code, resources);
+  
+  // ✅ Utiliser l'état réel pour la logique des boutons
+  const isActuallyDeleted = realActionState;
+  const isActuallyRestricted = realRestrictionState.isRestricted;
 
   const hasResources = resources.length > 0;
   
@@ -319,11 +333,11 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             <IconButton
               size="small"
               onClick={() => onDelete?.(code, resources)}
-              disabled={disableButtons || isRestricted || !hasTCode} // Désactivé si rôle exclu, restreinte, ou pas de S_TCODE
+              disabled={disableButtons || (isActuallyRestricted && !isActuallyDeleted) || !hasTCode} // ✅ CORRIGÉ : Action restreinte MAIS pas supprimée
               sx={{
                 p: 0.5,
                 color: theme.palette.error.main,
-                backgroundColor: isDeleted ? alpha(theme.palette.error.main, 0.15) : 'transparent',
+                backgroundColor: isActuallyDeleted ? alpha(theme.palette.error.main, 0.15) : 'transparent', // ✅ OPTIMISÉ : État réel
                 '&:hover': {
                   backgroundColor: alpha(theme.palette.error.main, 0.1),
                 },
@@ -336,7 +350,9 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
                   ? "Rôle exclu de l'analyse"
                   : !hasTCode
                   ? "Impossible de supprimer (action sans S_TCODE)"
-                  : isDeleted 
+                  : isActuallyRestricted && !isActuallyDeleted
+                  ? "Impossible de supprimer (action restreinte)"
+                  : isActuallyDeleted 
                   ? "Annuler suppression" 
                   : "Supprimer l'action"
               }
@@ -346,11 +362,11 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             <IconButton
               size="small"
               onClick={() => onRestrict?.(code, resources)}
-              disabled={disableButtons || isDeleted || !hasOtherResources} // Désactivé si rôle exclu, supprimée, ou pas de ressources non-S_TCODE
+              disabled={disableButtons || isActuallyDeleted || !hasOtherResources} // ✅ OPTIMISÉ : Utiliser l'état réel
               sx={{
                 p: 0.5,
                 color: theme.palette.warning.dark,
-                backgroundColor: isRestricted ? alpha(theme.palette.warning.main, 0.15) : 'transparent',
+                backgroundColor: isActuallyRestricted ? alpha(theme.palette.warning.main, 0.15) : 'transparent', // ✅ OPTIMISÉ : État réel
                 '&:hover': {
                   backgroundColor: alpha(theme.palette.warning.main, 0.1),
                 },
@@ -363,7 +379,9 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
                   ? "Rôle exclu de l'analyse"
                   : !hasOtherResources 
                   ? "Aucune ressource à restreindre (seulement S_TCODE)"
-                  : isRestricted 
+                  : isActuallyDeleted
+                  ? "Impossible de restreindre (action supprimée)"
+                  : isActuallyRestricted 
                   ? "Annuler restriction" 
                   : "Restreindre l'action"
               }

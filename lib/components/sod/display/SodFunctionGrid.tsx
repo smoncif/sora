@@ -196,6 +196,7 @@ const SodFunctionCard: React.FC<{
                   <SodActionItem
                     key={index}
                     action={action}
+                    roleName={roleName} // ✅ OPTIMISÉ : Ajouter roleName pour SodActionsContext
                     level={0}
                     defaultExpanded={false}
                     isDuplicate={isDuplicate}
