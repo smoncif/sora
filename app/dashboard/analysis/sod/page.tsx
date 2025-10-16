@@ -201,17 +201,14 @@ export default function SodAnalysisPage() {
   const restrictedActionsCache = useRef(new Map<string, Map<string, { directlyRestricted: boolean; viaResources: boolean }>>());
   const lastCacheKey = useRef<string>('');
   
-  // ✅ FORCER : État pour forcer le recalcul du compteur (React ne peut pas détecter les changements dans les Maps)
-  const [forceRecalc, setForceRecalc] = React.useState(0);
-  
   const allRestrictedActions = useMemo(() => {
     // ⚡ Skip pendant le parsing pour ne pas ralentir le chargement
     if (sodWorkflow.state.parsing) {
       return new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     }
     
-    // ✅ FORCER : Clé de cache incluant forceRecalc pour forcer le recalcul
-    const cacheKey = `${version}-${forceRecalc}-${simpleRoles.length}-${compositeRoles.length}-${restrictedActions.size}-${restrictedResources.size}-${actionsContext.deletedActions.size}-${actionsContext.restrictedActions.size}-${actionsContext.restrictedResources.size}`;
+    // ✅ OPTIMISÉ : Clé de cache plus précise avec hash des dépendances
+    const cacheKey = `${version}-${simpleRoles.length}-${compositeRoles.length}-${restrictedActions.size}-${restrictedResources.size}`;
     
     // ✅ Retour ultra-rapide si cache valide (évite recalcul ~390 opérations)
     if (cacheKey === lastCacheKey.current && restrictedActionsCache.current.has(cacheKey)) {
@@ -221,12 +218,6 @@ export default function SodAnalysisPage() {
     lastCacheKey.current = cacheKey;
     
     const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
-    
-    console.log('🔍 [DEBUG COMPTEUR] Début du calcul allRestrictedActions:', {
-      totalRoles: simpleRoles.length + compositeRoles.length,
-      simpleRoles: simpleRoles.length,
-      compositeRoles: compositeRoles.length
-    });
     
     // Parcourir tous les rôles pour calculer l'état visuel réel de chaque action
     [...simpleRoles, ...compositeRoles].forEach((role: any) => {
@@ -241,19 +232,9 @@ export default function SodAnalysisPage() {
               const isDeleted = isActionDeleted(role.roleName, action.code);
               if (isDeleted) return; // Ignorer les actions supprimées
               
-              // ✅ CORRIGÉ : Passer les ressources pour vérifier les restrictions indirectes
-              const actionRestriction = isActionRestricted(role.roleName, action.code, action.resources);
+              // ✅ Utiliser la MÊME LOGIQUE que applyStateToAction
+              const actionRestriction = isActionRestricted(role.roleName, action.code);
               const restrictedByAction = actionRestriction.restrictedByAction;
-              
-              // 🔍 DEBUG : Log pour diagnostic du compteur
-              if (actionRestriction.isRestricted) {
-                console.log('🔍 [DEBUG COMPTEUR] Action restreinte détectée:', {
-                  roleName: role.roleName,
-                  actionCode: action.code,
-                  directlyRestricted: restrictedByAction,
-                  viaResources: actionRestriction.isRestricted && !restrictedByAction
-                });
-              }
               
               // Vérifier si l'action a des ressources réellement restreintes
               const hasRestrictedResource = action.resources.some((resource: any) => {
@@ -270,25 +251,12 @@ export default function SodAnalysisPage() {
                 ? hasRestrictedResource 
                 : (actionRestriction.isRestricted || hasRestrictedResource);
               
-              // 🔍 DEBUG : Log pour diagnostic du calcul final
-              console.log('🔍 [DEBUG COMPTEUR] Calcul final pour action:', {
-                roleName: role.roleName,
-                actionCode: action.code,
-                actionRestrictionIsRestricted: actionRestriction.isRestricted,
-                restrictedByAction,
-                hasRestrictedResource,
-                finalIsRestricted
-              });
-              
               // N'ajouter que si visuellement restreinte
               if (finalIsRestricted) {
                 result.set(key, { 
                   directlyRestricted: restrictedByAction, 
                   viaResources: hasRestrictedResource 
                 });
-                console.log('✅ [DEBUG COMPTEUR] Action ajoutée au compteur:', key);
-              } else {
-                console.log('❌ [DEBUG COMPTEUR] Action NON ajoutée au compteur:', key);
               }
             });
           }
@@ -306,8 +274,8 @@ export default function SodAnalysisPage() {
                 const isDeleted = isActionDeleted(simpleRole.roleName, action.code);
                 if (isDeleted) return; // Ignorer les actions supprimées
                 
-                // ✅ CORRIGÉ : Passer les ressources pour vérifier les restrictions indirectes
-                const actionRestriction = isActionRestricted(simpleRole.roleName, action.code, action.resources);
+                // ✅ Utiliser la MÊME LOGIQUE que applyStateToAction
+                const actionRestriction = isActionRestricted(simpleRole.roleName, action.code);
                 const restrictedByAction = actionRestriction.restrictedByAction;
                 
                 const hasRestrictedResource = action.resources.some((resource: any) => {
@@ -338,11 +306,6 @@ export default function SodAnalysisPage() {
       });
     });
     
-    console.log('🔍 [DEBUG COMPTEUR] Fin du calcul allRestrictedActions:', {
-      totalActionsRestricted: result.size,
-      actions: Array.from(result.keys())
-    });
-    
     // ✅ Sauvegarder dans le cache avant de retourner
     restrictedActionsCache.current.set(cacheKey, result);
     
@@ -353,13 +316,8 @@ export default function SodAnalysisPage() {
     }
     
     return result;
-  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version, forceRecalc, actionsContext.deletedActions.size, actionsContext.restrictedActions.size, actionsContext.restrictedResources.size]);
+  }, [sodWorkflow.state.parsing, simpleRoles, compositeRoles, restrictedActions, restrictedResources, isResourceRestricted, version]);
   
-  // ✅ FORCER : Forcer le recalcul du compteur quand SodActionsContext change
-  React.useEffect(() => {
-    // Incrémenter forceRecalc pour forcer le recalcul
-    setForceRecalc(prev => prev + 1);
-  }, [actionsContext.deletedActions.size, actionsContext.restrictedActions.size, actionsContext.restrictedResources.size]);
   
   // ✅ ANCIENS useMemo SUPPRIMÉS : Remplacés par useSodPagedRoles et useSodPagedCompositeRoles
   // Ces hooks gèrent automatiquement :

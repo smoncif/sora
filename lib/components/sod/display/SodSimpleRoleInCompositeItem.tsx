@@ -223,16 +223,14 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     
     if (restrainableActions.length === 0) return;
     
-    // ✅ ÉTAPE 1: DÉTECTER LE MODE GLOBAL avec les données de session
-    // Utiliser les données directement au lieu de SodActionsContext pour éviter les re-renders
+    // ✅ CORRIGÉ : DÉTECTER LE MODE GLOBAL avec SodActionsContext (source de vérité)
+    // Utiliser SodActionsContext pour détecter l'état réel incluant la propagation
     const actionStates = restrainableActions.map(action => {
-      // ✅ OPTIMISÉ : Utiliser les données de session directement
-      const hasRestrictedResource = action.resources.some(resource => 
-        resource.code !== 'S_TCODE' && resource.isRestricted
-      );
+      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel
+      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
       return {
         code: action.code,
-        isRestricted: hasRestrictedResource
+        isRestricted: restrictionState.isRestricted
       };
     });
     
@@ -241,20 +239,20 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     
     // ✅ SIMULER LES CLIQUES SUR LES BOUTONS INDIVIDUELS
     restrainableActions.forEach((action) => {
-      const hasRestrictedResource = action.resources.some(resource => 
-        resource.code !== 'S_TCODE' && resource.isRestricted
-      );
+      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel
+      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      const isCurrentlyRestricted = restrictionState.isRestricted;
       
-      if (mode === "RESTREINDRE" && !hasRestrictedResource) {
+      if (mode === "RESTREINDRE" && !isCurrentlyRestricted) {
         // ✅ OPTIMISÉ : Utiliser TanStack Query uniquement
         onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
-      } else if (mode === "DÉRESTREINDRE" && hasRestrictedResource) {
+      } else if (mode === "DÉRESTREINDRE" && isCurrentlyRestricted) {
         // ✅ OPTIMISÉ : Utiliser TanStack Query uniquement
         onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
       }
       // Sinon ignorer l'action (déjà dans le bon état)
     });
-  }, [roleName, riskId, actions, onRestrictAction]);
+  }, [roleName, riskId, actions, onRestrictAction, actionsContext]);
   
   // ✅ CALCULER LE MODE GLOBAL POUR L'INTERFACE DYNAMIQUE
   const buttonMode = useMemo(() => {
@@ -264,18 +262,17 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       action.resources?.some(r => r.code !== 'S_TCODE')
     );
     
-    // ✅ OPTIMISÉ : Utiliser les données de session directement
+    // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel incluant la propagation
     const hasAnyRestricted = restrainableActions.some(action => {
-      return action.resources.some(resource => 
-        resource.code !== 'S_TCODE' && resource.isRestricted
-      );
+      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      return restrictionState.isRestricted;
     });
     
     return {
       mode: hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE",
       hasAnyRestricted
     };
-  }, [actions]);
+  }, [actions, actionsContext, roleName]);
 
   // ✅ CALCULER LE COMPTAGE DES ACTIONS RESTREINTES/SUPPRIMÉES
   const actionCount = useMemo(() => {
@@ -284,18 +281,19 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     let restrictedCount = 0;
     
     actions.forEach(action => {
+      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel
+      const isActionDeleted = actionsContext.isActionDeleted(roleName, action.code);
+      
       // Vérifier si l'action est supprimée (T-Code)
-      if (action.isDeleted) {
+      if (isActionDeleted) {
         restrictedCount++;
         return;
       }
       
-      // ✅ OPTIMISÉ : Utiliser les données de session directement
-      const hasRestrictedResource = action.resources.some(resource => 
-        resource.code !== 'S_TCODE' && resource.isRestricted
-      );
+      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel incluant la propagation
+      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
       
-      if (hasRestrictedResource) {
+      if (restrictionState.isRestricted) {
         restrictedCount++;
       }
     });
@@ -304,7 +302,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       restricted: restrictedCount,
       total: actions.length
     };
-  }, [actions]);
+  }, [actions, actionsContext, roleName]);
 
   // ✅ DÉTERMINER L'ÉTAT VISUEL DU RÔLE
   const roleVisualState = useMemo(() => {
