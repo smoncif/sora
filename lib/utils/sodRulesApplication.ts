@@ -59,7 +59,6 @@ export function applySodRulesToSession(
     return session;
   }
 
-  console.log('🔧 [SOD RULES] Application des règles:', { action, params });
 
   switch (action) {
     case 'DELETE_ACTION':
@@ -85,7 +84,6 @@ export function applySodRulesToSession(
 function applyDeleteActionRules(session: SodAnalysisSession, params: DeleteActionParams): SodAnalysisSession {
   const { roleName, actionCode, resources } = params;
   
-  console.log('🗑️ [SOD RULES] Suppression d\'action:', { roleName, actionCode });
 
   return {
     ...session,
@@ -119,7 +117,6 @@ function applyDeleteActionToRole(role: SodSimpleRole, actionCode: string): SodSi
         ...func,
         actions: func.actions.map(action => {
           if (action.code === actionCode) {
-            console.log('✅ [SOD RULES] Action supprimée:', actionCode);
             return {
               ...action,
               isDeleted: true,
@@ -154,7 +151,6 @@ function applyDeleteActionToCompositeRole(role: SodCompositeRole, roleName: stri
               ...simpleRole,
               actions: simpleRole.actions.map(action => {
                 if (action.code === actionCode) {
-                  console.log('✅ [SOD RULES] Action supprimée dans rôle composite:', actionCode);
                   return {
                     ...action,
                     isDeleted: true,
@@ -188,11 +184,8 @@ function applyDeleteActionToCompositeRole(role: SodCompositeRole, roleName: stri
 function applyRestrictActionRules(session: SodAnalysisSession, params: RestrictActionParams): SodAnalysisSession {
   const { roleName, actionCode, resources } = params;
   
-  console.log('🚫 [SOD RULES] Restriction d\'action:', { roleName, actionCode });
-  
   // TODO: Implémenter la logique de restriction d'action
   // Pour l'instant, retourner la session inchangée
-  console.log('⚠️ [SOD RULES] Restriction d\'action non encore implémentée');
   return session;
 }
 
@@ -207,11 +200,8 @@ function applyRestrictActionRules(session: SodAnalysisSession, params: RestrictA
 function applyRestrictResourceRules(session: SodAnalysisSession, params: RestrictResourceParams): SodAnalysisSession {
   const { roleName, resourceCode, externalResourceCode, values } = params;
   
-  console.log('🔒 [SOD RULES] Restriction de ressource:', { roleName, resourceCode, externalResourceCode, values });
-  
   // TODO: Implémenter la logique de restriction de ressource
   // Pour l'instant, retourner la session inchangée
-  console.log('⚠️ [SOD RULES] Restriction de ressource non encore implémentée');
   return session;
 }
 

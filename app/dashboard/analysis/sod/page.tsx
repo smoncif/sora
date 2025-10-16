@@ -219,6 +219,12 @@ export default function SodAnalysisPage() {
     
     const result = new Map<string, { directlyRestricted: boolean; viaResources: boolean }>();
     
+    console.log('🔍 [DEBUG COMPTEUR] Début du calcul allRestrictedActions:', {
+      totalRoles: simpleRoles.length + compositeRoles.length,
+      simpleRoles: simpleRoles.length,
+      compositeRoles: compositeRoles.length
+    });
+    
     // Parcourir tous les rôles pour calculer l'état visuel réel de chaque action
     [...simpleRoles, ...compositeRoles].forEach((role: any) => {
       role.risks.forEach((risk: any) => {
@@ -236,6 +242,16 @@ export default function SodAnalysisPage() {
               const actionRestriction = isActionRestricted(role.roleName, action.code, action.resources);
               const restrictedByAction = actionRestriction.restrictedByAction;
               
+              // 🔍 DEBUG : Log pour diagnostic du compteur
+              if (actionRestriction.isRestricted) {
+                console.log('🔍 [DEBUG COMPTEUR] Action restreinte détectée:', {
+                  roleName: role.roleName,
+                  actionCode: action.code,
+                  directlyRestricted: restrictedByAction,
+                  viaResources: actionRestriction.isRestricted && !restrictedByAction
+                });
+              }
+              
               // Vérifier si l'action a des ressources réellement restreintes
               const hasRestrictedResource = action.resources.some((resource: any) => {
                 if (resource.code === 'S_TCODE') return false;
@@ -251,12 +267,25 @@ export default function SodAnalysisPage() {
                 ? hasRestrictedResource 
                 : (actionRestriction.isRestricted || hasRestrictedResource);
               
+              // 🔍 DEBUG : Log pour diagnostic du calcul final
+              console.log('🔍 [DEBUG COMPTEUR] Calcul final pour action:', {
+                roleName: role.roleName,
+                actionCode: action.code,
+                actionRestrictionIsRestricted: actionRestriction.isRestricted,
+                restrictedByAction,
+                hasRestrictedResource,
+                finalIsRestricted
+              });
+              
               // N'ajouter que si visuellement restreinte
               if (finalIsRestricted) {
                 result.set(key, { 
                   directlyRestricted: restrictedByAction, 
                   viaResources: hasRestrictedResource 
                 });
+                console.log('✅ [DEBUG COMPTEUR] Action ajoutée au compteur:', key);
+              } else {
+                console.log('❌ [DEBUG COMPTEUR] Action NON ajoutée au compteur:', key);
               }
             });
           }
@@ -304,6 +333,11 @@ export default function SodAnalysisPage() {
           }
         });
       });
+    });
+    
+    console.log('🔍 [DEBUG COMPTEUR] Fin du calcul allRestrictedActions:', {
+      totalActionsRestricted: result.size,
+      actions: Array.from(result.keys())
     });
     
     // ✅ Sauvegarder dans le cache avant de retourner
