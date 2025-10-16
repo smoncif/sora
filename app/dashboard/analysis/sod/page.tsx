@@ -232,18 +232,30 @@ export default function SodAnalysisPage() {
               const isDeleted = isActionDeleted(role.roleName, action.code);
               if (isDeleted) return; // Ignorer les actions supprimées
               
-              // ✅ CORRIGÉ : Utiliser la MÊME LOGIQUE que applyStateToAction avec ressources
+              // ✅ CORRIGÉ : Passer les ressources pour vérifier les restrictions indirectes
               const actionRestriction = isActionRestricted(role.roleName, action.code, action.resources);
               const restrictedByAction = actionRestriction.restrictedByAction;
               
-              // ✅ SIMPLIFIÉ : isActionRestricted avec ressources calcule déjà tout
-              const finalIsRestricted = actionRestriction.isRestricted;
+              // Vérifier si l'action a des ressources réellement restreintes
+              const hasRestrictedResource = action.resources.some((resource: any) => {
+                if (resource.code === 'S_TCODE') return false;
+                
+                return resource.externalResources?.some((extRes: any) => {
+                  const values = extractExternalResourceValues(extRes);
+                  return isResourceRestricted(role.roleName, resource.code, extRes.code, values);
+                });
+              });
+              
+              // ✅ Calculer l'état visuel final (même logique que applyStateToAction)
+              const finalIsRestricted = restrictedByAction 
+                ? hasRestrictedResource 
+                : (actionRestriction.isRestricted || hasRestrictedResource);
               
               // N'ajouter que si visuellement restreinte
               if (finalIsRestricted) {
                 result.set(key, { 
                   directlyRestricted: restrictedByAction, 
-                  viaResources: !restrictedByAction && actionRestriction.isRestricted
+                  viaResources: hasRestrictedResource 
                 });
               }
             });
@@ -262,18 +274,29 @@ export default function SodAnalysisPage() {
                 const isDeleted = isActionDeleted(simpleRole.roleName, action.code);
                 if (isDeleted) return; // Ignorer les actions supprimées
                 
-                // ✅ CORRIGÉ : Utiliser la MÊME LOGIQUE que applyStateToAction avec ressources
+                // ✅ CORRIGÉ : Passer les ressources pour vérifier les restrictions indirectes
                 const actionRestriction = isActionRestricted(simpleRole.roleName, action.code, action.resources);
                 const restrictedByAction = actionRestriction.restrictedByAction;
                 
-                // ✅ SIMPLIFIÉ : isActionRestricted avec ressources calcule déjà tout
-                const finalIsRestricted = actionRestriction.isRestricted;
+                const hasRestrictedResource = action.resources.some((resource: any) => {
+                  if (resource.code === 'S_TCODE') return false;
+                  
+                  return resource.externalResources?.some((extRes: any) => {
+                    const values = extractExternalResourceValues(extRes);
+                    return isResourceRestricted(simpleRole.roleName, resource.code, extRes.code, values);
+                  });
+                });
+                
+                // ✅ Calculer l'état visuel final
+                const finalIsRestricted = restrictedByAction 
+                  ? hasRestrictedResource 
+                  : (actionRestriction.isRestricted || hasRestrictedResource);
                 
                 // N'ajouter que si visuellement restreinte
                 if (finalIsRestricted) {
                   result.set(key, { 
                     directlyRestricted: restrictedByAction, 
-                    viaResources: !restrictedByAction && actionRestriction.isRestricted
+                    viaResources: hasRestrictedResource 
                   });
                 }
               });
