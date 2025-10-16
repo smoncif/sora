@@ -216,42 +216,100 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
   const handleRestrictAllActions = useCallback(() => {
     if (!actions) return;
     
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] === DÉBUT ANALYSE ===');
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Rôle:', roleName);
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Nombre total d\'actions:', actions.length);
+    
     // ✅ Filtrer les actions restrainable (non-S_TCODE)
     const restrainableActions = actions.filter(action => 
       action.resources?.some(r => r.code !== 'S_TCODE')
     );
     
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restrainables:', restrainableActions.length);
+    
     if (restrainableActions.length === 0) return;
     
-    // ✅ CORRIGÉ : DÉTECTER LE MODE GLOBAL avec SodActionsContext (source de vérité)
-    // Utiliser SodActionsContext pour détecter l'état réel incluant la propagation
+    // ✅ ÉTAPE 1: DÉTECTER LE MODE GLOBAL avec les données de session
+    console.log('🔍 [DEBUG RESTREINDRE TOUT] === ANALYSE ÉTAT ACTIONS ===');
+    
     const actionStates = restrainableActions.map(action => {
-      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel
-      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      // ✅ CORRECTION : Utiliser SodActionsContext pour la détection globale (inclut la propagation)
+      const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      const isActuallyRestricted = contextState.isRestricted;
+      
+      // ✅ DEBUG : Comparer session vs context
+      const sessionRestricted = action.resources.some(resource => 
+        resource.code !== 'S_TCODE' && resource.isRestricted
+      );
+      
+      console.log(`🔍 [DEBUG RESTREINDRE TOUT] Action ${action.code}:`, {
+        sessionRestricted: sessionRestricted,
+        contextRestricted: contextState.isRestricted,
+        contextRestrictedByAction: contextState.restrictedByAction,
+        resources: action.resources.map(r => ({
+          code: r.code,
+          isRestricted: r.isRestricted,
+          values: r.externalResources?.map(er => er.values) || []
+        }))
+      });
+      
       return {
         code: action.code,
-        isRestricted: restrictionState.isRestricted
+        isRestricted: isActuallyRestricted, // ✅ Utiliser l'état réel avec propagation
+        contextRestricted: contextState.isRestricted,
+        contextRestrictedByAction: contextState.restrictedByAction
       };
     });
     
     const hasAnyRestricted = actionStates.some(state => state.isRestricted);
     const mode = hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE";
     
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] === DÉCISION GLOBALE ===');
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Mode détecté:', mode);
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restreintes (session):', actionStates.filter(s => s.isRestricted).length);
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restreintes (context):', actionStates.filter(s => s.contextRestricted).length);
+    
+    // ✅ CALCULER LE COMPTAGE POUR LE 5/7
+    const totalActions = actions.length;
+    const restrictedCount = actionStates.filter(state => 
+      state.contextRestricted || actions.find(a => a.code === state.code)?.isDeleted
+    ).length;
+    
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] === CALCUL 5/7 ===');
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Total actions:', totalActions);
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restreintes/supprimées:', restrictedCount);
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] Compteur affiché:', `${restrictedCount}/${totalActions}`);
+    
     // ✅ SIMULER LES CLIQUES SUR LES BOUTONS INDIVIDUELS
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] === ACTIONS À EXÉCUTER ===');
+    
     restrainableActions.forEach((action) => {
-      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel
-      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
-      const isCurrentlyRestricted = restrictionState.isRestricted;
+      // ✅ CORRECTION : Utiliser SodActionsContext pour la détection (inclut la propagation)
+      const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      const isActuallyRestricted = contextState.isRestricted;
       
-      if (mode === "RESTREINDRE" && !isCurrentlyRestricted) {
-        // ✅ OPTIMISÉ : Utiliser TanStack Query uniquement
+      let decision = "RIEN FAIRE";
+      
+      if (mode === "RESTREINDRE" && !isActuallyRestricted) {
+        decision = "RESTREINDRE";
         onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
-      } else if (mode === "DÉRESTREINDRE" && isCurrentlyRestricted) {
-        // ✅ OPTIMISÉ : Utiliser TanStack Query uniquement
+      } else if (mode === "DÉRESTREINDRE" && isActuallyRestricted) {
+        decision = "DÉRESTREINDRE";
         onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
       }
-      // Sinon ignorer l'action (déjà dans le bon état)
+      
+      console.log(`🎯 [DEBUG RESTREINDRE TOUT] Action ${action.code}: ${decision}`, {
+        sessionRestricted: action.resources.some(resource => 
+          resource.code !== 'S_TCODE' && resource.isRestricted
+        ),
+        contextRestricted: contextState.isRestricted,
+        contextRestrictedByAction: contextState.restrictedByAction,
+        mode: mode,
+        willExecute: decision !== "RIEN FAIRE"
+      });
     });
+    
+    console.log('🎯 [DEBUG RESTREINDRE TOUT] === FIN ANALYSE ===');
   }, [roleName, riskId, actions, onRestrictAction, actionsContext]);
   
   // ✅ CALCULER LE MODE GLOBAL POUR L'INTERFACE DYNAMIQUE
@@ -262,47 +320,86 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       action.resources?.some(r => r.code !== 'S_TCODE')
     );
     
-    // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel incluant la propagation
+    // ✅ OPTIMISÉ : Utiliser les données de session directement
     const hasAnyRestricted = restrainableActions.some(action => {
-      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
-      return restrictionState.isRestricted;
+      return action.resources.some(resource => 
+        resource.code !== 'S_TCODE' && resource.isRestricted
+      );
+    });
+    
+    console.log('🎯 [DEBUG BUTTON MODE] Calcul du mode bouton:', {
+      roleName,
+      totalActions: actions.length,
+      restrainableActions: restrainableActions.length,
+      hasAnyRestricted,
+      mode: hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE",
+      actionsDetails: restrainableActions.map(action => ({
+        code: action.code,
+        sessionRestricted: action.resources.some(r => r.code !== 'S_TCODE' && r.isRestricted),
+        contextRestricted: actionsContext.isActionRestricted(roleName, action.code, action.resources).isRestricted
+      }))
     });
     
     return {
       mode: hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE",
       hasAnyRestricted
     };
-  }, [actions, actionsContext, roleName]);
+  }, [actions, roleName, actionsContext]);
 
   // ✅ CALCULER LE COMPTAGE DES ACTIONS RESTREINTES/SUPPRIMÉES
   const actionCount = useMemo(() => {
     if (!actions || actions.length === 0) return { restricted: 0, total: 0 };
     
     let restrictedCount = 0;
+    const actionDetails: any[] = [];
     
     actions.forEach(action => {
-      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel
-      const isActionDeleted = actionsContext.isActionDeleted(roleName, action.code);
-      
       // Vérifier si l'action est supprimée (T-Code)
-      if (isActionDeleted) {
+      if (action.isDeleted) {
         restrictedCount++;
+        actionDetails.push({
+          code: action.code,
+          status: 'DELETED',
+          sessionRestricted: false,
+          contextRestricted: false
+        });
         return;
       }
       
-      // ✅ CORRIGÉ : Utiliser SodActionsContext pour l'état réel incluant la propagation
-      const restrictionState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      // ✅ OPTIMISÉ : Utiliser les données de session directement
+      const hasRestrictedResource = action.resources.some(resource => 
+        resource.code !== 'S_TCODE' && resource.isRestricted
+      );
       
-      if (restrictionState.isRestricted) {
+      // ✅ DEBUG : Vérifier aussi via SodActionsContext
+      const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      
+      if (hasRestrictedResource || contextState.isRestricted) {
         restrictedCount++;
       }
+      
+      actionDetails.push({
+        code: action.code,
+        status: (hasRestrictedResource || contextState.isRestricted) ? 'RESTRICTED' : 'NORMAL',
+        sessionRestricted: hasRestrictedResource,
+        contextRestricted: contextState.isRestricted,
+        contextRestrictedByAction: contextState.restrictedByAction
+      });
+    });
+    
+    console.log('🎯 [DEBUG ACTION COUNT] Calcul du comptage:', {
+      roleName,
+      totalActions: actions.length,
+      restrictedCount,
+      display: `${restrictedCount}/${actions.length}`,
+      actionDetails
     });
     
     return {
       restricted: restrictedCount,
       total: actions.length
     };
-  }, [actions, actionsContext, roleName]);
+  }, [actions, roleName, actionsContext]);
 
   // ✅ DÉTERMINER L'ÉTAT VISUEL DU RÔLE
   const roleVisualState = useMemo(() => {
@@ -407,8 +504,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
           >
             {roleName}
           </Typography>
-          
-          
+
           {/* Badges T-Code et/ou Permissions */}
           {roleBadges}
           
