@@ -190,91 +190,10 @@ function applyRestrictActionRules(session: SodAnalysisSession, params: RestrictA
   
   console.log('🚫 [SOD RULES] Restriction d\'action:', { roleName, actionCode });
   
-  // ✅ IMPLÉMENTATION : Logique de restriction d'action
-  return {
-    ...session,
-    simpleRoles: session.simpleRoles.map(role => {
-      if (role.roleName !== roleName) return role;
-      return applyRestrictActionToRole(role, actionCode);
-    }),
-    compositeRoles: {
-      ...session.compositeRoles,
-      roles: session.compositeRoles.roles.map(role => {
-        return applyRestrictActionToCompositeRole(role, roleName, actionCode);
-      })
-    }
-  };
-}
-
-/**
- * Applique la restriction d'action à un rôle simple
- */
-function applyRestrictActionToRole(role: SodSimpleRole, actionCode: string): SodSimpleRole {
-  return {
-    ...role,
-    risks: role.risks.map(risk => ({
-      ...risk,
-      functions: risk.functions.map(func => ({
-        ...func,
-        actions: func.actions.map(action => {
-          if (action.code !== actionCode) return action;
-          
-          // ✅ Règle : Restriction par propagation des ressources non-S_TCODE
-          const updatedResources = action.resources.map(resource => {
-            // ✅ S_TCODE immunisé contre la restriction
-            if (resource.code === 'S_TCODE') {
-              return {
-                ...resource,
-                isRestricted: false // S_TCODE reste non restreint
-              };
-            }
-            
-            // ✅ Restreindre toutes les ressources non-S_TCODE
-            return {
-              ...resource,
-              isRestricted: true,
-              externalResources: resource.externalResources?.map(extRes => ({
-                ...extRes,
-                isRestricted: true
-              }))
-            };
-          });
-          
-          // ✅ Vérifier si l'action a des ressources restreignables
-          const hasRestrainableResources = updatedResources.some(r => r.code !== 'S_TCODE');
-          const isRestricted = hasRestrainableResources && updatedResources.some(r => r.isRestricted);
-          
-          console.log('🔧 [SOD RULES] Action mise à jour:', {
-            actionCode,
-            isRestricted,
-            hasRestrainableResources,
-            resourceCount: updatedResources.length
-          });
-          
-          return {
-            ...action,
-            resources: updatedResources,
-            isRestricted: isRestricted,
-            isDeleted: false, // ✅ États mutuellement exclusifs
-            restrictedByAction: true
-          };
-        })
-      }))
-    }))
-  };
-}
-
-/**
- * Applique la restriction d'action à un rôle composite
- */
-function applyRestrictActionToCompositeRole(role: SodCompositeRole, targetRoleName: string, actionCode: string): SodCompositeRole {
-  return {
-    ...role,
-    simpleRoles: role.simpleRoles.map(simpleRole => {
-      if (simpleRole.roleName !== targetRoleName) return simpleRole;
-      return applyRestrictActionToRole(simpleRole, actionCode);
-    })
-  };
+  // TODO: Implémenter la logique de restriction d'action
+  // Pour l'instant, retourner la session inchangée
+  console.log('⚠️ [SOD RULES] Restriction d\'action non encore implémentée');
+  return session;
 }
 
 /**
