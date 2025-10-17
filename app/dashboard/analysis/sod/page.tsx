@@ -404,12 +404,14 @@ export default function SodAnalysisPage() {
   
   // 🚀 OPTIMISATION 3 : Callbacks stables (ne dépendent que des fonctions, pas du contexte entier)
   const handleDeleteAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources?: any[]) => {
-    toggleDeleteAction(roleName, actionCode, resources || []);
-  }, [toggleDeleteAction]); // ✅ Stable : toggleDeleteAction ne change jamais
+    // ✅ CORRIGÉ : Utiliser la mutation TanStack Query au lieu de l'appel direct
+    sodMutations.deleteAction(roleName, _riskId, actionCode, resources || []);
+  }, [sodMutations.deleteAction]); // ✅ Stable : sodMutations.deleteAction ne change jamais
 
   const handleRestrictAction = useCallback((roleName: string, _riskId: string, actionCode: string, resources?: any[]) => {
-    toggleRestrictAction(roleName, actionCode, resources || []);
-  }, [toggleRestrictAction]); // ✅ Stable : toggleRestrictAction ne change jamais
+    // ✅ CORRIGÉ : Utiliser la mutation TanStack Query au lieu de l'appel direct
+    sodMutations.restrictAction(roleName, _riskId, actionCode, resources || []);
+  }, [sodMutations.restrictAction]); // ✅ Stable : sodMutations.restrictAction ne change jamais
 
   const handleRestrictResourceWrapped = useCallback((
         roleName: string,

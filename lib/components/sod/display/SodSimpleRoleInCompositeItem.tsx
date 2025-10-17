@@ -26,6 +26,7 @@ import { SodSimpleRoleInComposite } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
 import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { useActionState, useRoleState } from 'lib/hooks/sod/useSodSelectors';
+import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 
 export interface SodSimpleRoleInCompositeItemProps {
   /** Rôle simple */
@@ -214,101 +215,70 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
 
   // ✅ GESTIONNAIRE POUR LE BOUTON "RESTREINDRE/DÉRESTREINDRE TOUT"
   const handleRestrictAllActions = useCallback(() => {
-    if (!actions) return;
+    if (!actions || !riskId) return;
     
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] === DÉBUT ANALYSE ===');
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Rôle:', roleName);
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Nombre total d\'actions:', actions.length);
+    console.log('🎯 [RESTREINDRE TOUT] === DÉBUT ===');
+    console.log('🎯 [RESTREINDRE TOUT] Rôle:', roleName);
+    console.log('🎯 [RESTREINDRE TOUT] Nombre d\'actions:', actions.length);
     
-    // ✅ Filtrer les actions restrainable (non-S_TCODE)
-    const restrainableActions = actions.filter(action => 
-      action.resources?.some(r => r.code !== 'S_TCODE')
-    );
+    // ✅ ÉTAPE 1 : Extraire toutes les valeurs de toutes les ressources
+    const allResourceValues = new Map<string, { resourceCode: string; externalResourceCode: string; values: string[] }>();
     
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restrainables:', restrainableActions.length);
-    
-    if (restrainableActions.length === 0) return;
-    
-    // ✅ ÉTAPE 1: DÉTECTER LE MODE GLOBAL avec les données de session
-    console.log('🔍 [DEBUG RESTREINDRE TOUT] === ANALYSE ÉTAT ACTIONS ===');
-    
-    const actionStates = restrainableActions.map(action => {
-      // ✅ OPTIMISÉ : Utiliser les données de session directement
-      const hasRestrictedResource = action.resources.some(resource => 
-        resource.code !== 'S_TCODE' && resource.isRestricted
-      );
-      
-      // ✅ DEBUG : Vérifier l'état via SodActionsContext
-      const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
-      
-      console.log(`🔍 [DEBUG RESTREINDRE TOUT] Action ${action.code}:`, {
-        sessionRestricted: hasRestrictedResource,
-        contextRestricted: contextState.isRestricted,
-        contextRestrictedByAction: contextState.restrictedByAction,
-        resources: action.resources.map(r => ({
-          code: r.code,
-          isRestricted: r.isRestricted,
-          values: r.externalResources?.map(er => er.values) || []
-        }))
-      });
-      
-      return {
-        code: action.code,
-        isRestricted: hasRestrictedResource,
-        contextRestricted: contextState.isRestricted,
-        contextRestrictedByAction: contextState.restrictedByAction
-      };
-    });
-    
-    const hasAnyRestricted = actionStates.some(state => state.isRestricted);
-    const mode = hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE";
-    
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] === DÉCISION GLOBALE ===');
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Mode détecté:', mode);
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restreintes (session):', actionStates.filter(s => s.isRestricted).length);
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restreintes (context):', actionStates.filter(s => s.contextRestricted).length);
-    
-    // ✅ CALCULER LE COMPTAGE POUR LE 5/7
-    const totalActions = actions.length;
-    const restrictedCount = actionStates.filter(state => 
-      state.contextRestricted || actions.find(a => a.code === state.code)?.isDeleted
-    ).length;
-    
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] === CALCUL 5/7 ===');
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Total actions:', totalActions);
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Actions restreintes/supprimées:', restrictedCount);
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] Compteur affiché:', `${restrictedCount}/${totalActions}`);
-    
-    // ✅ SIMULER LES CLIQUES SUR LES BOUTONS INDIVIDUELS
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] === ACTIONS À EXÉCUTER ===');
-    
-    restrainableActions.forEach((action) => {
-      const hasRestrictedResource = action.resources.some(resource => 
-        resource.code !== 'S_TCODE' && resource.isRestricted
-      );
-      
-      const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
-      
-      let decision = "RIEN FAIRE";
-      
-      if (mode === "RESTREINDRE" && !hasRestrictedResource) {
-        decision = "RESTREINDRE";
-        onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
-      } else if (mode === "DÉRESTREINDRE" && hasRestrictedResource) {
-        decision = "DÉRESTREINDRE";
-        onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
-      }
-      
-      console.log(`🎯 [DEBUG RESTREINDRE TOUT] Action ${action.code}: ${decision}`, {
-        sessionRestricted: hasRestrictedResource,
-        contextRestricted: contextState.isRestricted,
-        mode: mode,
-        willExecute: decision !== "RIEN FAIRE"
+    actions.forEach(action => {
+      action.resources?.forEach((resource: any) => {
+        if (resource.code === 'S_TCODE') return; // Ignorer S_TCODE
+        
+        resource.externalResources?.forEach((extRes: any) => {
+          const key = `${resource.code}|${extRes.code}`;
+          const values = extractExternalResourceValues(extRes);
+          
+          if (!allResourceValues.has(key)) {
+            allResourceValues.set(key, {
+              resourceCode: resource.code,
+              externalResourceCode: extRes.code,
+              values: []
+            });
+          }
+          
+          // Ajouter les valeurs (déduplication automatique via Set)
+          const existingValues = allResourceValues.get(key)!.values;
+          values.forEach((v: string) => {
+            if (!existingValues.includes(v)) {
+              existingValues.push(v);
+            }
+          });
+        });
       });
     });
-    
-    console.log('🎯 [DEBUG RESTREINDRE TOUT] === FIN ANALYSE ===');
-  }, [roleName, riskId, actions, onRestrictAction, actionsContext]);
+
+    console.log('🎯 [RESTREINDRE TOUT] Ressources trouvées:', allResourceValues.size);
+    allResourceValues.forEach((data, key) => {
+      console.log(`🎯 [RESTREINDRE TOUT] ${key}:`, data.values);
+    });
+
+    if (allResourceValues.size === 0) {
+      console.log('🎯 [RESTREINDRE TOUT] Aucune ressource à restreindre');
+      return;
+    }
+
+    // ✅ ÉTAPE 2 : Déterminer le mode global
+    const isCurrentlyRestricted = Array.from(allResourceValues.entries()).some(([key, data]) => {
+      return actionsContext.isResourceRestricted(roleName, data.resourceCode, data.externalResourceCode, data.values);
+    });
+
+    const mode = isCurrentlyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE";
+    console.log('🎯 [RESTREINDRE TOUT] Mode détecté:', mode);
+
+    // ✅ ÉTAPE 3 : Appliquer le toggle global via TanStack Query
+    allResourceValues.forEach((data, key) => {
+      console.log(`🎯 [RESTREINDRE TOUT] ${mode} ${key}:`, data.values);
+      
+      // Utiliser le callback TanStack Query pour chaque ressource
+      onRestrictResource?.(roleName, riskId, '', data.resourceCode, data.externalResourceCode, data.values);
+    });
+
+    console.log('🎯 [RESTREINDRE TOUT] === FIN ===');
+  }, [roleName, riskId, actions, onRestrictResource, actionsContext]);
   
   // ✅ CALCULER LE MODE GLOBAL POUR L'INTERFACE DYNAMIQUE
   const buttonMode = useMemo(() => {
@@ -676,11 +646,11 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
                 level={0}
                 defaultExpanded={false}
                 disableButtons={isRoleExcluded}
-                onDelete={(code, resources) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
-                onRestrict={(code, resources) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
-                onRestrictResource={(actionCode, resourceCode, externalResourceCode, values) => 
-                  roleName && riskId && onRestrictResource?.(roleName, riskId, actionCode, resourceCode, externalResourceCode, values)
-                }
+        onDelete={(code: string, resources: any[]) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
+        onRestrict={(code: string, resources: any[]) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
+        onRestrictResource={(actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) =>
+          roleName && riskId && onRestrictResource?.(roleName, riskId, actionCode, resourceCode, externalResourceCode, values)
+        }
               />
             ))
           )}
