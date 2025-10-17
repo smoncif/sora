@@ -233,17 +233,16 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     console.log('🔍 [DEBUG RESTREINDRE TOUT] === ANALYSE ÉTAT ACTIONS ===');
     
     const actionStates = restrainableActions.map(action => {
-      // ✅ CORRECTION : Utiliser SodActionsContext pour la détection globale (inclut la propagation)
-      const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
-      const isActuallyRestricted = contextState.isRestricted;
-      
-      // ✅ DEBUG : Comparer session vs context
-      const sessionRestricted = action.resources.some(resource => 
+      // ✅ OPTIMISÉ : Utiliser les données de session directement
+      const hasRestrictedResource = action.resources.some(resource => 
         resource.code !== 'S_TCODE' && resource.isRestricted
       );
       
+      // ✅ DEBUG : Vérifier l'état via SodActionsContext
+      const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
+      
       console.log(`🔍 [DEBUG RESTREINDRE TOUT] Action ${action.code}:`, {
-        sessionRestricted: sessionRestricted,
+        sessionRestricted: hasRestrictedResource,
         contextRestricted: contextState.isRestricted,
         contextRestrictedByAction: contextState.restrictedByAction,
         resources: action.resources.map(r => ({
@@ -255,7 +254,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
       
       return {
         code: action.code,
-        isRestricted: isActuallyRestricted, // ✅ Utiliser l'état réel avec propagation
+        isRestricted: hasRestrictedResource,
         contextRestricted: contextState.isRestricted,
         contextRestrictedByAction: contextState.restrictedByAction
       };
@@ -284,26 +283,25 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
     console.log('🎯 [DEBUG RESTREINDRE TOUT] === ACTIONS À EXÉCUTER ===');
     
     restrainableActions.forEach((action) => {
-      // ✅ CORRECTION : Utiliser SodActionsContext pour la détection (inclut la propagation)
+      const hasRestrictedResource = action.resources.some(resource => 
+        resource.code !== 'S_TCODE' && resource.isRestricted
+      );
+      
       const contextState = actionsContext.isActionRestricted(roleName, action.code, action.resources);
-      const isActuallyRestricted = contextState.isRestricted;
       
       let decision = "RIEN FAIRE";
       
-      if (mode === "RESTREINDRE" && !isActuallyRestricted) {
+      if (mode === "RESTREINDRE" && !hasRestrictedResource) {
         decision = "RESTREINDRE";
         onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
-      } else if (mode === "DÉRESTREINDRE" && isActuallyRestricted) {
+      } else if (mode === "DÉRESTREINDRE" && hasRestrictedResource) {
         decision = "DÉRESTREINDRE";
         onRestrictAction?.(roleName, riskId || '', action.code, action.resources);
       }
       
       console.log(`🎯 [DEBUG RESTREINDRE TOUT] Action ${action.code}: ${decision}`, {
-        sessionRestricted: action.resources.some(resource => 
-          resource.code !== 'S_TCODE' && resource.isRestricted
-        ),
+        sessionRestricted: hasRestrictedResource,
         contextRestricted: contextState.isRestricted,
-        contextRestrictedByAction: contextState.restrictedByAction,
         mode: mode,
         willExecute: decision !== "RIEN FAIRE"
       });
@@ -674,6 +672,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
               <SodActionItem
                 key={index}
                 action={action}
+                roleName={roleName} // ✅ CORRIGÉ : Ajouter roleName pour SodActionsContext
                 level={0}
                 defaultExpanded={false}
                 disableButtons={isRoleExcluded}

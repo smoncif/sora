@@ -98,8 +98,7 @@ interface SodActionsContextValue extends SodActionsState {
   
   /** Vérifier si un rôle simple est exclu dans un rôle composite */
   isSimpleRoleExcluded: (compositeRoleName: string, simpleRoleName: string) => boolean;
-  
-  
+
   /** Calculer le statut de remédiation d'une fonction */
   calculateFunctionRemediation: (roleName: string, actions: any[]) => {
     isRemediated: boolean;
@@ -219,8 +218,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ): string => {
     return `${roleName}|${resourceCode}|${externalResourceCode || 'NULL'}`;
   }, []);
-  
-  
+
   /**
    * Construit la Map globale de toutes les ressources par action (avec données complètes)
    * ✅ Appelé UNE SEULE FOIS au chargement des données
@@ -576,8 +574,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     incrementVersionDebounced();
   }, [getResourceKey, incrementVersionDebounced]);
-  
-  
+
   /**
    * Toggle l'exclusion d'un rôle simple dans un rôle composite
    * L'exclusion est propagée à toutes les fonctions du composite
@@ -622,8 +619,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     restrictedResourcesRef.current.clear();
     actionResourcesMapRef.current.clear();
     excludedSimpleRolesRef.current.clear();
-    console.log('🔄 [RESET STATE] État SoD réinitialisé');
-    incrementVersionDebounced();
+        incrementVersionDebounced();
   }, [incrementVersionDebounced]);
   
   /**
@@ -891,8 +887,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ) => {
     
     if (!func.simpleRoles || func.simpleRoles.length === 0) {
-      console.log('⚠️ [COMPOSITE FUNCTION] Aucun rôle simple trouvé', { functionCode: func.code });
-      return {
+            return {
         isRemediated: false,
         totalSimpleRoles: 0,
         remediatedSimpleRoles: 0
@@ -927,11 +922,9 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
       }
     });
-    
-    
+
     if (allActions.length === 0) {
-      console.log('⚠️ [COMPOSITE FUNCTION] Aucune action trouvée', { functionCode: func.code });
-      return {
+            return {
         isRemediated: false,
         totalSimpleRoles,
         remediatedSimpleRoles: 0
@@ -1047,8 +1040,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ) => {
     
     if (!functions || functions.length === 0) {
-      console.log('⚠️ [COMPOSITE RISK] Aucune fonction trouvée');
-      return {
+            return {
         isRemediated: false,
         totalFunctions: 0,
         remediatedFunctions: 0,
@@ -1072,8 +1064,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         totalSimpleRoles: funcStatus.totalSimpleRoles,
         remediatedSimpleRoles: funcStatus.remediatedSimpleRoles
       });
-      
-      
+
       if (funcStatus.isRemediated) {
         remediatedFunctions++;
       }
@@ -1084,8 +1075,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ? Math.round((remediatedFunctions / totalFunctions) * 100)
       : 0;
     const isRemediated = remediatedFunctions > 0; // ✅ AU MOINS UNE fonction
-    
-    
+
     return {
       isRemediated,
       totalFunctions,
@@ -1112,8 +1102,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ) => {
     
     if (!risks || risks.length === 0) {
-      console.log('⚠️ [COMPOSITE ROLE] Aucun risque trouvé', { compositeRoleName });
-      return {
+            return {
         isRemediated: false,
         totalRisks: 0,
         remediatedRisks: 0,
@@ -1138,8 +1127,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         remediatedFunctions: riskStatus.remediatedFunctions,
         remediationPercentage: riskStatus.remediationPercentage
       });
-      
-      
+
       if (riskStatus.isRemediated) {
         remediatedRisks++;
       }
@@ -1150,8 +1138,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ? Math.round((remediatedRisks / totalRisks) * 100)
       : 0;
     const isRemediated = remediatedRisks === totalRisks && totalRisks > 0; // ✅ TOUS les risques
-    
-    
+
     return {
       isRemediated,
       totalRisks,
@@ -1226,6 +1213,4 @@ export const useSodActionsContext = (): SodActionsContextValue => {
   
   return context;
 };
-
-
 

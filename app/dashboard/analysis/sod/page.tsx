@@ -419,8 +419,9 @@ export default function SodAnalysisPage() {
         externalResourceCode: string,
         values: string[]
       ) => {
-    toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
-  }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
+    // ✅ CORRIGÉ : Utiliser la mutation TanStack Query au lieu de l'appel direct
+    sodMutations.restrictResource(roleName, _riskId, _actionCode, resourceCode, externalResourceCode, values);
+  }, [sodMutations.restrictResource]); // ✅ Stable : sodMutations.restrictResource ne change jamais
 
   const handleCompositeRestrictResourceWrapped = useCallback((
         roleName: string,
@@ -430,8 +431,9 @@ export default function SodAnalysisPage() {
         externalResourceCode: string,
         values: string[]
       ) => {
-    toggleRestrictResource(roleName, resourceCode, externalResourceCode, values);
-  }, [toggleRestrictResource]); // ✅ Stable : toggleRestrictResource ne change jamais
+    // ✅ CORRIGÉ : Utiliser la mutation TanStack Query au lieu de l'appel direct
+    sodMutations.restrictResource(roleName, _riskId, _actionCode, resourceCode, externalResourceCode, values);
+  }, [sodMutations.restrictResource]); // ✅ Stable : sodMutations.restrictResource ne change jamais
 
   // 🧭 CALCUL DES RISQUES NON REMÉDIÉS : Pour le badge du bouton de navigation
   const nonRemediatedRisksCount = useMemo(() => {
