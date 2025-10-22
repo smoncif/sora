@@ -23,7 +23,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodSimpleRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodRiskSection } from './SodRiskSection';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodSimpleRoleCardProps {
   /** Rôle simple */
@@ -42,7 +41,7 @@ export interface SodSimpleRoleCardProps {
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string) => void;
   
   /** Callback pour restreindre une ressource spécifique */
-  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
   
   /** Callback pour passer à l'étape suivante */
   onNextStep?: () => void;
@@ -66,16 +65,33 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
   showNextStepButton = false,
 }) => {
   const theme = useTheme();
-  const actionsContext = useSodActionsContext();
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { roleName, roleDescription, risks, highestRiskLevel } = role;
   
-  // ✅ Calculer le statut de remédiation du rôle
-  const remediationStatus = useMemo(
-    () => actionsContext.calculateRoleRemediation(roleName, risks),
-    [roleName, risks, actionsContext.calculateRoleRemediation]
-  );
+  // ✅ NOUVELLE LOGIQUE : Calculer le statut de remédiation directement depuis les données de session
+  const remediationStatus = useMemo(() => {
+    let totalActions = 0;
+    let remediatedActions = 0;
+    
+    risks.forEach(risk => {
+      risk.functions.forEach(func => {
+        func.actions.forEach(action => {
+          totalActions++;
+          // Une action est remédiée si elle est supprimée OU restreinte
+          if (action.isDeleted || action.isRestricted) {
+            remediatedActions++;
+          }
+        });
+      });
+    });
+    
+    return {
+      totalActions,
+      remediatedActions,
+      percentage: totalActions > 0 ? Math.round((remediatedActions / totalActions) * 100) : 0
+    };
+  }, [risks]);
   
   
   return (

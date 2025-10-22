@@ -266,14 +266,7 @@ export const SodActionsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     actionResourcesMapRef.current = map;
     
-    console.log('🗺️ [BUILD ACTION RESOURCES MAP]', {
-      totalEntries: map.size,
-      sample: Array.from(map.entries()).slice(0, 3).map(([k, v]) => ({ 
-        key: k, 
-        resourceCode: v.code,
-        externalResourcesCount: v.externalResources?.length || 0
-      }))
-    });
+    // Action resources map removed
   }, [getActionResourceKey]);
   
   /**

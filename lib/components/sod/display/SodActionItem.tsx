@@ -23,7 +23,6 @@ import WarningIcon from '@mui/icons-material/Warning';
 // import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'; // Supprimé
 import { SodAction } from 'lib/types/sodAnalysis';
 import { SodResourceItem } from './SodResourceItem';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodActionItemProps {
   /** Action */
@@ -75,17 +74,11 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const actionsContext = useSodActionsContext();
-  
   const { code, description, resources, isDeleted, isRestricted, restrictedByAction } = action as SodAction & { restrictedByAction?: boolean };
 
-  // ✅ OPTIMISÉ : Vérifier l'état réel via SodActionsContext
-  const realActionState = actionsContext.isActionDeleted(roleName, code);
-  const realRestrictionState = actionsContext.isActionRestricted(roleName, code, resources);
-  
-  // ✅ Utiliser l'état réel pour la logique des boutons
-  const isActuallyDeleted = realActionState;
-  const isActuallyRestricted = realRestrictionState.isRestricted;
+  // ✅ Utiliser directement l'état de l'action (Session TanStack = reflet des Maps)
+  const isActuallyDeleted = !!isDeleted;
+  const isActuallyRestricted = !!isRestricted;
 
   const hasResources = resources.length > 0;
   

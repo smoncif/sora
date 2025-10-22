@@ -13,7 +13,6 @@ import {
   alpha,
 } from '@mui/material';
 import { SodSession, SodRiskLevel, SOD_RISK_LEVEL_COLORS } from 'lib/types/sodAnalysis';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { useRemediationCache } from 'lib/utils/sodRemediationCache';
 import { NavigationMode } from 'lib/hooks/sod/useSodNavigation';
 
@@ -45,7 +44,6 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
   onNavigateToRisk,
 }) => {
   const theme = useTheme();
-  const actionsContext = useSodActionsContext();
   const remediationCache = useRemediationCache();
 
   // Pas besoin de collecter tous les risques uniques - chaque rôle a ses propres risques
@@ -69,7 +67,24 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
           
           if (!remediation) {
             // Calculer seulement si pas en cache
-            remediation = actionsContext.calculateRiskRemediation(role.roleName, risk.functions);
+            let totalActions = 0;
+            let remediatedActions = 0;
+            
+            risk.functions.forEach((func: any) => {
+              func.actions.forEach((action: any) => {
+                totalActions++;
+                if (action.isDeleted || action.isRestricted) {
+                  remediatedActions++;
+                }
+              });
+            });
+            
+            remediation = {
+              isRemediated: remediatedActions > 0,
+              remediatedFunctions: remediatedActions,
+              totalFunctions: totalActions
+            };
+            
             remediationCache.set(role.roleName, risk.riskId, 'simple', remediation, currentVersion);
           }
           
@@ -97,7 +112,26 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
           
           if (!remediation) {
             // Calculer seulement si pas en cache
-            remediation = actionsContext.calculateCompositeRiskRemediation(role.roleName, risk.functions);
+            let totalActions = 0;
+            let remediatedActions = 0;
+            
+            risk.functions.forEach((func: any) => {
+              func.simpleRoles.forEach((simpleRole: any) => {
+                simpleRole.actions.forEach((action: any) => {
+                  totalActions++;
+                  if (action.isDeleted || action.isRestricted) {
+                    remediatedActions++;
+                  }
+                });
+              });
+            });
+            
+            remediation = {
+              isRemediated: remediatedActions > 0,
+              remediatedFunctions: remediatedActions,
+              totalFunctions: totalActions
+            };
+            
             remediationCache.set(role.roleName, risk.riskId, 'composite', remediation, currentVersion);
           }
           

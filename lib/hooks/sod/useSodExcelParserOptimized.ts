@@ -75,7 +75,7 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
         : '/workers/sodParsingWorkerExcelJS.js'; // ExcelJS Optimisé
 
       const parserName = useFallback ? 'XLSX.js (Legacy)' : 'ExcelJS (Optimisé)';
-      console.log(`🚀 Utilisation du parser: ${parserName}`);
+      // Parser usage removed
 
       // Créer le Web Worker
       workerRef.current = new Worker(workerPath);
@@ -95,10 +95,7 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
               setStats(workerStats);
               
               // Log de performance
-              console.log(`✅ Parsing terminé en ${(workerStats.durationMs / 1000).toFixed(1)}s`);
-              console.log(`📊 Parser: ${workerStats.parserUsed}`);
-              console.log(`📈 ${workerStats.finalCount.toLocaleString()} enregistrements valides`);
-              console.log(`⚡ ${workerStats.avgTimePerRow?.toFixed(2)}ms par ligne en moyenne`);
+              // Parsing stats removed
             }
             
             setParsing(false);

@@ -49,7 +49,7 @@ export interface SodFunctionGridProps {
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
-  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
 }
 
 /**
@@ -65,7 +65,7 @@ const SodFunctionCard: React.FC<{
   duplicateMap?: Map<string, { functionIndices: number[]; isDuplicate: boolean }>;
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
-  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
 }> = ({ func, defaultExpanded = true, roleName, riskId, risk, functionIndex = 0, duplicateMap, onDeleteAction, onRestrictAction, onRestrictResource }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -196,7 +196,7 @@ const SodFunctionCard: React.FC<{
                   <SodActionItem
                     key={index}
                     action={action}
-                    roleName={roleName} // ✅ OPTIMISÉ : Ajouter roleName pour SodActionsContext
+                    roleName={roleName || ''} // ✅ OPTIMISÉ : Ajouter roleName pour SodActionsContext
                     level={0}
                     defaultExpanded={false}
                     isDuplicate={isDuplicate}

@@ -10,8 +10,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useCallback } from 'react';
 import type { SodAnalysisSession, SodCompositeRole } from 'lib/types/sodAnalysis';
-import { applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
-import type { SodActionsState } from 'lib/utils/sodStateApplication';
 
 export interface UseSodPagedCompositeRolesParams {
   /** ID de la session SoD */
@@ -22,12 +20,6 @@ export interface UseSodPagedCompositeRolesParams {
   
   /** Nombre de rôles par page */
   pageSize: number;
-  
-  /** État des actions (suppressions/restrictions) */
-  actionsState: SodActionsState;
-  
-  /** Version de l'état (pour invalidation du cache) */
-  version: number;
 }
 
 export interface UseSodPagedCompositeRolesReturn {
@@ -60,8 +52,6 @@ export function useSodPagedCompositeRoles({
   sessionId,
   page,
   pageSize,
-  actionsState,
-  version,
 }: UseSodPagedCompositeRolesParams): UseSodPagedCompositeRolesReturn {
   const queryClient = useQueryClient();
 
@@ -73,10 +63,10 @@ export function useSodPagedCompositeRoles({
     error,
     isPlaceholderData,
   } = useQuery({
-    queryKey: ['sod', sessionId, 'roles', 'composite', 'page', page, pageSize, version],
+    queryKey: ['sod', sessionId, 'roles', 'composite', 'page', page, pageSize],
     queryFn: async () => {
       const queryStart = performance.now();
-      console.log('🔄 [QUERY COMPOSITE] CALCUL DES DONNÉES - Page:', page, 'Version:', version);
+      // Query composite calculation removed
       
       // 1. Récupérer la session complète depuis le cache
       const session = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
@@ -92,32 +82,22 @@ export function useSodPagedCompositeRoles({
       const end = start + pageSize;
       const pageRoles = allRoles.slice(start, end);
 
-      console.log('📊 [QUERY COMPOSITE] Extraction:', {
-        totalRoles: allRoles.length,
-        page,
-        start,
-        end,
-        pageRoles: pageRoles.length,
-      });
+      // Query composite extraction removed
 
-      // 3. Appliquer l'état (une seule fois, puis mis en cache)
-      const applyStart = performance.now();
-      const rolesWithState = applyStateToCompositeRoles(pageRoles, actionsState);
-      const applyDuration = performance.now() - applyStart;
-
+      // 3. ✅ NOUVELLE LOGIQUE : Retourner directement les données de la session
+      // La session TanStack Query contient déjà les bonnes valeurs isDeleted/isRestricted
+      // Plus besoin d'appliquer l'état depuis SodActionsContext
+      
       const queryDuration = performance.now() - queryStart;
-      console.log('✅ [QUERY COMPOSITE] Données calculées en:', queryDuration.toFixed(2), 'ms', {
-        applyDuration: applyDuration.toFixed(2) + 'ms',
-        rolesProcessed: rolesWithState.length,
-      });
+      // Query composite completion removed
 
       return {
-        roles: rolesWithState,
+        roles: pageRoles,
         totalCount: allRoles.length,
         page,
         pageSize,
         totalPages: Math.ceil(allRoles.length / pageSize),
-        cacheKey: `${sessionId}-composite-${page}-${pageSize}-${version}`,
+        cacheKey: `${sessionId}-composite-${page}-${pageSize}`,
       };
     },
     enabled: !!sessionId,
@@ -130,18 +110,14 @@ export function useSodPagedCompositeRoles({
   useEffect(() => {
     if (data && !isLoading) {
       if (isPlaceholderData) {
-        console.log('📦 [CACHE COMPOSITE] Données placeholder (cache vide) - Page:', page);
+        // Cache composite placeholder removed
       } else if (!isFetching) {
-        console.log('⚡ [CACHE HIT COMPOSITE] Données depuis cache - Page:', page, {
-          cacheKey: data.cacheKey,
-          rolesCount: data.roles.length,
-          version,
-        });
+        // Cache hit composite removed
       } else {
-        console.log('🔄 [CACHE MISS COMPOSITE] Rechargement - Page:', page);
+        // Cache composite miss removed
       }
     }
-  }, [data, isPlaceholderData, isFetching, page, isLoading, version]);
+  }, [data, isPlaceholderData, isFetching, page, isLoading]);
 
   // ⚡ Prefetch pages adjacentes
   const prefetchAdjacentPages = useCallback(() => {
@@ -151,7 +127,7 @@ export function useSodPagedCompositeRoles({
 
     // Prefetch page suivante
     if (page + 1 < totalPages) {
-      const nextQueryKey = ['sod', sessionId, 'roles', 'composite', 'page', page + 1, pageSize, version];
+      const nextQueryKey = ['sod', sessionId, 'roles', 'composite', 'page', page + 1, pageSize];
       
       queryClient.prefetchQuery({
         queryKey: nextQueryKey,
@@ -165,15 +141,16 @@ export function useSodPagedCompositeRoles({
           const start = (page + 1) * pageSize;
           const end = start + pageSize;
           const pageRoles = allRoles.slice(start, end);
-          const rolesWithState = applyStateToCompositeRoles(pageRoles, actionsState);
+          // ✅ NOUVELLE LOGIQUE : Retourner directement les données de la session
+          // La session TanStack Query contient déjà les bonnes valeurs isDeleted/isRestricted
 
           return {
-            roles: rolesWithState,
+            roles: pageRoles,
             totalCount: allRoles.length,
             page: page + 1,
             pageSize,
             totalPages: Math.ceil(allRoles.length / pageSize),
-            cacheKey: `${sessionId}-composite-${page + 1}-${pageSize}-${version}`,
+            cacheKey: `${sessionId}-composite-${page + 1}-${pageSize}`,
           };
         },
         staleTime: 5 * 60 * 1000,
@@ -182,7 +159,7 @@ export function useSodPagedCompositeRoles({
 
     // Prefetch page précédente
     if (page > 0) {
-      const prevQueryKey = ['sod', sessionId, 'roles', 'composite', 'page', page - 1, pageSize, version];
+      const prevQueryKey = ['sod', sessionId, 'roles', 'composite', 'page', page - 1, pageSize];
       
       queryClient.prefetchQuery({
         queryKey: prevQueryKey,
@@ -196,21 +173,22 @@ export function useSodPagedCompositeRoles({
           const start = (page - 1) * pageSize;
           const end = start + pageSize;
           const pageRoles = allRoles.slice(start, end);
-          const rolesWithState = applyStateToCompositeRoles(pageRoles, actionsState);
+          // ✅ NOUVELLE LOGIQUE : Retourner directement les données de la session
+          // La session TanStack Query contient déjà les bonnes valeurs isDeleted/isRestricted
 
           return {
-            roles: rolesWithState,
+            roles: pageRoles,
             totalCount: allRoles.length,
             page: page - 1,
             pageSize,
             totalPages: Math.ceil(allRoles.length / pageSize),
-            cacheKey: `${sessionId}-composite-${page - 1}-${pageSize}-${version}`,
+            cacheKey: `${sessionId}-composite-${page - 1}-${pageSize}`,
           };
         },
         staleTime: 5 * 60 * 1000,
       });
     }
-  }, [sessionId, page, pageSize, data, queryClient, actionsState, version]);
+  }, [sessionId, page, pageSize, data, queryClient]);
 
   return {
     roles: data?.roles || [],

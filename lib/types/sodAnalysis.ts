@@ -199,6 +199,7 @@ export interface SodSimpleRoleInComposite {
   // Compteurs pour affichage
   actionCount: number;
   hasHighRisk?: boolean; // Pour badge coloré
+  isExcluded?: boolean; // Pour affichage de l'état d'exclusion
 }
 
 /**

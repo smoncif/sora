@@ -15,8 +15,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useCallback } from 'react';
 import type { SodAnalysisSession, SodSimpleRole } from 'lib/types/sodAnalysis';
-import { applyStateToSimpleRoles } from 'lib/utils/sodStateApplication';
-import type { SodActionsState } from 'lib/utils/sodStateApplication';
 
 export interface UseSodPagedRolesParams {
   /** ID de la session SoD */
@@ -27,12 +25,6 @@ export interface UseSodPagedRolesParams {
   
   /** Nombre de rôles par page */
   pageSize: number;
-  
-  /** État des actions (suppressions/restrictions) */
-  actionsState: SodActionsState;
-  
-  /** Version de l'état (pour invalidation du cache) */
-  version: number;
 }
 
 export interface UseSodPagedRolesReturn {
@@ -65,8 +57,6 @@ export function useSodPagedRoles({
   sessionId,
   page,
   pageSize,
-  actionsState,
-  version,
 }: UseSodPagedRolesParams): UseSodPagedRolesReturn {
   const queryClient = useQueryClient();
 
@@ -78,10 +68,10 @@ export function useSodPagedRoles({
     error,
     isPlaceholderData,
   } = useQuery({
-    queryKey: ['sod', sessionId, 'roles', 'simple', 'page', page, pageSize, version],
+    queryKey: ['sod', sessionId, 'roles', 'simple', 'page', page, pageSize],
     queryFn: async () => {
       const queryStart = performance.now();
-      console.log('🔄 [QUERY] CALCUL DES DONNÉES - Page:', page, 'Version:', version);
+      // Query calculation removed
       
       // 1. Récupérer la session complète depuis le cache
       const session = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
@@ -97,32 +87,22 @@ export function useSodPagedRoles({
       const end = start + pageSize;
       const pageRoles = allRoles.slice(start, end);
 
-      console.log('📊 [QUERY] Extraction:', {
-        totalRoles: allRoles.length,
-        page,
-        start,
-        end,
-        pageRoles: pageRoles.length,
-      });
+      // Query extraction removed
 
-      // 3. Appliquer l'état (une seule fois, puis mis en cache)
-      const applyStart = performance.now();
-      const rolesWithState = applyStateToSimpleRoles(pageRoles, actionsState);
-      const applyDuration = performance.now() - applyStart;
-
+      // 3. ✅ NOUVELLE LOGIQUE : Retourner directement les données de la session
+      // La session TanStack Query contient déjà les bonnes valeurs isDeleted/isRestricted
+      // Plus besoin d'appliquer l'état depuis SodActionsContext
+      
       const queryDuration = performance.now() - queryStart;
-      console.log('✅ [QUERY] Données calculées en:', queryDuration.toFixed(2), 'ms', {
-        applyDuration: applyDuration.toFixed(2) + 'ms',
-        rolesProcessed: rolesWithState.length,
-      });
+      // Query completion removed
 
       return {
-        roles: rolesWithState,
+        roles: pageRoles,
         totalCount: allRoles.length,
         page,
         pageSize,
         totalPages: Math.ceil(allRoles.length / pageSize),
-        cacheKey: `${sessionId}-${page}-${pageSize}-${version}`,
+        cacheKey: `${sessionId}-${page}-${pageSize}`,
       };
     },
     enabled: !!sessionId,
@@ -135,18 +115,14 @@ export function useSodPagedRoles({
   useEffect(() => {
     if (data && !isLoading) {
       if (isPlaceholderData) {
-        console.log('📦 [CACHE] Données placeholder (cache vide) - Page:', page);
+        // Cache placeholder removed
       } else if (!isFetching) {
-        console.log('⚡ [CACHE HIT] Données depuis cache - Page:', page, {
-          cacheKey: data.cacheKey,
-          rolesCount: data.roles.length,
-          version,
-        });
+        // Cache hit removed
       } else {
-        console.log('🔄 [CACHE MISS] Rechargement - Page:', page);
+        // Cache miss removed
       }
     }
-  }, [data, isPlaceholderData, isFetching, page, isLoading, version]);
+  }, [data, isPlaceholderData, isFetching, page, isLoading]);
 
   // ⚡ Prefetch pages adjacentes
   const prefetchAdjacentPages = useCallback(() => {
@@ -156,7 +132,7 @@ export function useSodPagedRoles({
 
     // Prefetch page suivante
     if (page + 1 < totalPages) {
-      const nextQueryKey = ['sod', sessionId, 'roles', 'simple', 'page', page + 1, pageSize, version];
+      const nextQueryKey = ['sod', sessionId, 'roles', 'simple', 'page', page + 1, pageSize];
       
       queryClient.prefetchQuery({
         queryKey: nextQueryKey,
@@ -170,15 +146,16 @@ export function useSodPagedRoles({
           const start = (page + 1) * pageSize;
           const end = start + pageSize;
           const pageRoles = allRoles.slice(start, end);
-          const rolesWithState = applyStateToSimpleRoles(pageRoles, actionsState);
+          // ✅ NOUVELLE LOGIQUE : Retourner directement les données de la session
+          // La session TanStack Query contient déjà les bonnes valeurs isDeleted/isRestricted
 
           return {
-            roles: rolesWithState,
+            roles: pageRoles,
             totalCount: allRoles.length,
             page: page + 1,
             pageSize,
             totalPages: Math.ceil(allRoles.length / pageSize),
-            cacheKey: `${sessionId}-${page + 1}-${pageSize}-${version}`,
+            cacheKey: `${sessionId}-${page + 1}-${pageSize}`,
           };
         },
         staleTime: 5 * 60 * 1000,
@@ -187,7 +164,7 @@ export function useSodPagedRoles({
 
     // Prefetch page précédente
     if (page > 0) {
-      const prevQueryKey = ['sod', sessionId, 'roles', 'simple', 'page', page - 1, pageSize, version];
+      const prevQueryKey = ['sod', sessionId, 'roles', 'simple', 'page', page - 1, pageSize];
       
       queryClient.prefetchQuery({
         queryKey: prevQueryKey,
@@ -201,21 +178,22 @@ export function useSodPagedRoles({
           const start = (page - 1) * pageSize;
           const end = start + pageSize;
           const pageRoles = allRoles.slice(start, end);
-          const rolesWithState = applyStateToSimpleRoles(pageRoles, actionsState);
+          // ✅ NOUVELLE LOGIQUE : Retourner directement les données de la session
+          // La session TanStack Query contient déjà les bonnes valeurs isDeleted/isRestricted
 
           return {
-            roles: rolesWithState,
+            roles: pageRoles,
             totalCount: allRoles.length,
             page: page - 1,
             pageSize,
             totalPages: Math.ceil(allRoles.length / pageSize),
-            cacheKey: `${sessionId}-${page - 1}-${pageSize}-${version}`,
+            cacheKey: `${sessionId}-${page - 1}-${pageSize}`,
           };
         },
         staleTime: 5 * 60 * 1000,
       });
     }
-  }, [sessionId, page, pageSize, data, queryClient, actionsState, version]);
+  }, [sessionId, page, pageSize, data, queryClient]);
 
   return {
     roles: data?.roles || [],

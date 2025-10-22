@@ -73,12 +73,7 @@ export function useLazyRoleRendering<T>({
 
   // ⚡ Reset visibleCount quand allRoles change (changement de page)
   useEffect(() => {
-    console.log('🔄 [LAZY LOAD] Reset visibleCount:', {
-      totalRoles: allRoles.length,
-      initialCount,
-      isLazyActive,
-      threshold: lazyThreshold,
-    });
+    // Lazy load reset removed
     
     setVisibleCount(initialCount);
   }, [allRoles, initialCount, isLazyActive, lazyThreshold]);

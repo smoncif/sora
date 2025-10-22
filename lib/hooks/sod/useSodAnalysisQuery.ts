@@ -143,7 +143,7 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
       return response.json() as Promise<SodAnalysisSession>;
     },
     onSuccess: (newSession) => {
-      console.log('✅ Session SOD créée avec succès:', newSession.id);
+      // Session creation removed
       
       // Mettre à jour le cache
       queryClient.setQueryData(sodQueryKeys.session(newSession.id), newSession);
@@ -353,7 +353,7 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
       
       // ✅ CRITIQUE : Mettre explicitement la session en cache (en plus de la mutation)
       queryClient.setQueryData(['sod', 'session', newSession.id], newSession);
-      console.log('✅ [CACHE] Session mise en cache TanStack Query:', newSession.id);
+      // Cache update removed
       
       setCurrentStep(1);
       

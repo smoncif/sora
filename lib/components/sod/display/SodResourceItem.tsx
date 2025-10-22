@@ -124,6 +124,7 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
   /**
    * Extrait toutes les valeurs de la ressource (pour la propagation)
    * Avec expansion des intervalles et normalisation
+   * ✅ CORRECTION : Traiter toutes les ressources externes séparément
    */
   const extractAllValues = (): { externalResourceCode: string; values: string[] } => {
     const allValues: string[] = [];
@@ -134,14 +135,16 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
       return { externalResourceCode: extResCode, values: allValues };
     }
     
-    // Prendre la première ressource externe comme référence
-    const firstExtRes = externalResources[0];
-    extResCode = firstExtRes.code || '';
-    
-    // Extraire toutes les valeurs (avec expansion des intervalles)
+    // ✅ CORRECTION : Traiter TOUTES les ressources externes
     for (const extRes of externalResources) {
       if (!extRes.values || !Array.isArray(extRes.values)) continue;
       
+      // Prendre le code de la première ressource externe comme référence
+      if (!extResCode) {
+        extResCode = extRes.code || '';
+      }
+      
+      // Extraire les valeurs de cette ressource externe spécifique
       for (const value of extRes.values) {
         // Cas 1 : Intervalle (valueTo existe et est différent de valueFrom)
         if (value && value.valueFrom && value.valueTo && value.valueFrom !== value.valueTo) {
@@ -165,14 +168,34 @@ export const SodResourceItem: React.FC<SodResourceItemProps> = React.memo(({
   const handleRestrict = () => {
     if (!onRestrict) return;
     
-    const { externalResourceCode, values } = extractAllValues();
-    
-    // Sécurité : S'assurer que values est bien un tableau
-    if (!Array.isArray(values)) {
-      return;
-    }
-    
-    onRestrict(code, externalResourceCode, values);
+    // ✅ CORRECTION : Appeler onRestrict pour CHAQUE ressource externe séparément
+    externalResources.forEach((extRes) => {
+      if (!extRes.values || !Array.isArray(extRes.values)) return;
+      
+      const values: string[] = [];
+      
+      // Extraire les valeurs de cette ressource externe spécifique
+      for (const value of extRes.values) {
+        // Cas 1 : Intervalle (valueTo existe et est différent de valueFrom)
+        if (value && value.valueFrom && value.valueTo && value.valueFrom !== value.valueTo) {
+          const expandedValues = expandInterval(value.valueFrom, value.valueTo);
+          values.push(...expandedValues);
+        }
+        // Cas 2 : Valeur(s) simple(s) (peut contenir des virgules)
+        else if (value && value.valueFrom) {
+          const fromValues = value.valueFrom
+            .split(',')
+            .map((v: string) => normalizeValue(v))
+            .filter(Boolean);
+          values.push(...fromValues);
+        }
+      }
+      
+      // Appeler onRestrict pour cette ressource externe spécifique
+      if (values.length > 0) {
+        onRestrict(code, extRes.code, values);
+      }
+    });
   };
   
   return (

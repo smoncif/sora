@@ -13,9 +13,8 @@ import {
   applySodRulesToSession, 
   type DeleteActionParams, 
   type RestrictActionParams, 
-  type RestrictResourceParams 
+  type RestrictResourceParams
 } from 'lib/utils/sodRulesApplication';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import type { SodAnalysisSession } from 'lib/types/sodAnalysis';
 
 /**
@@ -35,7 +34,7 @@ export interface UseSodMutationsReturn {
   /** Restreindre une action */
   restrictAction: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   /** Restreindre une ressource */
-  restrictResource: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  restrictResource: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
   /** Exclure un rôle simple dans un rôle composite */
   excludeRole: (compositeRoleName: string, simpleRoleName: string) => void;
   /** Indique si une mutation est en cours */
@@ -48,9 +47,6 @@ export interface UseSodMutationsReturn {
 export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsReturn => {
   const queryClient = useQueryClient();
   const { sessionId } = config;
-  
-  // 🆕 Utiliser le contexte existant pour synchroniser l'état visuel
-  const actionsContext = useSodActionsContext();
 
   /**
    * Mutation pour supprimer une action
@@ -92,10 +88,6 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
       if (context?.previousSession) {
                 queryClient.setQueryData(['sod', 'session', sessionId], context.previousSession);
       }
-    },
-    onSuccess: (data) => {
-            // ✅ OPTIMISÉ : Synchronisation intelligente avec debounce pour éviter les cascades
-            actionsContext.toggleDeleteAction(data.roleName, data.actionCode, data.resources);
     },
     onSettled: () => {
             // ✅ OPTIMISÉ : Invalidation granulaire au lieu de toute la session
@@ -147,10 +139,6 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
                 queryClient.setQueryData(['sod', 'session', sessionId], context.previousSession);
       }
     },
-    onSuccess: (data) => {
-            // ✅ OPTIMISÉ : Synchronisation intelligente avec debounce pour éviter les cascades
-            actionsContext.toggleRestrictAction(data.roleName, data.actionCode, data.resources);
-    },
     onSettled: () => {
             // ✅ OPTIMISÉ : Invalidation granulaire pour la restriction d'action
       queryClient.invalidateQueries({ 
@@ -170,7 +158,8 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
    */
   const restrictResourceMutation = useMutation({
     mutationFn: async (params: RestrictResourceParams) => {
-            // TODO: Appel API réel
+      // Mutation restrictResource removed
+      // TODO: Appel API réel
       await new Promise(resolve => setTimeout(resolve, 200));
       
       return {
@@ -178,16 +167,17 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
         resourceCode: params.resourceCode,
         externalResourceCode: params.externalResourceCode,
         values: params.values,
+        shouldRestrict: params.shouldRestrict, // ✅ CORRECTION : Inclure shouldRestrict
         timestamp: new Date().toISOString(),
       };
     },
     onMutate: async (params: RestrictResourceParams) => {
-            await queryClient.cancelQueries({ queryKey: ['sod', 'session', sessionId] });
+      await queryClient.cancelQueries({ queryKey: ['sod', 'session', sessionId] });
       const previousSession = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
 
       queryClient.setQueryData(['sod', 'session', sessionId], (oldSession: SodAnalysisSession | undefined) => {
         if (!oldSession) {
-                    return oldSession;
+          return oldSession;
         }
         
         return applySodRulesToSession(oldSession, 'RESTRICT_RESOURCE', params);
@@ -199,10 +189,6 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
             if (context?.previousSession) {
                 queryClient.setQueryData(['sod', 'session', sessionId], context.previousSession);
       }
-    },
-    onSuccess: (data) => {
-            // ✅ OPTIMISÉ : Synchronisation intelligente avec debounce pour éviter les cascades
-            actionsContext.toggleRestrictResource(data.roleName, data.resourceCode, data.externalResourceCode, data.values);
     },
     onSettled: () => {
             // ✅ OPTIMISÉ : Invalidation granulaire pour la restriction de ressource
@@ -223,16 +209,24 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
    */
   const excludeRoleMutation = useMutation({
     mutationFn: async (params: { compositeRoleName: string; simpleRoleName: string }) => {
-            // TODO: Appel API réel
-      // await new Promise(resolve => setTimeout(resolve, 200));
-      return { ...params, timestamp: new Date().toISOString() };
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return { 
+        compositeRoleName: params.compositeRoleName,
+        simpleRoleName: params.simpleRoleName,
+        timestamp: new Date().toISOString() 
+      };
     },
     onMutate: async (params) => {
-            await queryClient.cancelQueries({ queryKey: ['sod', 'session', sessionId] });
+      await queryClient.cancelQueries({ queryKey: ['sod', 'session', sessionId] });
       const previousSession = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
 
-      // Pas de modification des données de session pour l'exclusion de rôle
-      // L'exclusion est gérée uniquement par SodActionsContext
+      queryClient.setQueryData(['sod', 'session', sessionId], (oldSession: SodAnalysisSession | undefined) => {
+        if (!oldSession) {
+          return oldSession;
+        }
+        
+        return applySodRulesToSession(oldSession, 'EXCLUDE_ROLE', params);
+      });
 
       return { previousSession };
     },
@@ -240,10 +234,6 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
             if (context?.previousSession) {
                 queryClient.setQueryData(['sod', 'session', sessionId], context.previousSession);
       }
-    },
-    onSuccess: (data) => {
-            // ✅ OPTIMISÉ : Synchronisation avec SodActionsContext
-            actionsContext.toggleExcludeSimpleRole(data.compositeRoleName, data.simpleRoleName);
     },
     onSettled: () => {
             // ✅ OPTIMISÉ : Invalidation granulaire pour l'exclusion de rôle
@@ -256,15 +246,17 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
 
   // Wrappers pour les callbacks
   const deleteAction = useCallback((roleName: string, riskId: string, actionCode: string, resources: any[]) => {
-        deleteActionMutation.mutate({ roleName, actionCode, resources });
+    // Mutation callbacks removed
+    deleteActionMutation.mutate({ roleName, actionCode, resources });
   }, [deleteActionMutation]);
 
   const restrictAction = useCallback((roleName: string, riskId: string, actionCode: string, resources: any[]) => {
-        restrictActionMutation.mutate({ roleName, actionCode, resources });
+    // Mutation restrictAction callback removed
+    restrictActionMutation.mutate({ roleName, actionCode, resources });
   }, [restrictActionMutation]);
 
-  const restrictResource = useCallback((roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => {
-        restrictResourceMutation.mutate({ roleName, resourceCode, externalResourceCode, values });
+  const restrictResource = useCallback((roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => {
+    restrictResourceMutation.mutate({ roleName, resourceCode, externalResourceCode, values, shouldRestrict });
   }, [restrictResourceMutation]);
 
   const excludeRole = useCallback((compositeRoleName: string, simpleRoleName: string) => {

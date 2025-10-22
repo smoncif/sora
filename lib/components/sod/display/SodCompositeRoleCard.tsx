@@ -23,7 +23,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodCompositeRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodCompositeRiskSection } from './SodCompositeRiskSection';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 
 export interface SodCompositeRoleCardProps {
   /** Rôle composite */
@@ -42,7 +41,7 @@ export interface SodCompositeRoleCardProps {
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
-  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
   
   /** Callback pour exclure un rôle simple dans un rôle composite */
   onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
@@ -71,7 +70,6 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const actionsContext = useSodActionsContext();
   
   const { 
     roleName, 
@@ -83,14 +81,31 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
     involvedSimpleRoleCount 
   } = role;
   
-  // ✅ OPTIMISATION : Calculer le statut de remédiation avec useMemo
-  const remediationStatus = useMemo(
-    () => actionsContext.calculateCompositeRoleRemediation(
-      compositeRoleName,
-      risks
-    ),
-    [compositeRoleName, risks, actionsContext.calculateCompositeRoleRemediation]
-  );
+  // ✅ NOUVELLE LOGIQUE : Calculer le statut de remédiation directement depuis les données de session
+  const remediationStatus = useMemo(() => {
+    let totalActions = 0;
+    let remediatedActions = 0;
+    
+    risks.forEach(risk => {
+      risk.functions.forEach(func => {
+        func.simpleRoles.forEach(simpleRole => {
+          simpleRole.actions.forEach(action => {
+            totalActions++;
+            // Une action est remédiée si elle est supprimée OU restreinte
+            if (action.isDeleted || action.isRestricted) {
+              remediatedActions++;
+            }
+          });
+        });
+      });
+    });
+    
+    return {
+      totalActions,
+      remediatedActions,
+      percentage: totalActions > 0 ? Math.round((remediatedActions / totalActions) * 100) : 0
+    };
+  }, [risks]);
   
   return (
     <Paper

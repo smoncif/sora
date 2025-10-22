@@ -129,13 +129,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     hookChanges.push(`enableUsageAnalysis: ${prevHookState.current.enableUsageAnalysis} → ${enableUsageAnalysis}`);
   }
   
-  console.log('🔧 [HOOK RENDER] useSodWorkflowOptimized render #' + renderCountRef.current, {
-    changes: hookChanges.length > 0 ? hookChanges : ['Hook re-render sans changement détecté'],
-    activeSessionId,
-    parsing: parsingState,
-    importType,
-    enableUsageAnalysis
-  });
+  // Render tracking removed
   
   prevHookState.current = {
     activeSessionId,
@@ -157,13 +151,13 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
       const file = uploadedFileRef.current;
       const data = parsedData;
       
-      console.log('🚀 [EFFECT] Création session en cours...');
+      // Session creation effect removed
       
       // Appel direct de la fonction (stable depuis useSodSession)
       createSessionFromParsedData(file, data)
         .then((newSession) => {
           if (newSession) {
-            console.log('✅ [EFFECT] Session créée, activation:', newSession.id);
+            // Session created effect removed
             setActiveSessionId(newSession.id);  // 🎯 Active la session créée
           }
         })
@@ -206,7 +200,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     setImportType,
     
     startNewAnalysis: async (file: File) => {
-      console.log('🚀 Démarrage de l\'analyse pour:', file.name);
+      // Analysis start removed
       
       // Sauvegarder la référence au fichier
       uploadedFileRef.current = file;
@@ -234,10 +228,7 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     createSessionFromParsedData,
     
     startAutomaticRemediation: async () => {
-      console.log('🚀 Démarrage de la remédiation automatique...', {
-        enableUsageAnalysis,
-        session,
-      });
+      // Auto remediation start removed
       
       // TODO: Implémenter avec mutation TanStack Query
     },

@@ -26,7 +26,6 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { SodSimpleRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodFunctionGrid } from './SodFunctionGrid';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
 import { useRemediationCache } from 'lib/utils/sodRemediationCache';
 
 export interface SodRiskSectionProps {
@@ -46,7 +45,7 @@ export interface SodRiskSectionProps {
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
   /** Callback pour restreindre une ressource spécifique */
-  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) => void;
+  onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
   
   /** Callback pour passer à l'étape suivante */
   onNextStep?: () => void;
@@ -69,27 +68,44 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
   showNextStepButton = false,
 }) => {
   const theme = useTheme();
-  const actionsContext = useSodActionsContext();
   const remediationCache = useRemediationCache();
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { riskId, riskLevel, riskDescription, functions } = risk;
   
-  // ✅ OPTIMISATION : Calculer le statut de remédiation avec cache
+  // ✅ NOUVELLE LOGIQUE : Calculer la remédiation directement depuis les données de session
   const remediationStatus = useMemo(() => {
     if (!roleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0 };
     
     // Essayer d'obtenir depuis le cache
-    const cached = remediationCache.get(roleName, riskId, 'simple', 0); // ✅ OPTIMISÉ : Version fixe pour éviter les re-renders
+    const cached = remediationCache.get(roleName, riskId, 'simple', 0);
     if (cached) {
       return cached;
     }
     
     // Calculer si pas en cache
-    const result = actionsContext.calculateRiskRemediation(roleName, functions);
-    remediationCache.set(roleName, riskId, 'simple', result, 0); // ✅ OPTIMISÉ : Version fixe
+    let totalActions = 0;
+    let remediatedActions = 0;
+    
+    functions.forEach(func => {
+      func.actions.forEach(action => {
+        totalActions++;
+        // Une action est remédiée si elle est supprimée OU restreinte
+        if (action.isDeleted || action.isRestricted) {
+          remediatedActions++;
+        }
+      });
+    });
+    
+    const result = {
+      isRemediated: remediatedActions > 0,
+      remediatedFunctions: remediatedActions,
+      totalFunctions: totalActions
+    };
+    
+    remediationCache.set(roleName, riskId, 'simple', result, 0);
     return result;
-  }, [roleName, riskId, functions]); // ✅ OPTIMISÉ : Suppression de version pour éviter les re-renders
+  }, [roleName, riskId, functions, remediationCache]);
   
   return (
     <Paper
