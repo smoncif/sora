@@ -27,6 +27,7 @@ import { SodSimpleRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodFunctionGrid } from './SodFunctionGrid';
 import { useRemediationCache } from 'lib/utils/sodRemediationCache';
+import { calculateRiskRemediation } from 'lib/utils/sodRulesApplication';
 
 export interface SodRiskSectionProps {
   /** Risque */
@@ -37,6 +38,9 @@ export interface SodRiskSectionProps {
   
   /** Nom du rôle parent */
   roleName?: string;
+  
+  /** Tous les risques du rôle (pour calculer le nombre de risques par fonction) */
+  allRisks?: SodSimpleRoleRiskItem[];
   
   /** Callback pour supprimer une action */
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
@@ -61,6 +65,7 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
   risk,
   defaultExpanded = true,
   roleName,
+  allRisks,
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
@@ -73,39 +78,20 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
   
   const { riskId, riskLevel, riskDescription, functions } = risk;
   
-  // ✅ NOUVELLE LOGIQUE : Calculer la remédiation directement depuis les données de session
+  // ✅ NOUVELLE LOGIQUE : Calculer la remédiation avec les nouvelles fonctions
   const remediationStatus = useMemo(() => {
-    if (!roleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0 };
+    if (!roleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0, percentage: 0 };
     
-    // Essayer d'obtenir depuis le cache
-    const cached = remediationCache.get(roleName, riskId, 'simple', 0);
-    if (cached) {
-      return cached;
-    }
+    // Utiliser la nouvelle fonction de calcul
+    const remediation = calculateRiskRemediation(roleName, functions);
     
-    // Calculer si pas en cache
-    let totalActions = 0;
-    let remediatedActions = 0;
-    
-    functions.forEach(func => {
-      func.actions.forEach(action => {
-        totalActions++;
-        // Une action est remédiée si elle est supprimée OU restreinte
-        if (action.isDeleted || action.isRestricted) {
-          remediatedActions++;
-        }
-      });
-    });
-    
-    const result = {
-      isRemediated: remediatedActions > 0,
-      remediatedFunctions: remediatedActions,
-      totalFunctions: totalActions
+    return {
+      isRemediated: remediation.isRemediated,
+      remediatedFunctions: remediation.remediatedFunctions,
+      totalFunctions: remediation.totalFunctions,
+      percentage: remediation.totalFunctions > 0 ? Math.round((remediation.remediatedFunctions / remediation.totalFunctions) * 100) : 0
     };
-    
-    remediationCache.set(roleName, riskId, 'simple', result, 0);
-    return result;
-  }, [roleName, riskId, functions, remediationCache]);
+  }, [roleName, riskId, functions]);
   
   return (
     <Paper
@@ -169,23 +155,21 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
           alignItems: 'center',
           gap: 2.5,
           p: 2.5,
-          // ✅ Fond vert plus prononcé si remedié
-          backgroundColor: remediationStatus.isRemediated
-            ? alpha(theme.palette.success.main, 0.12)
-            : (() => {
-                switch (riskLevel) {
-                  case 'CRITICAL':
-                    return alpha(theme.palette.error.dark, 0.12);
-                  case 'HIGH':
-                    return alpha(theme.palette.error.main, 0.08);
-                  case 'MEDIUM':
-                    return alpha(theme.palette.warning.main, 0.08);
-                  case 'LOW':
-                    return alpha(theme.palette.success.main, 0.08);
-                  default:
-                    return alpha(theme.palette.error.main, 0.08);
-                }
-              })(),
+          // ✅ Fond simple selon le niveau de risque (sans gradient)
+          backgroundColor: (() => {
+            switch (riskLevel) {
+              case 'CRITICAL':
+                return alpha(theme.palette.error.dark, 0.12);
+              case 'HIGH':
+                return alpha(theme.palette.error.main, 0.08);
+              case 'MEDIUM':
+                return alpha(theme.palette.warning.main, 0.08);
+              case 'LOW':
+                return alpha(theme.palette.success.main, 0.08);
+              default:
+                return alpha(theme.palette.error.main, 0.08);
+            }
+          })(),
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.05)}`,
         }}
       >
@@ -244,22 +228,40 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
           )}
         </Box>
         
-        {/* ✅ Badge "Remedié" si le risque est remedié */}
-        {remediationStatus.isRemediated && (
-          <Chip
-            label="Remedié"
-            size="small"
-            icon={<CheckCircleIcon />}
-            sx={{
-              backgroundColor: alpha(theme.palette.success.main, 0.2),
-              color: theme.palette.success.dark,
-              fontWeight: 600,
-            }}
-          />
-        )}
-        
-        {/* Badge de niveau (à l'extrême droite) */}
-        <SodRiskLevelBadge level={riskLevel} size="medium" variant="filled" />
+        {/* ✅ Badges simplifiés (sans compteur de fonctions) */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* Badge de niveau */}
+          <SodRiskLevelBadge level={riskLevel} size="medium" variant="filled" />
+          
+          {/* ✅ Badge de remédiation avec pourcentage */}
+          {remediationStatus.isRemediated ? (
+            <Chip
+              icon={<CheckCircleIcon />}
+              label="100% Remedié"
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.success.main, 0.15),
+                color: theme.palette.success.dark,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                '& .MuiChip-icon': {
+                  color: theme.palette.success.main,
+                },
+              }}
+            />
+          ) : remediationStatus.percentage > 0 ? (
+            <Chip
+              label={`${remediationStatus.percentage}% Remedié`}
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.warning.main, 0.15),
+                color: theme.palette.warning.dark,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+              }}
+            />
+          ) : null}
+        </Box>
         
         {/* Boutons d'action */}
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -311,6 +313,7 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
             roleName={roleName}
             riskId={riskId}
             risk={risk}
+            allRisks={allRisks}
             onDeleteAction={onDeleteAction}
             onRestrictAction={onRestrictAction}
             onRestrictResource={onRestrictResource}

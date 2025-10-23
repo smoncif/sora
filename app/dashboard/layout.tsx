@@ -6,7 +6,6 @@ import Container from '@mui/material/Container';
 import { useAuth } from 'lib/hooks/useAuth';
 import { MUIProvider } from 'lib/components/layout/MUIProvider';
 import { MainLayout } from 'lib/components/layout';
-import { SodActionsProvider } from 'lib/contexts/SodActionsContext';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 
@@ -30,11 +29,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <MUIProvider>
-      <SodActionsProvider sessionId={user?.id || 'default'}>
-        <MainLayout>
-          {children}
-        </MainLayout>
-      </SodActionsProvider>
+      <MainLayout>
+        {children}
+      </MainLayout>
     </MUIProvider>
   );
 } 

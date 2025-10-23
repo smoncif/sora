@@ -14,7 +14,10 @@ import { SodAnalysisResults } from 'lib/components/sod/results/SodAnalysisResult
 import { SodNavigationButton, SodNavigationSlider } from 'lib/components/sod';
 import { SodSimpleRoleCardSuspense, SodCompositeRoleCardSuspense } from 'lib/components/sod/suspense/SodAnalysisResultsSuspense';
 import { useSodWorkflowOptimized } from 'lib/hooks/sod/useSodWorkflowOptimized';
-import { useSodActionsContext } from 'lib/contexts/SodActionsContext';
+import { 
+  calculateRiskRemediation,
+  calculateCompositeRiskRemediation
+} from 'lib/utils/sodRulesApplication';
 import { useSodNavigation } from 'lib/hooks/sod/useSodNavigation';
 import { usePrefetchSodSession } from 'lib/hooks/sod/useSodAnalysisQuery';
 import { useSodAnalysisData } from 'lib/hooks/sod/useSodAnalysisDataQuery';
@@ -74,20 +77,7 @@ export default function SodAnalysisPage() {
 
   const queryClient = useQueryClient();
 
-  // ✅ DÉSTRUCTURER LE CONTEXTE EN PREMIER (avant utilisation)
-  const actionsContext = useSodActionsContext();
-  const { 
-    buildActionResourcesMap,
-    toggleDeleteAction, 
-    toggleRestrictAction, 
-    toggleRestrictResource,
-    isActionDeleted,
-    isActionRestricted,
-    isResourceRestricted,
-    isSimpleRoleExcluded,
-    resetState,
-    version
-  } = actionsContext;
+  // ✅ Les fonctions de remédiation sont maintenant importées depuis sodRulesApplication.ts
 
   // 🚀 PAGINATION OPTIMISTE : Affichage immédiat des skeletons
   const simplePagination = useOptimisticPagination({
@@ -100,12 +90,7 @@ export default function SodAnalysisPage() {
     type: 'Composite'
   });
   
-  // ⚡ État des actions pour le cache (doit être stable)
-  const actionsState = useMemo(() => ({
-    isActionDeleted,
-    isActionRestricted,
-    isResourceRestricted,
-  }), [isActionDeleted, isActionRestricted, isResourceRestricted]);
+  // ⚡ État des actions géré par TanStack Query via sodRulesApplication.ts
 
   // 🚀 NOUVEAU : Pagination avec cache TanStack Query pour rôles simples
   const {
@@ -411,11 +396,7 @@ export default function SodAnalysisPage() {
   
   // 🗺️ Construire la Map globale des ressources par action (UNE SEULE FOIS)
   // ✅ OPTIMISÉ : Construction de la Map globale des ressources au chargement
-  useEffect(() => {
-    if (simpleRoles.length > 0 || compositeRoles.length > 0) {
-      buildActionResourcesMap(simpleRoles, compositeRoles);
-    }
-  }, [simpleRoles, compositeRoles, buildActionResourcesMap]);
+  // ✅ buildActionResourcesMap est maintenant appelé automatiquement dans applySodRulesToSession
   
   // ⚡ Prefetch automatique des pages adjacentes au changement de page
   // ✅ NOUVEAU : Prefetch intelligent des données de pagination
@@ -540,7 +521,7 @@ export default function SodAnalysisPage() {
     if (sodWorkflow.state.session.simpleRoles?.roles) {
       sodWorkflow.state.session.simpleRoles.roles.forEach((role: any) => {
         role.risks?.forEach((risk: any) => {
-          const remediation = actionsContext.calculateRiskRemediation(role.roleName, risk.functions);
+          const remediation = calculateRiskRemediation(role.roleName, risk.functions);
           if (!remediation.isRemediated) {
             count++;
           }
@@ -552,7 +533,7 @@ export default function SodAnalysisPage() {
     if (sodWorkflow.state.session.compositeRoles?.roles) {
       sodWorkflow.state.session.compositeRoles.roles.forEach((role: any) => {
         role.risks?.forEach((risk: any) => {
-          const remediation = actionsContext.calculateCompositeRiskRemediation(role.roleName, risk.functions);
+          const remediation = calculateCompositeRiskRemediation(role.roleName, risk.functions);
           if (!remediation.isRemediated) {
             count++;
           }
@@ -561,7 +542,7 @@ export default function SodAnalysisPage() {
     }
 
     return count;
-  }, [sodWorkflow.state.session, sodWorkflow.state.parsing, actionsContext, version]);
+  }, [sodWorkflow.state.session, sodWorkflow.state.parsing]);
 
   // 🧭 NAVIGATION VERS RISQUE : Callback pour naviguer vers un rôle/risque spécifique
   const handleNavigateToRisk = useCallback((

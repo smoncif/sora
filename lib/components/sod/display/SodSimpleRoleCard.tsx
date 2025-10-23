@@ -23,6 +23,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodSimpleRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodRiskSection } from './SodRiskSection';
+import { calculateRiskRemediation } from 'lib/utils/sodRulesApplication';
 
 export interface SodSimpleRoleCardProps {
   /** Rôle simple */
@@ -69,29 +70,25 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
   
   const { roleName, roleDescription, risks, highestRiskLevel } = role;
   
-  // ✅ NOUVELLE LOGIQUE : Calculer le statut de remédiation directement depuis les données de session
+  // ✅ NOUVELLE LOGIQUE : Calculer le statut de remédiation avec les nouvelles fonctions
   const remediationStatus = useMemo(() => {
-    let totalActions = 0;
-    let remediatedActions = 0;
+    let totalRisks = risks.length;
+    let remediatedRisks = 0;
     
     risks.forEach(risk => {
-      risk.functions.forEach(func => {
-        func.actions.forEach(action => {
-          totalActions++;
-          // Une action est remédiée si elle est supprimée OU restreinte
-          if (action.isDeleted || action.isRestricted) {
-            remediatedActions++;
-          }
-        });
-      });
+      const remediation = calculateRiskRemediation(roleName, risk.functions);
+      if (remediation.isRemediated) {
+        remediatedRisks++;
+      }
     });
     
     return {
-      totalActions,
-      remediatedActions,
-      percentage: totalActions > 0 ? Math.round((remediatedActions / totalActions) * 100) : 0
+      totalRisks,
+      remediatedRisks,
+      percentage: totalRisks > 0 ? Math.round((remediatedRisks / totalRisks) * 100) : 0,
+      isRemediated: remediatedRisks === totalRisks && totalRisks > 0
     };
-  }, [risks]);
+  }, [risks, roleName]);
   
   
   return (
@@ -103,15 +100,15 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
         overflow: 'hidden',
         mb: 4,
         backgroundColor: theme.palette.background.paper,
-        // ✅ Bordure verte épaisse si 100% remedié
+        // ✅ Bordure verte épaisse si 100% remedié (harmonisé avec composite)
         border: remediationStatus.isRemediated
-          ? `2px solid ${theme.palette.success.main}`
+          ? `2px solid ${alpha(theme.palette.success.main, 0.4)}`
           : `1px solid ${alpha(theme.palette.divider, 0.6)}`,
         boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.08)}`,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
           border: remediationStatus.isRemediated
-            ? `2px solid ${theme.palette.success.dark}`
+            ? `2px solid ${alpha(theme.palette.success.main, 0.6)}`
             : `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
           transform: 'translateY(-2px)',
           boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.12)}`,
@@ -125,12 +122,12 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
           alignItems: 'center',
           gap: 3,
           p: 3,
-          // ✅ GRADIENT PROGRESSIF : 0% bleu → X% vert
-          background: remediationStatus.remediationPercentage > 0
+          // ✅ GRADIENT PROGRESSIF harmonisé avec le style composite
+          background: remediationStatus.percentage > 0
             ? `linear-gradient(to right, 
-                ${alpha(theme.palette.success.main, 0.15)} 0%, 
-                ${alpha(theme.palette.success.main, 0.15)} ${remediationStatus.remediationPercentage}%, 
-                ${alpha(theme.palette.primary.main, 0.04)} ${remediationStatus.remediationPercentage}%, 
+                ${alpha(theme.palette.success.main, 0.12)} 0%, 
+                ${alpha(theme.palette.success.main, 0.12)} ${remediationStatus.percentage}%, 
+                ${alpha(theme.palette.primary.main, 0.04)} ${remediationStatus.percentage}%, 
                 ${alpha(theme.palette.primary.main, 0.04)} 100%
               )`
             : alpha(theme.palette.primary.main, 0.04),
@@ -142,8 +139,12 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
           cursor: 'pointer',
           transition: 'all 0.2s ease',
           '&:hover': {
-            backgroundColor: remediationStatus.remediationPercentage > 0
-              ? alpha(theme.palette.success.main, 0.08)
+            background: remediationStatus.percentage > 0
+              ? `linear-gradient(to right, 
+                  ${alpha(theme.palette.success.main, 0.18)} 0%, 
+                  ${alpha(theme.palette.success.main, 0.18)} ${remediationStatus.percentage}%, 
+                  ${alpha(theme.palette.primary.main, 0.08)} ${remediationStatus.percentage}%, 
+                  ${alpha(theme.palette.primary.main, 0.08)} 100%)`
               : alpha(theme.palette.primary.main, 0.08),
           },
         }}
@@ -205,22 +206,58 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
           )}
         </Box>
         
-        {/* ✅ Badge de progression de remédiation */}
-        {remediationStatus.remediationPercentage > 0 && (
-          <Chip
-            label={`${remediationStatus.remediationPercentage}% Remedié`}
-            size="small"
-            icon={remediationStatus.isRemediated ? <CheckCircleIcon /> : undefined}
+        {/* ✅ Badge de remédiation harmonisé avec le style composite */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {remediationStatus.isRemediated ? (
+            <Chip
+              icon={<CheckCircleIcon />}
+              label="100% Remedié"
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.success.main, 0.15),
+                color: theme.palette.success.dark,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                '& .MuiChip-icon': {
+                  color: theme.palette.success.main,
+                },
+              }}
+            />
+          ) : remediationStatus.percentage > 0 ? (
+            <Chip
+              label={`${remediationStatus.percentage}% Remedié`}
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.warning.main, 0.15),
+                color: theme.palette.warning.dark,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+              }}
+            />
+          ) : (
+            <Chip
+              label="0% Remedié"
+              size="medium"
+              sx={{
+                backgroundColor: alpha(theme.palette.grey[400], 0.15),
+                color: theme.palette.text.secondary,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+              }}
+            />
+          )}
+          
+          {/* Info complémentaire */}
+          <Typography
+            variant="caption"
             sx={{
-              backgroundColor: remediationStatus.isRemediated
-                ? alpha(theme.palette.success.main, 0.25)
-                : alpha(theme.palette.success.main, 0.15),
-              color: theme.palette.success.dark,
-              fontWeight: 600,
-              fontSize: '0.75rem',
+              color: theme.palette.text.secondary,
+              fontWeight: 500,
             }}
-          />
-        )}
+          >
+            {remediationStatus.remediatedRisks}/{remediationStatus.totalRisks} risques
+          </Typography>
+        </Box>
         
         {/* Supprimé : Badge du niveau de risque (affiché uniquement au niveau du risque) */}
       </Box>
@@ -247,6 +284,7 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
                   risk={risk}
                   defaultExpanded={true} // Tous les risques dépliés par défaut
                   roleName={roleName}
+                  allRisks={risks}
                   onDeleteAction={onDeleteAction}
                   onRestrictAction={onRestrictAction}
                   onRestrictResource={onRestrictResource}

@@ -1300,3 +1300,486 @@ export function extractRoleState(session: SodAnalysisSession, roleName: string) 
     isRestricted: false
   };
 }
+
+// ============================================
+// FONCTIONS DE CALCUL DE REMÉDIATION
+// ============================================
+
+/**
+ * Calcule si une fonction est remediée (RÔLES SIMPLES)
+ * ✅ RÉPLIQUÉE du SodActionsContext ligne 688-795
+ * 
+ * RÈGLE MÉTIER :
+ * - Fonction remediée si AU MOINS UNE condition est vraie :
+ *   1. Toutes les actions supprimables sont supprimées
+ *   OU
+ *   2. Toutes les actions restrainables sont restreintes
+ * 
+ * @param roleName - Nom du rôle simple
+ * @param actions - Liste des actions de la fonction
+ * @returns Statut de remédiation avec compteurs
+ */
+export function calculateFunctionRemediation(
+  roleName: string,
+  actions: any[]
+): {
+  isRemediated: boolean;
+  totalActions: number;
+  remediatedActions: number;
+} {
+  console.log(`🔍 [REMEDIATION FUNCTION] === DÉBUT ===`);
+  console.log(`🔍 [REMEDIATION FUNCTION] roleName:`, roleName);
+  console.log(`🔍 [REMEDIATION FUNCTION] actions count:`, actions.length);
+  console.log(`🔍 [REMEDIATION FUNCTION] Maps globales:`, {
+    deletedActionsCount: deletedActionsMap.size,
+    restrictedActionsCount: restrictedActionsMap.size,
+    restrictedResourcesCount: restrictedResourcesMap.size
+  });
+  
+  let suppressableCount = 0;
+  let suppressedCount = 0;
+  let restrainableCount = 0;
+  let restrictedCount = 0;
+  
+  actions.forEach(action => {
+    console.log(`🔍 [REMEDIATION FUNCTION] Analyse action:`, action.code);
+    const hasTCode = action.resources?.some((r: any) => r.code === 'S_TCODE') || false;
+    const hasOtherResources = action.resources?.some((r: any) => r.code !== 'S_TCODE') || false;
+    
+    console.log(`🔍 [REMEDIATION FUNCTION] Action ${action.code}:`, { hasTCode, hasOtherResources });
+    
+    // Ignorer les actions sans ressources valides
+    if (!hasTCode && !hasOtherResources) {
+      console.log(`🔍 [REMEDIATION FUNCTION] Action ${action.code} ignorée (pas de ressources)`);
+      return;
+    }
+    
+    const actionKey = getActionKey(roleName, action.code);
+    const isDeleted = deletedActionsMap.get(actionKey) || false;
+    const restriction = restrictedActionsMap.get(actionKey);
+    const isActionDirectlyRestricted = !!restriction;
+    
+    console.log(`🔍 [REMEDIATION FUNCTION] Action ${action.code} - États:`, {
+      actionKey,
+      isDeleted,
+      isActionDirectlyRestricted
+    });
+    
+    // Vérifier si au moins une ressource non-S_TCODE est restreinte
+    let hasRestrictedResource = false;
+    if (hasOtherResources && action.resources && Array.isArray(action.resources)) {
+      for (const resource of action.resources) {
+        if (resource.code === 'S_TCODE') continue;
+        
+        if (resource.externalResources && Array.isArray(resource.externalResources)) {
+          for (const extRes of resource.externalResources) {
+            const values = extractExternalResourceValues(extRes);
+            const resKey = getResourceKey(roleName, resource.code, extRes.code);
+            const restrictedValuesSet = restrictedResourcesMap.get(resKey);
+            
+            if (restrictedValuesSet && restrictedValuesSet.size > 0) {
+              const allValuesRestricted = values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+              if (allValuesRestricted) {
+                hasRestrictedResource = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (hasRestrictedResource) break;
+      }
+    }
+    
+    const isRestricted = isActionDirectlyRestricted || hasRestrictedResource;
+    
+    console.log(`🔍 [REMEDIATION FUNCTION] Action ${action.code} - Restriction:`, {
+      hasRestrictedResource,
+      isRestricted
+    });
+    
+    // Compter les actions supprimables et restrainables
+    if (hasTCode) {
+      suppressableCount++;
+      if (isDeleted) {
+        suppressedCount++;
+      }
+    }
+    
+    if (hasOtherResources) {
+      restrainableCount++;
+      if (isRestricted) {
+        restrictedCount++;
+      }
+    }
+  });
+  
+  console.log(`🔍 [REMEDIATION FUNCTION] Compteurs:`, {
+    suppressableCount,
+    suppressedCount,
+    restrainableCount,
+    restrictedCount
+  });
+  
+  // Fonction remediée si AU MOINS UNE condition est vraie
+  const allSuppressablesSuppressed = suppressableCount > 0 && suppressedCount === suppressableCount;
+  const allRestrainablesRestricted = restrainableCount > 0 && restrictedCount === restrainableCount;
+  
+  const isRemediated = allSuppressablesSuppressed || allRestrainablesRestricted;
+  
+  console.log(`🔍 [REMEDIATION FUNCTION] Résultat:`, {
+    allSuppressablesSuppressed,
+    allRestrainablesRestricted,
+    isRemediated
+  });
+  console.log(`🔍 [REMEDIATION FUNCTION] === FIN ===`);
+  
+  const totalRemediable = Math.max(suppressableCount, restrainableCount);
+  const totalRemediated = Math.max(suppressedCount, restrictedCount);
+  
+  return {
+    isRemediated,
+    totalActions: totalRemediable,
+    remediatedActions: totalRemediated
+  };
+}
+
+/**
+ * Calcule si un risque est remedié (RÔLES SIMPLES)
+ * ✅ RÉPLIQUÉE du SodActionsContext ligne 801-824
+ * 
+ * RÈGLE MÉTIER :
+ * - Un risque est remedié si AU MOINS UNE de ses fonctions est remediée
+ * 
+ * @param roleName - Nom du rôle simple
+ * @param functions - Liste des fonctions du risque
+ * @returns Statut de remédiation avec compteurs et pourcentage
+ */
+export function calculateRiskRemediation(
+  roleName: string,
+  functions: any[]
+): {
+  isRemediated: boolean;
+  totalFunctions: number;
+  remediatedFunctions: number;
+  remediationPercentage: number;
+} {
+  console.log(`🔍 [REMEDIATION RISK] === DÉBUT ===`);
+  console.log(`🔍 [REMEDIATION RISK] roleName:`, roleName);
+  console.log(`🔍 [REMEDIATION RISK] functions count:`, functions.length);
+  
+  let remediatedFunctions = 0;
+  
+  functions.forEach(func => {
+    const funcStatus = calculateFunctionRemediation(roleName, func.actions);
+    console.log(`🔍 [REMEDIATION RISK] Fonction ${func.code}:`, funcStatus);
+    if (funcStatus.isRemediated) {
+      remediatedFunctions++;
+    }
+  });
+  
+  const totalFunctions = functions.length;
+  const isRemediated = remediatedFunctions > 0;
+  
+  console.log(`🔍 [REMEDIATION RISK] Résultat:`, {
+    totalFunctions,
+    remediatedFunctions,
+    isRemediated
+  });
+  console.log(`🔍 [REMEDIATION RISK] === FIN ===`);
+  
+  return {
+    isRemediated,
+    totalFunctions,
+    remediatedFunctions,
+    remediationPercentage: totalFunctions > 0 
+      ? Math.round((remediatedFunctions / totalFunctions) * 100) 
+      : 0
+  };
+}
+
+/**
+ * Calcule si un rôle simple est remedié
+ * ✅ RÉPLIQUÉE du SodActionsContext ligne 830-853
+ * 
+ * RÈGLE MÉTIER :
+ * - Un rôle est remedié si TOUS ses risques sont remediés
+ * 
+ * @param roleName - Nom du rôle simple
+ * @param risks - Liste des risques du rôle
+ * @returns Statut de remédiation avec compteurs et pourcentage
+ */
+export function calculateRoleRemediation(
+  roleName: string,
+  risks: any[]
+): {
+  isRemediated: boolean;
+  totalRisks: number;
+  remediatedRisks: number;
+  remediationPercentage: number;
+} {
+  let remediatedRisks = 0;
+  
+  risks.forEach(risk => {
+    const riskStatus = calculateRiskRemediation(roleName, risk.functions);
+    if (riskStatus.isRemediated) {
+      remediatedRisks++;
+    }
+  });
+  
+  const totalRisks = risks.length;
+  
+  return {
+    isRemediated: remediatedRisks === totalRisks && totalRisks > 0,
+    totalRisks,
+    remediatedRisks,
+    remediationPercentage: totalRisks > 0 
+      ? Math.round((remediatedRisks / totalRisks) * 100) 
+      : 0
+  };
+}
+
+/**
+ * Calcule si une fonction composite est remediée (RÔLES COMPOSITES)
+ * ✅ RÉPLIQUÉE du SodActionsContext ligne 877-1016
+ * 
+ * RÈGLE MÉTIER :
+ * - Agrège TOUTES les actions de TOUS les rôles simples NON EXCLUS
+ * - Fonction remediée si AU MOINS UNE condition est vraie :
+ *   1. Toutes les actions supprimables sont supprimées
+ *   OU
+ *   2. Toutes les actions restrainables sont restreintes
+ * 
+ * @param compositeRoleName - Nom du rôle composite
+ * @param func - Fonction composite (contient plusieurs rôles simples)
+ * @returns Statut de remédiation avec compteurs
+ */
+export function calculateCompositeFunctionRemediation(
+  compositeRoleName: string,
+  func: any
+): {
+  isRemediated: boolean;
+  totalSimpleRoles: number;
+  remediatedSimpleRoles: number;
+} {
+  if (!func.simpleRoles || func.simpleRoles.length === 0) {
+    return {
+      isRemediated: false,
+      totalSimpleRoles: 0,
+      remediatedSimpleRoles: 0
+    };
+  }
+  
+  // ÉTAPE 1 : Agréger toutes les actions de tous les rôles simples NON EXCLUS
+  const allActions: any[] = [];
+  let totalSimpleRoles = 0;
+  
+  func.simpleRoles.forEach((simpleRole: any) => {
+    // Ignorer les rôles simples exclus
+    const isExcluded = isSimpleRoleExcluded(compositeRoleName, simpleRole.roleName);
+    if (isExcluded) {
+      return;
+    }
+    
+    totalSimpleRoles++;
+    
+    // Ajouter toutes les actions avec leur sourceRoleName
+    if (simpleRole.actions && simpleRole.actions.length > 0) {
+      simpleRole.actions.forEach((action: any) => {
+        allActions.push({
+          ...action,
+          sourceRoleName: simpleRole.roleName
+        });
+      });
+    }
+  });
+
+  if (allActions.length === 0) {
+    return {
+      isRemediated: false,
+      totalSimpleRoles,
+      remediatedSimpleRoles: 0
+    };
+  }
+  
+  // ÉTAPE 2 : Analyser chaque action agrégée
+  let suppressableCount = 0;
+  let suppressedCount = 0;
+  let restrainableCount = 0;
+  let restrictedCount = 0;
+  
+  allActions.forEach(action => {
+    const sourceRoleName = action.sourceRoleName || '';
+    const actionKey = getActionKey(sourceRoleName, action.code || '');
+    const isDeleted = deletedActionsMap.get(actionKey) || false;
+    
+    const resources = action.resources || [];
+    const hasTCode = resources.some((r: any) => r.code === 'S_TCODE');
+    const hasOtherResources = resources.some((r: any) => r.code !== 'S_TCODE');
+    
+    if (!hasTCode && !hasOtherResources) {
+      return;
+    }
+    
+    const restriction = restrictedActionsMap.get(actionKey);
+    const isActionDirectlyRestricted = !!restriction;
+    
+    // Vérifier si au moins une ressource non-S_TCODE est restreinte
+    let hasRestrictedResource = false;
+    if (hasOtherResources && resources && Array.isArray(resources)) {
+      for (const resource of resources) {
+        if (resource.code === 'S_TCODE') continue;
+        
+        if (resource.externalResources && Array.isArray(resource.externalResources)) {
+          for (const extRes of resource.externalResources) {
+            const values = extractExternalResourceValues(extRes);
+            const resKey = getResourceKey(sourceRoleName, resource.code, extRes.code);
+            const restrictedValuesSet = restrictedResourcesMap.get(resKey);
+            
+            if (restrictedValuesSet && restrictedValuesSet.size > 0) {
+              const allValuesRestricted = values.length > 0 && values.every(v => restrictedValuesSet.has(v));
+              if (allValuesRestricted) {
+                hasRestrictedResource = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (hasRestrictedResource) break;
+      }
+    }
+    
+    const isRestricted = isActionDirectlyRestricted || hasRestrictedResource;
+    
+    // Compter
+    if (hasTCode) {
+      suppressableCount++;
+      if (isDeleted) {
+        suppressedCount++;
+      }
+    }
+    
+    if (hasOtherResources) {
+      restrainableCount++;
+      if (isRestricted) {
+        restrictedCount++;
+      }
+    }
+  });
+  
+  // ÉTAPE 3 : Déterminer si la fonction est remediée
+  const allSuppressablesSuppressed = suppressableCount > 0 && suppressedCount === suppressableCount;
+  const allRestrainablesRestricted = restrainableCount > 0 && restrictedCount === restrainableCount;
+  const isRemediated = allSuppressablesSuppressed || allRestrainablesRestricted;
+  
+  return {
+    isRemediated,
+    totalSimpleRoles,
+    remediatedSimpleRoles: isRemediated ? totalSimpleRoles : 0
+  };
+}
+
+/**
+ * Calcule si un risque composite est remedié (RÔLES COMPOSITES)
+ * ✅ RÉPLIQUÉE du SodActionsContext ligne 1030-1078
+ * 
+ * RÈGLE MÉTIER :
+ * - Un risque est remedié si AU MOINS UNE de ses fonctions est remediée
+ * 
+ * @param compositeRoleName - Nom du rôle composite
+ * @param functions - Liste des fonctions du risque
+ * @returns Statut de remédiation avec compteurs et pourcentage
+ */
+export function calculateCompositeRiskRemediation(
+  compositeRoleName: string,
+  functions: any[]
+): {
+  isRemediated: boolean;
+  totalFunctions: number;
+  remediatedFunctions: number;
+  remediationPercentage: number;
+} {
+  if (!functions || functions.length === 0) {
+    return {
+      isRemediated: false,
+      totalFunctions: 0,
+      remediatedFunctions: 0,
+      remediationPercentage: 0
+    };
+  }
+  
+  let remediatedFunctions = 0;
+  
+  functions.forEach(func => {
+    const funcStatus = calculateCompositeFunctionRemediation(compositeRoleName, func);
+    if (funcStatus.isRemediated) {
+      remediatedFunctions++;
+    }
+  });
+  
+  const totalFunctions = functions.length;
+  const remediationPercentage = totalFunctions > 0
+    ? Math.round((remediatedFunctions / totalFunctions) * 100)
+    : 0;
+  const isRemediated = remediatedFunctions > 0;
+
+  return {
+    isRemediated,
+    totalFunctions,
+    remediatedFunctions,
+    remediationPercentage
+  };
+}
+
+/**
+ * Calcule si un rôle composite est remedié
+ * ✅ RÉPLIQUÉE du SodActionsContext ligne 1092-1141
+ * 
+ * RÈGLE MÉTIER :
+ * - Un rôle est remedié si TOUS ses risques sont remediés
+ * 
+ * @param compositeRoleName - Nom du rôle composite
+ * @param risks - Liste des risques du rôle
+ * @returns Statut de remédiation avec compteurs et pourcentage
+ */
+export function calculateCompositeRoleRemediation(
+  compositeRoleName: string,
+  risks: any[]
+): {
+  isRemediated: boolean;
+  totalRisks: number;
+  remediatedRisks: number;
+  remediationPercentage: number;
+} {
+  if (!risks || risks.length === 0) {
+    return {
+      isRemediated: false,
+      totalRisks: 0,
+      remediatedRisks: 0,
+      remediationPercentage: 0
+    };
+  }
+  
+  let remediatedRisks = 0;
+  
+  risks.forEach(risk => {
+    const riskStatus = calculateCompositeRiskRemediation(compositeRoleName, risk.functions || []);
+    if (riskStatus.isRemediated) {
+      remediatedRisks++;
+    }
+  });
+  
+  const totalRisks = risks.length;
+  const remediationPercentage = totalRisks > 0
+    ? Math.round((remediatedRisks / totalRisks) * 100)
+    : 0;
+  const isRemediated = remediatedRisks === totalRisks && totalRisks > 0;
+
+  return {
+    isRemediated,
+    totalRisks,
+    remediatedRisks,
+    remediationPercentage
+  };
+}

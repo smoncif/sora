@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -22,7 +22,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 // import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'; // Supprimé
-import { SodCompositeRoleFunction } from 'lib/types/sodAnalysis';
+import { SodCompositeRoleFunction, SodCompositeRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodSimpleRoleInCompositeItem } from './SodSimpleRoleInCompositeItem';
 import { useLazySimpleRoleRendering } from 'lib/hooks/sod/useLazySimpleRoleRendering';
 import { SodSimpleRoleSkeleton } from '../skeleton/SodSimpleRoleSkeleton';
@@ -39,6 +39,9 @@ export interface SodCompositeFunctionGridProps {
   
   /** ID du risque parent */
   riskId?: string;
+  
+  /** Tous les risques du rôle composite (pour calculer le nombre de risques par fonction) */
+  allRisks?: SodCompositeRoleRiskItem[];
   
   /** Callback pour supprimer une action */
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
@@ -61,15 +64,30 @@ const SodCompositeFunctionCard: React.FC<{
   defaultExpanded?: boolean;
   compositeRoleName?: string;
   riskId?: string;
+  allRisks?: SodCompositeRoleRiskItem[];
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
   onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
-}> = ({ func, defaultExpanded = true, compositeRoleName, riskId, onDeleteAction, onRestrictAction, onRestrictResource, onExcludeRole }) => {
+}> = ({ func, defaultExpanded = true, compositeRoleName, riskId, allRisks, onDeleteAction, onRestrictAction, onRestrictResource, onExcludeRole }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { code, description, system, simpleRoles, simpleRoleCount, totalActionCount } = func;
+  
+  // 🎯 Calculer le nombre de risques où cette fonction apparaît et le total
+  const riskStats = useMemo(() => {
+    if (!allRisks || allRisks.length === 0) return { count: 0, total: 0 };
+    
+    const count = allRisks.filter(risk => 
+      risk.functions.some(f => f.code === code)
+    ).length;
+    
+    return {
+      count,
+      total: allRisks.length
+    };
+  }, [allRisks, code]);
   
   // 🚀 LAZY LOADING : Chargement progressif des rôles simples dans la fonction composite
   const {
@@ -136,17 +154,39 @@ const SodCompositeFunctionCard: React.FC<{
         
         {/* Code + Système */}
         <Box sx={{ flex: 1 }}>
-          <Typography
-            variant="body1"
-            sx={{
-              fontWeight: 600,
-              letterSpacing: '-0.01em',
-              color: theme.palette.grey[700],
-              fontSize: '0.9375rem',
-            }}
-          >
-            {code}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+                color: theme.palette.grey[700],
+                fontSize: '0.9375rem',
+              }}
+            >
+              {code}
+            </Typography>
+            
+            {/* Badge du nombre de risques (format 3/5) */}
+            {riskStats.count > 0 && (
+              <Chip
+                label={`${riskStats.count}/${riskStats.total}`}
+                size="small"
+                variant="outlined"
+                sx={{ 
+                  fontWeight: 500, 
+                  fontSize: '0.65rem',
+                  height: '18px',
+                  color: theme.palette.text.secondary,
+                  borderColor: alpha(theme.palette.grey[400], 0.5),
+                  backgroundColor: alpha(theme.palette.grey[100], 0.3),
+                  '& .MuiChip-label': {
+                    px: 0.8
+                  }
+                }}
+              />
+            )}
+          </Box>
           
           <Typography
             variant="caption"
@@ -165,28 +205,7 @@ const SodCompositeFunctionCard: React.FC<{
       
       {/* Description complète supprimée (doublon) */}
       
-      {/* Statistiques rapides */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 1,
-          px: 1.5,
-          py: 1,
-          backgroundColor: alpha(theme.palette.background.default, 0.3),
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          justifyContent: 'center',
-        }}
-      >
-        <Chip
-          label={`${simpleRoleCount} rôle${simpleRoleCount > 1 ? 's' : ''} simple${simpleRoleCount > 1 ? 's' : ''}`}
-          size="small"
-          color="warning"
-          variant="outlined"
-          sx={{ fontWeight: 600, fontSize: '0.7rem' }}
-        />
-        
-        {/* Compteur d'actions supprimé */}
-      </Box>
+      {/* Statistiques rapides supprimées */}
       
       {/* Rôles simples (collapsible) */}
       <Collapse in={expanded} timeout="auto">
@@ -280,6 +299,7 @@ export const SodCompositeFunctionGrid: React.FC<SodCompositeFunctionGridProps> =
   defaultExpanded = true,
   compositeRoleName,
   riskId,
+  allRisks,
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
@@ -316,6 +336,7 @@ export const SodCompositeFunctionGrid: React.FC<SodCompositeFunctionGridProps> =
               defaultExpanded={defaultExpanded}
               compositeRoleName={compositeRoleName}
               riskId={riskId}
+              allRisks={allRisks}
               onDeleteAction={onDeleteAction}
               onRestrictAction={onRestrictAction}
               onRestrictResource={onRestrictResource}

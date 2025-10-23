@@ -27,6 +27,7 @@ import { SodCompositeRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodCompositeFunctionGrid } from './SodCompositeFunctionGrid';
 import { useRemediationCache } from 'lib/utils/sodRemediationCache';
+import { calculateCompositeRiskRemediation } from 'lib/utils/sodRulesApplication';
 
 export interface SodCompositeRiskSectionProps {
   /** Risque */
@@ -37,6 +38,9 @@ export interface SodCompositeRiskSectionProps {
   
   /** Nom du rôle composite parent */
   compositeRoleName?: string;
+  
+  /** Tous les risques du rôle composite (pour calculer le nombre de risques par fonction) */
+  allRisks?: SodCompositeRoleRiskItem[];
   
   /** Callback pour supprimer une action */
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
@@ -64,6 +68,7 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
   risk,
   defaultExpanded = true,
   compositeRoleName,
+  allRisks,
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
@@ -77,41 +82,20 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
   
   const { riskId, riskLevel, riskDescription, functions } = risk;
   
-  // ✅ NOUVELLE LOGIQUE : Calculer la remédiation directement depuis les données de session
+  // ✅ NOUVELLE LOGIQUE : Calculer la remédiation avec les nouvelles fonctions
   const remediationStatus = useMemo(() => {
-    if (!compositeRoleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0 };
+    if (!compositeRoleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0, percentage: 0 };
     
-    // Essayer d'obtenir depuis le cache
-    const cached = remediationCache.get(compositeRoleName, riskId, 'composite', 0);
-    if (cached) {
-      return cached;
-    }
+    // Utiliser la nouvelle fonction de calcul
+    const remediation = calculateCompositeRiskRemediation(compositeRoleName, functions);
     
-    // Calculer si pas en cache
-    let totalActions = 0;
-    let remediatedActions = 0;
-    
-    functions.forEach(func => {
-      func.simpleRoles.forEach(simpleRole => {
-        simpleRole.actions.forEach(action => {
-          totalActions++;
-          // Une action est remédiée si elle est supprimée OU restreinte
-          if (action.isDeleted || action.isRestricted) {
-            remediatedActions++;
-          }
-        });
-      });
-    });
-    
-    const result = {
-      isRemediated: remediatedActions > 0,
-      remediatedFunctions: remediatedActions,
-      totalFunctions: totalActions
+    return {
+      isRemediated: remediation.isRemediated,
+      remediatedFunctions: remediation.remediatedFunctions,
+      totalFunctions: remediation.totalFunctions,
+      percentage: remediation.totalFunctions > 0 ? Math.round((remediation.remediatedFunctions / remediation.totalFunctions) * 100) : 0
     };
-    
-    remediationCache.set(compositeRoleName, riskId, 'composite', result, 0);
-    return result;
-  }, [compositeRoleName, riskId, functions, remediationCache]);
+  }, [compositeRoleName, riskId, functions]);
   
   return (
     <Paper
@@ -171,6 +155,7 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
           alignItems: 'center',
           gap: 2.5,
           p: 2.5,
+          // ✅ Fond simple selon le niveau de risque (sans gradient)
           backgroundColor: (() => {
             switch (riskLevel) {
               case 'CRITICAL':
@@ -243,40 +228,39 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
           )}
         </Box>
         
-        {/* Badges */}
+        {/* ✅ Badges simplifiés (sans compteur de fonctions) */}
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {/* Badge de niveau */}
           <SodRiskLevelBadge level={riskLevel} size="medium" variant="filled" />
           
-          {/* ✅ Badge de remédiation */}
-          {remediationStatus.isRemediated && (
+          {/* ✅ Badge de remédiation avec pourcentage */}
+          {remediationStatus.isRemediated ? (
             <Chip
               icon={<CheckCircleIcon />}
-              label="Remedié"
-              size="small"
+              label="100% Remedié"
+              size="medium"
               sx={{
                 backgroundColor: alpha(theme.palette.success.main, 0.15),
                 color: theme.palette.success.dark,
                 fontWeight: 600,
+                fontSize: '0.875rem',
                 '& .MuiChip-icon': {
                   color: theme.palette.success.main,
                 },
               }}
             />
-          )}
-          
-          {/* Badge pourcentage si partiellement remedié */}
-          {!remediationStatus.isRemediated && remediationStatus.remediatedFunctions > 0 && (
+          ) : remediationStatus.percentage > 0 ? (
             <Chip
-              label={`${remediationStatus.remediationPercentage}% Remedié`}
-              size="small"
+              label={`${remediationStatus.percentage}% Remedié`}
+              size="medium"
               sx={{
                 backgroundColor: alpha(theme.palette.warning.main, 0.15),
                 color: theme.palette.warning.dark,
                 fontWeight: 600,
+                fontSize: '0.875rem',
               }}
             />
-          )}
+          ) : null}
         </Box>
         
         {/* Boutons d'action */}
@@ -328,6 +312,7 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
             defaultExpanded={true}
             compositeRoleName={compositeRoleName}
             riskId={riskId}
+            allRisks={allRisks}
             onDeleteAction={onDeleteAction}
             onRestrictAction={onRestrictAction}
             onRestrictResource={onRestrictResource}

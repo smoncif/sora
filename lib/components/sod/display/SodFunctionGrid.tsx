@@ -16,6 +16,7 @@ import {
   Grid,
   Paper,
   Divider,
+  Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -42,6 +43,9 @@ export interface SodFunctionGridProps {
   /** Risque complet (pour détection de conflits) */
   risk?: SodSimpleRoleRiskItem;
   
+  /** Tous les risques du rôle (pour calculer le nombre de risques par fonction) */
+  allRisks?: SodSimpleRoleRiskItem[];
+  
   /** Callback pour supprimer une action */
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   
@@ -61,16 +65,31 @@ const SodFunctionCard: React.FC<{
   roleName?: string;
   riskId?: string;
   risk?: SodSimpleRoleRiskItem;
+  allRisks?: SodSimpleRoleRiskItem[];
   functionIndex?: number;
   duplicateMap?: Map<string, { functionIndices: number[]; isDuplicate: boolean }>;
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictResource?: (roleName: string, riskId: string, actionCode: string, resourceCode: string, externalResourceCode: string, values: string[], shouldRestrict?: boolean) => void;
-}> = ({ func, defaultExpanded = true, roleName, riskId, risk, functionIndex = 0, duplicateMap, onDeleteAction, onRestrictAction, onRestrictResource }) => {
+}> = ({ func, defaultExpanded = true, roleName, riskId, risk, allRisks, functionIndex = 0, duplicateMap, onDeleteAction, onRestrictAction, onRestrictResource }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
   
   const { code, description, system, actions } = func;
+  
+  // 🎯 Calculer le nombre de risques où cette fonction apparaît et le total
+  const riskStats = useMemo(() => {
+    if (!allRisks || allRisks.length === 0) return { count: 0, total: 0 };
+    
+    const count = allRisks.filter(risk => 
+      risk.functions.some(f => f.code === code)
+    ).length;
+    
+    return {
+      count,
+      total: allRisks.length
+    };
+  }, [allRisks, code]);
   
   // 🚀 LAZY LOADING : Chargement progressif des actions dans la fonction
   const {
@@ -139,17 +158,39 @@ const SodFunctionCard: React.FC<{
         
         {/* Code + Système */}
         <Box sx={{ flex: 1 }}>
-          <Typography
-            variant="body1"
-            sx={{
-              fontWeight: 600,
-              letterSpacing: '-0.01em',
-              color: theme.palette.grey[700],
-              fontSize: '0.9375rem',
-            }}
-          >
-            {code}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+                color: theme.palette.grey[700],
+                fontSize: '0.9375rem',
+              }}
+            >
+              {code}
+            </Typography>
+            
+            {/* Badge du nombre de risques (format 3/5) */}
+            {riskStats.count > 0 && (
+              <Chip
+                label={`${riskStats.count}/${riskStats.total}`}
+                size="small"
+                variant="outlined"
+                sx={{ 
+                  fontWeight: 500, 
+                  fontSize: '0.65rem',
+                  height: '18px',
+                  color: theme.palette.text.secondary,
+                  borderColor: alpha(theme.palette.grey[400], 0.5),
+                  backgroundColor: alpha(theme.palette.grey[100], 0.3),
+                  '& .MuiChip-label': {
+                    px: 0.8
+                  }
+                }}
+              />
+            )}
+          </Box>
           
           <Typography
             variant="caption"
@@ -268,6 +309,7 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
   roleName,
   riskId,
   risk,
+  allRisks,
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
@@ -310,6 +352,7 @@ export const SodFunctionGrid: React.FC<SodFunctionGridProps> = ({
               roleName={roleName}
               riskId={riskId}
               risk={risk}
+              allRisks={allRisks}
               functionIndex={index}
               duplicateMap={duplicateMap}
               onDeleteAction={onDeleteAction}

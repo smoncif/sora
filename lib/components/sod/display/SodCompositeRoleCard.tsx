@@ -23,6 +23,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodCompositeRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodCompositeRiskSection } from './SodCompositeRiskSection';
+import { calculateCompositeRiskRemediation } from 'lib/utils/sodRulesApplication';
 
 export interface SodCompositeRoleCardProps {
   /** Rôle composite */
@@ -81,31 +82,25 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
     involvedSimpleRoleCount 
   } = role;
   
-  // ✅ NOUVELLE LOGIQUE : Calculer le statut de remédiation directement depuis les données de session
+  // ✅ NOUVELLE LOGIQUE : Calculer le statut de remédiation avec les nouvelles fonctions
   const remediationStatus = useMemo(() => {
-    let totalActions = 0;
-    let remediatedActions = 0;
+    let totalRisks = risks.length;
+    let remediatedRisks = 0;
     
     risks.forEach(risk => {
-      risk.functions.forEach(func => {
-        func.simpleRoles.forEach(simpleRole => {
-          simpleRole.actions.forEach(action => {
-            totalActions++;
-            // Une action est remédiée si elle est supprimée OU restreinte
-            if (action.isDeleted || action.isRestricted) {
-              remediatedActions++;
-            }
-          });
-        });
-      });
+      const remediation = calculateCompositeRiskRemediation(compositeRoleName, risk.functions);
+      if (remediation.isRemediated) {
+        remediatedRisks++;
+      }
     });
     
     return {
-      totalActions,
-      remediatedActions,
-      percentage: totalActions > 0 ? Math.round((remediatedActions / totalActions) * 100) : 0
+      totalRisks,
+      remediatedRisks,
+      percentage: totalRisks > 0 ? Math.round((remediatedRisks / totalRisks) * 100) : 0,
+      isRemediated: remediatedRisks === totalRisks && totalRisks > 0
     };
-  }, [risks]);
+  }, [risks, compositeRoleName]);
   
   return (
     <Paper
@@ -139,22 +134,22 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
           gap: 3,
           p: 3,
           // ✅ Gradient progressif vert (remedié) → bleu (non remedié)
-          background: remediationStatus.remediationPercentage > 0
+          background: remediationStatus.percentage > 0
             ? `linear-gradient(to right, 
                 ${alpha(theme.palette.success.main, 0.12)} 0%, 
-                ${alpha(theme.palette.success.main, 0.12)} ${remediationStatus.remediationPercentage}%, 
-                ${alpha(theme.palette.primary.main, 0.04)} ${remediationStatus.remediationPercentage}%, 
+                ${alpha(theme.palette.success.main, 0.12)} ${remediationStatus.percentage}%, 
+                ${alpha(theme.palette.primary.main, 0.04)} ${remediationStatus.percentage}%, 
                 ${alpha(theme.palette.primary.main, 0.04)} 100%)`
             : alpha(theme.palette.primary.main, 0.04),
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
           cursor: 'pointer',
           transition: 'background 0.3s ease',
           '&:hover': {
-            background: remediationStatus.remediationPercentage > 0
+            background: remediationStatus.percentage > 0
               ? `linear-gradient(to right, 
                   ${alpha(theme.palette.success.main, 0.18)} 0%, 
-                  ${alpha(theme.palette.success.main, 0.18)} ${remediationStatus.remediationPercentage}%, 
-                  ${alpha(theme.palette.primary.main, 0.08)} ${remediationStatus.remediationPercentage}%, 
+                  ${alpha(theme.palette.success.main, 0.18)} ${remediationStatus.percentage}%, 
+                  ${alpha(theme.palette.primary.main, 0.08)} ${remediationStatus.percentage}%, 
                   ${alpha(theme.palette.primary.main, 0.08)} 100%)`
               : alpha(theme.palette.primary.main, 0.08),
           },
@@ -235,9 +230,9 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
                 },
               }}
             />
-          ) : remediationStatus.remediationPercentage > 0 ? (
+          ) : remediationStatus.percentage > 0 ? (
             <Chip
-              label={`${remediationStatus.remediationPercentage}% Remedié`}
+              label={`${remediationStatus.percentage}% Remedié`}
               size="medium"
               sx={{
                 backgroundColor: alpha(theme.palette.warning.main, 0.15),
@@ -296,6 +291,7 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
                     risk={risk}
                     defaultExpanded={true} // Tous les risques dépliés par défaut
                     compositeRoleName={roleName}
+                    allRisks={risks}
                     onDeleteAction={onDeleteAction}
                     onRestrictAction={onRestrictAction}
                     onRestrictResource={onRestrictResource}
