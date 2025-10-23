@@ -30,6 +30,12 @@ export interface UseLazyRoleRenderingParams<T> {
   
   /** Seuil pour activer le lazy loading (si allRoles.length > threshold) */
   lazyThreshold?: number;
+  
+  /** État de chargement TanStack Query - première charge */
+  isLoading?: boolean;
+  
+  /** État de chargement TanStack Query - mise à jour en arrière-plan */
+  isFetching?: boolean;
 }
 
 export interface UseLazyRoleRenderingReturn<T> {
@@ -60,10 +66,24 @@ export function useLazyRoleRendering<T>({
   initialBatchSize = 2,
   scrollBatchSize = 1,
   lazyThreshold = 3,
+  isLoading = false,
+  isFetching = false,
 }: UseLazyRoleRenderingParams<T>): UseLazyRoleRenderingReturn<T> {
   
-  // 🎯 SMART : Désactiver lazy loading si la page a peu de rôles
-  const isLazyActive = allRoles.length > lazyThreshold;
+  // 🎯 SOLUTION C : Gestion intelligente du timing avec TanStack Query
+  // - isLoading: première charge → désactiver lazy loading (éviter états incohérents)
+  // - isFetching: mise à jour en arrière-plan → garder lazy loading actif
+  // - ready: données disponibles → lazy loading optimal
+  const isLazyActive = !isLoading && allRoles.length > lazyThreshold;
+  
+  console.log('🎯 [SOLUTION C] État TanStack Query:', {
+    isLoading,
+    isFetching,
+    allRolesLength: allRoles.length,
+    lazyThreshold,
+    isLazyActive,
+    reason: isLoading ? 'première charge' : allRoles.length <= lazyThreshold ? 'peu de rôles' : 'données prêtes'
+  });
   
   // Si lazy loading désactivé, afficher tous les rôles immédiatement
   const initialCount = isLazyActive ? initialBatchSize : allRoles.length;

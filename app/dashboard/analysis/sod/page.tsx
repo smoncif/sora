@@ -372,6 +372,9 @@ export default function SodAnalysisPage() {
     initialBatchSize: 3,  // ⚡ 3 rôles immédiats (au lieu de 2)
     scrollBatchSize: 2,   // ⚡ +2 rôles au scroll (au lieu de 1)
     lazyThreshold: 4,     // ⚡ Activer si > 4 rôles (au lieu de 3)
+    // 🎯 SOLUTION C : États de chargement TanStack Query pour timing intelligent
+    isLoading: isSimplePaginationLoading,
+    isFetching: isSimplePaginationFetching,
   });
 
   const {
@@ -385,6 +388,9 @@ export default function SodAnalysisPage() {
     initialBatchSize: 3,  // ⚡ Plus rapide
     scrollBatchSize: 2,   // ⚡ +2 rôles au scroll
     lazyThreshold: 4,     // ⚡ Threshold plus élevé
+    // 🎯 SOLUTION C : États de chargement TanStack Query pour timing intelligent
+    isLoading: isCompositePaginationLoading,
+    isFetching: isCompositePaginationFetching,
   });
 
   
