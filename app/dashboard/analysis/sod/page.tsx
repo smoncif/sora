@@ -53,6 +53,13 @@ export default function SodAnalysisPage() {
   // 🚀 NOUVEAU WORKFLOW SOD : Utiliser le hook unifié
   const sodWorkflow = useSodWorkflowOptimized({ userId: user?.id || 'anonymous' });
 
+  // 🎯 PRIORITY-BASED LAZY LOADING : États pour la navigation intelligente
+  const [prioritySimpleRoleName, setPrioritySimpleRoleName] = useState<string | undefined>(undefined);
+  const [priorityCompositeRoleName, setPriorityCompositeRoleName] = useState<string | undefined>(undefined);
+  
+  // 🎯 PRIORITY-BASED LAZY LOADING : État de navigation pour éviter les conflits
+  const [isNavigating, setIsNavigating] = useState<boolean>(false);
+
   // 🧭 SYSTÈME DE NAVIGATION : Hook pour la navigation des risques
   const sodNavigation = useSodNavigation();
 
@@ -375,6 +382,10 @@ export default function SodAnalysisPage() {
     // 🎯 SOLUTION C : États de chargement TanStack Query pour timing intelligent
     isLoading: isSimplePaginationLoading,
     isFetching: isSimplePaginationFetching,
+    // 🎯 PRIORITY-BASED : Rôle à prioriser (pour navigation)
+    priorityRoleName: prioritySimpleRoleName,
+    // 🎯 PRIORITY-BASED : État de navigation pour éviter les conflits
+    isNavigating: isNavigating,
   });
 
   const {
@@ -391,6 +402,10 @@ export default function SodAnalysisPage() {
     // 🎯 SOLUTION C : États de chargement TanStack Query pour timing intelligent
     isLoading: isCompositePaginationLoading,
     isFetching: isCompositePaginationFetching,
+    // 🎯 PRIORITY-BASED : Rôle à prioriser (pour navigation)
+    priorityRoleName: priorityCompositeRoleName,
+    // 🎯 PRIORITY-BASED : État de navigation pour éviter les conflits
+    isNavigating: isNavigating,
   });
 
   
@@ -551,70 +566,37 @@ export default function SodAnalysisPage() {
   }, [sodWorkflow.state.session, sodWorkflow.state.parsing]);
 
   // 🧭 NAVIGATION VERS RISQUE : Callback pour naviguer vers un rôle/risque spécifique
-  // 🎯 SOLUTION C INTÉGRÉE : Synchronisation avec TanStack Query pour navigation intelligente
   const handleNavigateToRisk = useCallback((
     roleName: string, 
     riskCode: string, 
     targetStep: number
   ) => {
-    console.log('🧭 [NAVIGATION] Début navigation vers risque:', {
-      roleName,
-      riskCode,
-      targetStep,
-      currentStep: sodWorkflow.state.currentStep
-    });
-
     // Corriger targetStep si undefined
     const correctedTargetStep = targetStep || sodWorkflow.state.currentStep;
     
+    // 🎯 PRIORITY-BASED LAZY LOADING : Définir l'état de navigation AVANT tout
+    setIsNavigating(true);
+    
+    // 🎯 PRIORITY-BASED LAZY LOADING : Définir le rôle priorisé AVANT la navigation
+    if (correctedTargetStep === 1) {
+      setPrioritySimpleRoleName(roleName);
+    } else if (correctedTargetStep === 2) {
+      setPriorityCompositeRoleName(roleName);
+    }
+    
     // Changer l'étape si nécessaire
     if (sodWorkflow.state.currentStep !== correctedTargetStep) {
-      console.log('🧭 [NAVIGATION] Changement d\'étape:', {
-        from: sodWorkflow.state.currentStep,
-        to: correctedTargetStep
-      });
       sodWorkflow.actions.setCurrentStep(correctedTargetStep);
     }
 
-    // 🎯 SOLUTION C : Attendre que TanStack Query charge les données avant le scroll
-    const waitForDataAndScroll = () => {
-      const isDataLoading = correctedTargetStep === 1 ? isSimplePaginationLoading : isCompositePaginationLoading;
-      const isDataFetching = correctedTargetStep === 1 ? isSimplePaginationFetching : isCompositePaginationFetching;
-      
-      console.log('🧭 [NAVIGATION] État TanStack Query:', {
-        isLoading: isDataLoading,
-        isFetching: isDataFetching,
-        correctedTargetStep
-      });
-
-      if (isDataLoading) {
-        console.log('🧭 [NAVIGATION] Données en cours de chargement, attente...');
-        // Attendre que les données soient chargées
-        setTimeout(waitForDataAndScroll, 100);
-        return;
-      }
-
-      // Données prêtes, procéder au scroll
-      console.log('🧭 [NAVIGATION] Données prêtes, scroll vers risque');
-      performScrollToRisk(roleName, riskCode);
-    };
-
     // Gérer la pagination : trouver la page qui contient le rôle
-    let pageChanged = false;
-    
     if (correctedTargetStep === 1) {
       // Étape 1 : Rôles simples
       const roleIndex = simpleRoles.findIndex(role => role.roleName === roleName);
       if (roleIndex !== -1) {
         const targetPage = Math.floor(roleIndex / 5);
         if (targetPage !== simplePagination.currentPage) {
-          console.log('🧭 [NAVIGATION] Changement de page simple:', {
-            from: simplePagination.currentPage,
-            to: targetPage,
-            roleIndex
-          });
           simplePagination.handlePageChange(null as any, targetPage);
-          pageChanged = true;
         }
       }
     } else if (correctedTargetStep === 2) {
@@ -623,30 +605,10 @@ export default function SodAnalysisPage() {
       if (roleIndex !== -1) {
         const targetPage = Math.floor(roleIndex / 5);
         if (targetPage !== compositePagination.currentPage) {
-          console.log('🧭 [NAVIGATION] Changement de page composite:', {
-            from: compositePagination.currentPage,
-            to: targetPage,
-            roleIndex
-          });
           compositePagination.handlePageChange(null as any, targetPage);
-          pageChanged = true;
         }
       }
     }
-
-    if (pageChanged) {
-      // Attendre que TanStack Query charge la nouvelle page
-      setTimeout(waitForDataAndScroll, 50);
-      return;
-    }
-
-    // Pas de changement de page nécessaire, scroll immédiatement
-    waitForDataAndScroll();
-  }, [sodWorkflow, simpleRoles, compositeRoles, simplePagination, compositePagination, isSimplePaginationLoading, isCompositePaginationLoading, isSimplePaginationFetching, isCompositePaginationFetching]);
-
-  // 🎯 SOLUTION C : Fonction de scroll séparée pour synchronisation TanStack Query
-  const performScrollToRisk = useCallback(async (roleName: string, riskCode: string) => {
-    console.log('🎯 [SCROLL] Début scroll vers risque:', { roleName, riskCode });
 
     // Fonction pour chercher l'élément avec retry
     const findElementWithRetry = (selector: string, maxRetries = 10, delay = 200) => {
@@ -676,18 +638,14 @@ export default function SodAnalysisPage() {
       const uniqueRiskSelector = `[data-role-risk="${roleName}-${riskCode}"]`;
       const roleSelector = `[data-role-name="${roleName}"]`;
       
-      console.log('🎯 [SCROLL] Recherche élément:', { uniqueRiskSelector, roleSelector });
-      
       let element = await findElementWithRetry(uniqueRiskSelector);
       
       // Si le risque spécifique n'est pas trouvé, chercher le rôle
       if (!element) {
-        console.log('🎯 [SCROLL] Risque spécifique non trouvé, recherche du rôle');
         element = await findElementWithRetry(roleSelector);
       }
       
       if (element) {
-        console.log('🎯 [SCROLL] Scroll vers élément trouvé');
         element.scrollIntoView({ 
           behavior: 'smooth', 
           block: 'center' 
@@ -706,14 +664,36 @@ export default function SodAnalysisPage() {
         setTimeout(() => {
           element.setAttribute('style', originalStyle);
         }, 2000);
-      } else {
-        console.log('🎯 [SCROLL] Aucun élément trouvé pour:', { roleName, riskCode });
+        
+        // 🎯 PRIORITY-BASED LAZY LOADING : Fin de navigation après scroll réussi
+        setTimeout(() => {
+          console.log('🎯 [PRIORITY-BASED] Navigation terminée, fin de l\'état de navigation');
+          setIsNavigating(false);
+        }, 1000); // 1 seconde après le scroll
       }
     }, 300); // Augmenter le délai initial
-  }, []);
+  }, [sodWorkflow, simpleRoles, compositeRoles, simplePagination, compositePagination]);
   
 
-  // Handler pour la remédiation automatique
+  // 🎯 PRIORITY-BASED LAZY LOADING : Réinitialiser les priorités après navigation
+  const resetPriorityRoles = useCallback(() => {
+    console.log('🎯 [PRIORITY-BASED] Réinitialisation des priorités et fin de navigation');
+    setPrioritySimpleRoleName(undefined);
+    setPriorityCompositeRoleName(undefined);
+    setIsNavigating(false);
+  }, []);
+
+  // 🎯 PRIORITY-BASED LAZY LOADING : Réinitialiser automatiquement les priorités après 10 secondes
+  useEffect(() => {
+    if ((prioritySimpleRoleName || priorityCompositeRoleName) && !isNavigating) {
+      const timer = setTimeout(() => {
+        console.log('🎯 [PRIORITY-BASED] Réinitialisation automatique des priorités après 10s (navigation inactive)');
+        resetPriorityRoles();
+      }, 10000); // Augmenté à 10 secondes
+      
+      return () => clearTimeout(timer);
+    }
+  }, [prioritySimpleRoleName, priorityCompositeRoleName, isNavigating, resetPriorityRoles]);
   const handleStartRemediation = useCallback(async () => {
     await sodWorkflow.actions.startAutomaticRemediation();
   }, [sodWorkflow.actions]);
@@ -1230,7 +1210,6 @@ export default function SodAnalysisPage() {
     </Container>
   );
 }
-
 
 
 

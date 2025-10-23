@@ -16,7 +16,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 export interface UseLazyRoleRenderingParams<T> {
   /** Tous les rôles de la page (depuis TanStack Query cache) */
@@ -36,6 +36,12 @@ export interface UseLazyRoleRenderingParams<T> {
   
   /** État de chargement TanStack Query - mise à jour en arrière-plan */
   isFetching?: boolean;
+  
+  /** 🎯 PRIORITY-BASED : Rôle à prioriser (pour navigation) */
+  priorityRoleName?: string;
+  
+  /** 🎯 PRIORITY-BASED : État de navigation pour éviter les conflits */
+  isNavigating?: boolean;
 }
 
 export interface UseLazyRoleRenderingReturn<T> {
@@ -68,25 +74,56 @@ export function useLazyRoleRendering<T>({
   lazyThreshold = 3,
   isLoading = false,
   isFetching = false,
+  priorityRoleName,
+  isNavigating = false,
 }: UseLazyRoleRenderingParams<T>): UseLazyRoleRenderingReturn<T> {
+  
+  // 🎯 PRIORITY-BASED LAZY LOADING : Réorganiser les rôles si un rôle est priorisé
+  const reorganizedRoles = useMemo(() => {
+    if (!priorityRoleName || allRoles.length === 0) {
+      return allRoles;
+    }
+    
+    // Trouver le rôle priorisé
+    const priorityRoleIndex = allRoles.findIndex((role: any) => role.roleName === priorityRoleName);
+    
+    if (priorityRoleIndex === -1) {
+      // Rôle priorisé non trouvé, retourner l'ordre original
+      return allRoles;
+    }
+    
+    // 🎯 STRATÉGIE : Réorganiser avec le rôle priorisé en premier
+    const priorityRole = allRoles[priorityRoleIndex];
+    const otherRoles = allRoles.filter((_, index) => index !== priorityRoleIndex);
+    
+    console.log('🎯 [PRIORITY-BASED] Réorganisation des rôles:', {
+      priorityRoleName,
+      priorityRoleIndex,
+      totalRoles: allRoles.length,
+      reorganizedOrder: [priorityRoleName, ...otherRoles.map((r: any) => r.roleName)]
+    });
+    
+    return [priorityRole, ...otherRoles];
+  }, [allRoles, priorityRoleName]);
   
   // 🎯 SOLUTION C : Gestion intelligente du timing avec TanStack Query
   // - isLoading: première charge → désactiver lazy loading (éviter états incohérents)
   // - isFetching: mise à jour en arrière-plan → garder lazy loading actif
   // - ready: données disponibles → lazy loading optimal
-  const isLazyActive = !isLoading && allRoles.length > lazyThreshold;
+  const isLazyActive = !isLoading && reorganizedRoles.length > lazyThreshold;
   
   console.log('🎯 [SOLUTION C] État TanStack Query:', {
     isLoading,
     isFetching,
-    allRolesLength: allRoles.length,
+    allRolesLength: reorganizedRoles.length,
     lazyThreshold,
     isLazyActive,
-    reason: isLoading ? 'première charge' : allRoles.length <= lazyThreshold ? 'peu de rôles' : 'données prêtes'
+    priorityRoleName,
+    reason: isLoading ? 'première charge' : reorganizedRoles.length <= lazyThreshold ? 'peu de rôles' : 'données prêtes'
   });
   
   // Si lazy loading désactivé, afficher tous les rôles immédiatement
-  const initialCount = isLazyActive ? initialBatchSize : allRoles.length;
+  const initialCount = isLazyActive ? initialBatchSize : reorganizedRoles.length;
   
   const [visibleCount, setVisibleCount] = useState(initialCount);
   const observerRef = useRef<HTMLDivElement>(null);
@@ -94,45 +131,55 @@ export function useLazyRoleRendering<T>({
   // ⚡ Reset visibleCount quand allRoles change (changement de page)
   useEffect(() => {
     console.log('🔄 [LAZY LOAD] Reset useEffect triggered:', {
-      allRolesLength: allRoles.length,
+      allRolesLength: reorganizedRoles.length,
       initialCount,
       isLazyActive,
       lazyThreshold,
-      previousVisibleCount: visibleCount
+      previousVisibleCount: visibleCount,
+      priorityRoleName,
+      isNavigating
     });
     
+    // 🎯 PRIORITY-BASED : Ne pas réinitialiser pendant la navigation
+    if (isNavigating && priorityRoleName) {
+      console.log('🎯 [PRIORITY-BASED] Reset ignoré - navigation en cours');
+      return;
+    }
+    
     // ✅ CORRECTION : Ne pas réinitialiser si on a déjà plus de rôles visibles que disponibles
-    const newVisibleCount = Math.min(visibleCount, allRoles.length);
+    const newVisibleCount = Math.min(visibleCount, reorganizedRoles.length);
     const finalVisibleCount = newVisibleCount < initialCount ? initialCount : newVisibleCount;
     
     setVisibleCount(finalVisibleCount);
     
     console.log('✅ [LAZY LOAD] Reset completed:', {
       newVisibleCount: finalVisibleCount,
-      allRolesLength: allRoles.length,
-      wasReset: finalVisibleCount !== visibleCount
+      allRolesLength: reorganizedRoles.length,
+      wasReset: finalVisibleCount !== visibleCount,
+      priorityRoleName,
+      isNavigating
     });
-  }, [allRoles, initialCount, isLazyActive, lazyThreshold, visibleCount]);
+  }, [reorganizedRoles, initialCount, isLazyActive, lazyThreshold, visibleCount, priorityRoleName, isNavigating]);
 
   // 🔍 Intersection Observer pour charger au scroll
   useEffect(() => {
     console.log('🔍 [LAZY LOAD] useEffect triggered:', {
       isLazyActive,
       visibleCount,
-      allRolesLength: allRoles.length,
+      allRolesLength: reorganizedRoles.length,
       scrollBatchSize,
-      shouldObserve: isLazyActive && visibleCount < allRoles.length
+      shouldObserve: isLazyActive && visibleCount < reorganizedRoles.length
     });
 
     // Pas besoin d'observer si :
     // 1. Lazy loading désactivé
     // 2. Tous les rôles déjà visibles
-    if (!isLazyActive || visibleCount >= allRoles.length) {
+    if (!isLazyActive || visibleCount >= reorganizedRoles.length) {
       console.log('❌ [LAZY LOAD] Observer désactivé:', {
         reason: !isLazyActive ? 'lazy loading désactivé' : 'tous les rôles visibles',
         isLazyActive,
         visibleCount,
-        allRolesLength: allRoles.length
+        allRolesLength: reorganizedRoles.length
       });
       return;
     }
@@ -162,16 +209,16 @@ export function useLazyRoleRendering<T>({
             toLoad,
             scrollBatchSize,
             remaining: allRoles.length - visibleCount,
-            newVisibleCount: Math.min(visibleCount + scrollBatchSize, allRoles.length)
+            newVisibleCount: Math.min(visibleCount + scrollBatchSize, reorganizedRoles.length)
           });
           
           setVisibleCount(prev => {
-            const newCount = Math.min(prev + scrollBatchSize, allRoles.length);
+            const newCount = Math.min(prev + scrollBatchSize, reorganizedRoles.length);
             console.log('🔄 [LAZY LOAD] setVisibleCount:', {
               previous: prev,
               newCount,
               scrollBatchSize,
-              allRolesLength: allRoles.length
+              allRolesLength: reorganizedRoles.length
             });
             return newCount;
           });
@@ -180,7 +227,7 @@ export function useLazyRoleRendering<T>({
             reason: !entries[0]?.isIntersecting ? 'pas visible' : 'tous chargés',
             isIntersecting: entries[0]?.isIntersecting,
             visibleCount,
-            allRolesLength: allRoles.length
+            allRolesLength: reorganizedRoles.length
           });
         }
       },
@@ -258,19 +305,21 @@ export function useLazyRoleRendering<T>({
     } else {
       console.log('⏸️ [LAZY LOAD] loadNext ignoré - tous les rôles déjà visibles');
     }
-  }, [visibleCount, allRoles.length, scrollBatchSize]);
+  }, [visibleCount, reorganizedRoles.length, scrollBatchSize]);
 
-  const visibleRoles = allRoles.slice(0, visibleCount);
-  const hasMore = visibleCount < allRoles.length;
-  const remainingCount = allRoles.length - visibleCount;
+  const visibleRoles = reorganizedRoles.slice(0, visibleCount);
+  const hasMore = visibleCount < reorganizedRoles.length;
+  const remainingCount = reorganizedRoles.length - visibleCount;
 
   console.log('📊 [LAZY LOAD] Valeurs retournées:', {
     visibleRolesCount: visibleRoles.length,
     hasMore,
     remainingCount,
     isLazyActive,
-    allRolesLength: allRoles.length,
-    visibleCount
+    allRolesLength: reorganizedRoles.length,
+    visibleCount,
+    priorityRoleName,
+    isNavigating
   });
 
   return {
