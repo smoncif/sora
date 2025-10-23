@@ -81,13 +81,18 @@ export function useLazyRoleRendering<T>({
       previousVisibleCount: visibleCount
     });
     
-    setVisibleCount(initialCount);
+    // ✅ CORRECTION : Ne pas réinitialiser si on a déjà plus de rôles visibles que disponibles
+    const newVisibleCount = Math.min(visibleCount, allRoles.length);
+    const finalVisibleCount = newVisibleCount < initialCount ? initialCount : newVisibleCount;
+    
+    setVisibleCount(finalVisibleCount);
     
     console.log('✅ [LAZY LOAD] Reset completed:', {
-      newVisibleCount: initialCount,
-      allRolesLength: allRoles.length
+      newVisibleCount: finalVisibleCount,
+      allRolesLength: allRoles.length,
+      wasReset: finalVisibleCount !== visibleCount
     });
-  }, [allRoles, initialCount, isLazyActive, lazyThreshold]);
+  }, [allRoles, initialCount, isLazyActive, lazyThreshold, visibleCount]);
 
   // 🔍 Intersection Observer pour charger au scroll
   useEffect(() => {
