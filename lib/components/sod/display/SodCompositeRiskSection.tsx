@@ -26,7 +26,6 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { SodCompositeRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
 import { SodCompositeFunctionGrid } from './SodCompositeFunctionGrid';
-import { useRemediationCache } from 'lib/utils/sodRemediationCache';
 import { calculateCompositeRiskRemediation } from 'lib/utils/sodRulesApplication';
 
 export interface SodCompositeRiskSectionProps {
@@ -78,7 +77,6 @@ export const SodCompositeRiskSection: React.FC<SodCompositeRiskSectionProps> = (
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const remediationCache = useRemediationCache();
   
   const { riskId, riskLevel, riskDescription, functions } = risk;
   

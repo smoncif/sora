@@ -13,7 +13,7 @@ import {
   alpha,
 } from '@mui/material';
 import { SodSession, SodRiskLevel, SOD_RISK_LEVEL_COLORS } from 'lib/types/sodAnalysis';
-import { useRemediationCache } from 'lib/utils/sodRemediationCache';
+import { calculateRiskRemediation, calculateCompositeRiskRemediation } from 'lib/utils/sodRulesApplication';
 import { NavigationMode } from 'lib/hooks/sod/useSodNavigation';
 
 export interface SodRemediationTableProps {
@@ -44,16 +44,14 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
   onNavigateToRisk,
 }) => {
   const theme = useTheme();
-  const remediationCache = useRemediationCache();
 
   // Pas besoin de collecter tous les risques uniques - chaque rôle a ses propres risques
   // Structure dynamique : autant de carrés que de risques par rôle
 
   // Préparer les données des rôles avec leurs états de remédiation
-  // ✅ OPTIMISATION : Utiliser le cache et des dépendances stables
+  // ✅ OPTIMISATION : Utiliser les nouvelles fonctions de remédiation
   const rolesData = React.useMemo((): RoleData[] => {
     const roles: RoleData[] = [];
-    const currentVersion = 0; // ✅ OPTIMISÉ : Version fixe pour éviter les re-renders
     
     if (mode === 'simple' && session.simpleRoles?.roles) {
       
@@ -61,32 +59,8 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
         const roleRisks: RiskState[] = [];
         
         role.risks?.forEach(risk => {
-          // ✅ OPTIMISATION : Utiliser le cache pour les calculs de remédiation
-          const cacheKey = `${role.roleName}-${risk.riskId}`;
-          let remediation = remediationCache.get(role.roleName, risk.riskId, 'simple', currentVersion);
-          
-          if (!remediation) {
-            // Calculer seulement si pas en cache
-            let totalActions = 0;
-            let remediatedActions = 0;
-            
-            risk.functions.forEach((func: any) => {
-              func.actions.forEach((action: any) => {
-                totalActions++;
-                if (action.isDeleted || action.isRestricted) {
-                  remediatedActions++;
-                }
-              });
-            });
-            
-            remediation = {
-              isRemediated: remediatedActions > 0,
-              remediatedFunctions: remediatedActions,
-              totalFunctions: totalActions
-            };
-            
-            remediationCache.set(role.roleName, risk.riskId, 'simple', remediation, currentVersion);
-          }
+          // ✅ NOUVELLE LOGIQUE : Utiliser calculateRiskRemediation
+          const remediation = calculateRiskRemediation(role.roleName, risk.functions);
           
           roleRisks.push({
             code: risk.riskId || risk.code || `RISK_${role.roleName}_${risk.name}`, // Fallback si code n'existe pas
@@ -107,33 +81,8 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
         const roleRisks: RiskState[] = [];
         
         role.risks?.forEach(risk => {
-          // ✅ OPTIMISATION : Utiliser le cache pour les calculs de remédiation
-          let remediation = remediationCache.get(role.roleName, risk.riskId, 'composite', currentVersion);
-          
-          if (!remediation) {
-            // Calculer seulement si pas en cache
-            let totalActions = 0;
-            let remediatedActions = 0;
-            
-            risk.functions.forEach((func: any) => {
-              func.simpleRoles.forEach((simpleRole: any) => {
-                simpleRole.actions.forEach((action: any) => {
-                  totalActions++;
-                  if (action.isDeleted || action.isRestricted) {
-                    remediatedActions++;
-                  }
-                });
-              });
-            });
-            
-            remediation = {
-              isRemediated: remediatedActions > 0,
-              remediatedFunctions: remediatedActions,
-              totalFunctions: totalActions
-            };
-            
-            remediationCache.set(role.roleName, risk.riskId, 'composite', remediation, currentVersion);
-          }
+          // ✅ NOUVELLE LOGIQUE : Utiliser calculateCompositeRiskRemediation
+          const remediation = calculateCompositeRiskRemediation(role.roleName, risk.functions);
           
           roleRisks.push({
             code: risk.riskId || risk.code || `RISK_${role.roleName}_${risk.name}`, // Fallback si code n'existe pas
@@ -155,7 +104,7 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
     }
     
     return roles;
-  }, [session, mode]); // ✅ OPTIMISÉ : Suppression de version pour éviter les re-renders
+  }, [session, mode]); // ✅ OPTIMISÉ : Dépendances simplifiées
 
   // Obtenir la couleur d'un carré selon la logique de remédiation et criticité
   const getSquareColor = (risk: RiskState) => {
