@@ -57,6 +57,27 @@ export interface SodActionItemProps {
 }
 
 /**
+ * Génère les messages d'alerte pour une action
+ */
+function getActionAlertMessages(action: SodAction, isDuplicate: boolean): string[] {
+  const messages: string[] = [];
+  
+  // RÈGLE 1 : Action dupliquée dans le risque (MODIFIÉE)
+  if (isDuplicate) {
+    messages.push("Action identique dans les deux fonctions du risque, veuillez mettre à jour la matrice SoD");
+  }
+  
+  // RÈGLE 2 : Action avec seulement S_TCODE (NOUVEAU)
+  if (action.resources && 
+      action.resources.length === 1 && 
+      action.resources[0].code === 'S_TCODE') {
+    messages.push("Seul le S_TCODE est défini dans la Matrice SoD");
+  }
+  
+  return messages;
+}
+
+/**
  * Affiche une action avec ses ressources
  * 🚀 OPTIMISÉ : Mémoïsé pour éviter les re-rendus inutiles
  */
@@ -307,18 +328,21 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
             {/* Badges juste après le code */}
             {getActionBadges()}
 
-            {/* Icône d'alerte si action dupliquée - après les badges */}
-            {isDuplicate && (
-              <Tooltip title="Action dupliquée détectée dans ce risque" arrow>
-                <WarningIcon 
-                  sx={{ 
-                    fontSize: 18, 
-                    color: theme.palette.error.main, // Rouge vif pour se différencier
-                    ml: 0.5,
-                  }} 
-                />
-              </Tooltip>
-            )}
+            {/* Icône d'alerte avec messages multiples - après les badges */}
+            {(() => {
+              const alertMessages = getActionAlertMessages(action, isDuplicate);
+              return alertMessages.length > 0 && (
+                <Tooltip title={alertMessages.join('\n')} arrow>
+                  <WarningIcon 
+                    sx={{ 
+                      fontSize: 18, 
+                      color: theme.palette.error.main, // Rouge vif pour se différencier
+                      ml: 0.5,
+                    }} 
+                  />
+                </Tooltip>
+              );
+            })()}
           </Box>
           
           {/* Partie droite : Boutons d'action */}

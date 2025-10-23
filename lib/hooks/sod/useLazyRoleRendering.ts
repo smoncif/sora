@@ -80,7 +80,18 @@ export function useLazyRoleRendering<T>({
   
   // 🎯 PRIORITY-BASED LAZY LOADING : Réorganiser les rôles si un rôle est priorisé
   const reorganizedRoles = useMemo(() => {
+    console.log('🎯 [REORGANIZATION] useMemo déclenché:', {
+      priorityRoleName,
+      allRolesLength: allRoles.length,
+      timestamp: new Date().toISOString()
+    });
+    
     if (!priorityRoleName || allRoles.length === 0) {
+      console.log('🎯 [REORGANIZATION] Pas de réorganisation:', {
+        reason: !priorityRoleName ? 'Pas de rôle priorisé' : 'Pas de rôles disponibles',
+        priorityRoleName,
+        allRolesLength: allRoles.length
+      });
       return allRoles;
     }
     
@@ -89,6 +100,11 @@ export function useLazyRoleRendering<T>({
     
     if (priorityRoleIndex === -1) {
       // Rôle priorisé non trouvé, retourner l'ordre original
+      console.log('🎯 [REORGANIZATION] Rôle priorisé non trouvé:', {
+        priorityRoleName,
+        allRolesNames: allRoles.map((r: any) => r.roleName),
+        reason: 'Rôle priorisé non trouvé dans la liste'
+      });
       return allRoles;
     }
     
@@ -100,7 +116,8 @@ export function useLazyRoleRendering<T>({
       priorityRoleName,
       priorityRoleIndex,
       totalRoles: allRoles.length,
-      reorganizedOrder: [priorityRoleName, ...otherRoles.map((r: any) => r.roleName)]
+      reorganizedOrder: [priorityRoleName, ...otherRoles.map((r: any) => r.roleName)],
+      timestamp: new Date().toISOString()
     });
     
     return [priorityRole, ...otherRoles];
@@ -137,18 +154,32 @@ export function useLazyRoleRendering<T>({
       lazyThreshold,
       previousVisibleCount: visibleCount,
       priorityRoleName,
-      isNavigating
+      isNavigating,
+      timestamp: new Date().toISOString()
     });
     
     // 🎯 PRIORITY-BASED : Ne pas réinitialiser pendant la navigation
     if (isNavigating && priorityRoleName) {
-      console.log('🎯 [PRIORITY-BASED] Reset ignoré - navigation en cours');
+      console.log('🎯 [PRIORITY-BASED] Reset ignoré - navigation en cours:', {
+        isNavigating,
+        priorityRoleName,
+        reason: 'Navigation active avec rôle priorisé'
+      });
       return;
     }
     
     // ✅ CORRECTION : Ne pas réinitialiser si on a déjà plus de rôles visibles que disponibles
     const newVisibleCount = Math.min(visibleCount, reorganizedRoles.length);
     const finalVisibleCount = newVisibleCount < initialCount ? initialCount : newVisibleCount;
+    
+    console.log('🔄 [LAZY LOAD] Calcul du nouveau visibleCount:', {
+      previousVisibleCount: visibleCount,
+      newVisibleCount,
+      finalVisibleCount,
+      initialCount,
+      allRolesLength: reorganizedRoles.length,
+      willReset: finalVisibleCount !== visibleCount
+    });
     
     setVisibleCount(finalVisibleCount);
     
@@ -157,7 +188,8 @@ export function useLazyRoleRendering<T>({
       allRolesLength: reorganizedRoles.length,
       wasReset: finalVisibleCount !== visibleCount,
       priorityRoleName,
-      isNavigating
+      isNavigating,
+      timestamp: new Date().toISOString()
     });
   }, [reorganizedRoles, initialCount, isLazyActive, lazyThreshold, visibleCount, priorityRoleName, isNavigating]);
 
@@ -319,7 +351,8 @@ export function useLazyRoleRendering<T>({
     allRolesLength: reorganizedRoles.length,
     visibleCount,
     priorityRoleName,
-    isNavigating
+    isNavigating,
+    timestamp: new Date().toISOString()
   });
 
   return {

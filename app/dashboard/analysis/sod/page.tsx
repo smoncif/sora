@@ -571,41 +571,88 @@ export default function SodAnalysisPage() {
     riskCode: string, 
     targetStep: number
   ) => {
+    console.log('🚀 [NAVIGATION] Début de navigation:', {
+      roleName,
+      riskCode,
+      targetStep,
+      currentStep: sodWorkflow.state.currentStep,
+      timestamp: new Date().toISOString()
+    });
+    
     // Corriger targetStep si undefined
     const correctedTargetStep = targetStep || sodWorkflow.state.currentStep;
     
     // 🎯 PRIORITY-BASED LAZY LOADING : Définir l'état de navigation AVANT tout
+    console.log('🎯 [NAVIGATION] Définition de l\'état de navigation: true');
     setIsNavigating(true);
     
     // 🎯 PRIORITY-BASED LAZY LOADING : Définir le rôle priorisé AVANT la navigation
     if (correctedTargetStep === 1) {
+      console.log('🎯 [NAVIGATION] Définition de la priorité simple:', roleName);
       setPrioritySimpleRoleName(roleName);
     } else if (correctedTargetStep === 2) {
+      console.log('🎯 [NAVIGATION] Définition de la priorité composite:', roleName);
       setPriorityCompositeRoleName(roleName);
     }
     
-    // Changer l'étape si nécessaire
+    // Changer l'étape si nécessaire (avec réinitialisation intelligente)
     if (sodWorkflow.state.currentStep !== correctedTargetStep) {
-      sodWorkflow.actions.setCurrentStep(correctedTargetStep);
+      handleStepChange(correctedTargetStep);
     }
 
     // Gérer la pagination : trouver la page qui contient le rôle
     if (correctedTargetStep === 1) {
       // Étape 1 : Rôles simples
       const roleIndex = simpleRoles.findIndex(role => role.roleName === roleName);
+      console.log('📄 [NAVIGATION] Recherche du rôle simple:', {
+        roleName,
+        roleIndex,
+        totalSimpleRoles: simpleRoles.length,
+        currentPage: simplePagination.currentPage
+      });
+      
       if (roleIndex !== -1) {
         const targetPage = Math.floor(roleIndex / 5);
+        console.log('📄 [NAVIGATION] Calcul de la page cible:', {
+          roleIndex,
+          targetPage,
+          currentPage: simplePagination.currentPage,
+          needsPageChange: targetPage !== simplePagination.currentPage
+        });
+        
         if (targetPage !== simplePagination.currentPage) {
-          simplePagination.handlePageChange(null as any, targetPage);
+          console.log('📄 [NAVIGATION] Changement de page TanStack Query:', {
+            from: simplePagination.currentPage,
+            to: targetPage
+          });
+          handlePageChange(targetPage, 1);
         }
       }
     } else if (correctedTargetStep === 2) {
       // Étape 2 : Rôles composites
       const roleIndex = compositeRoles.findIndex(role => role.roleName === roleName);
+      console.log('📄 [NAVIGATION] Recherche du rôle composite:', {
+        roleName,
+        roleIndex,
+        totalCompositeRoles: compositeRoles.length,
+        currentPage: compositePagination.currentPage
+      });
+      
       if (roleIndex !== -1) {
         const targetPage = Math.floor(roleIndex / 5);
+        console.log('📄 [NAVIGATION] Calcul de la page cible:', {
+          roleIndex,
+          targetPage,
+          currentPage: compositePagination.currentPage,
+          needsPageChange: targetPage !== compositePagination.currentPage
+        });
+        
         if (targetPage !== compositePagination.currentPage) {
-          compositePagination.handlePageChange(null as any, targetPage);
+          console.log('📄 [NAVIGATION] Changement de page TanStack Query:', {
+            from: compositePagination.currentPage,
+            to: targetPage
+          });
+          handlePageChange(targetPage, 2);
         }
       }
     }
@@ -667,8 +714,20 @@ export default function SodAnalysisPage() {
         
         // 🎯 PRIORITY-BASED LAZY LOADING : Fin de navigation après scroll réussi
         setTimeout(() => {
-          console.log('🎯 [PRIORITY-BASED] Navigation terminée, fin de l\'état de navigation');
+          console.log('🎯 [NAVIGATION] Navigation terminée, fin de l\'état de navigation après 1s');
+          console.log('🎯 [NAVIGATION] État avant fin:', {
+            isNavigating: true,
+            prioritySimpleRoleName,
+            priorityCompositeRoleName,
+            timestamp: new Date().toISOString()
+          });
           setIsNavigating(false);
+          console.log('🎯 [NAVIGATION] État après fin:', {
+            isNavigating: false,
+            prioritySimpleRoleName,
+            priorityCompositeRoleName,
+            timestamp: new Date().toISOString()
+          });
         }, 1000); // 1 seconde après le scroll
       }
     }, 300); // Augmenter le délai initial
@@ -677,23 +736,65 @@ export default function SodAnalysisPage() {
 
   // 🎯 PRIORITY-BASED LAZY LOADING : Réinitialiser les priorités après navigation
   const resetPriorityRoles = useCallback(() => {
-    console.log('🎯 [PRIORITY-BASED] Réinitialisation des priorités et fin de navigation');
+    console.log('🎯 [RESET] Réinitialisation des priorités et fin de navigation');
+    console.log('🎯 [RESET] État avant réinitialisation:', {
+      prioritySimpleRoleName,
+      priorityCompositeRoleName,
+      isNavigating,
+      timestamp: new Date().toISOString()
+    });
     setPrioritySimpleRoleName(undefined);
     setPriorityCompositeRoleName(undefined);
     setIsNavigating(false);
-  }, []);
+    console.log('🎯 [RESET] État après réinitialisation:', {
+      prioritySimpleRoleName: undefined,
+      priorityCompositeRoleName: undefined,
+      isNavigating: false,
+      timestamp: new Date().toISOString()
+    });
+  }, [prioritySimpleRoleName, priorityCompositeRoleName, isNavigating]);
 
-  // 🎯 PRIORITY-BASED LAZY LOADING : Réinitialiser automatiquement les priorités après 10 secondes
-  useEffect(() => {
-    if ((prioritySimpleRoleName || priorityCompositeRoleName) && !isNavigating) {
-      const timer = setTimeout(() => {
-        console.log('🎯 [PRIORITY-BASED] Réinitialisation automatique des priorités après 10s (navigation inactive)');
-        resetPriorityRoles();
-      }, 10000); // Augmenté à 10 secondes
-      
-      return () => clearTimeout(timer);
+  // 🔄 RÉINITIALISATION INTELLIGENTE : Lors des changements de page
+  const handlePageChange = useCallback((newPage: number, step: number) => {
+    console.log('🔄 [PAGE-CHANGE] Réinitialisation des priorités lors du changement de page:', {
+      newPage,
+      step,
+      currentStep: sodWorkflow.state.currentStep,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Réinitialiser les priorités avant le changement de page
+    resetPriorityRoles();
+    
+    // Appeler la fonction de changement de page appropriée
+    if (step === 1) {
+      simplePagination.handlePageChange(null as any, newPage);
+    } else if (step === 2) {
+      compositePagination.handlePageChange(null as any, newPage);
     }
-  }, [prioritySimpleRoleName, priorityCompositeRoleName, isNavigating, resetPriorityRoles]);
+  }, [resetPriorityRoles, simplePagination, compositePagination, sodWorkflow.state.currentStep]);
+
+  // 🔄 RÉINITIALISATION INTELLIGENTE : Lors des changements d'étape
+  const handleStepChange = useCallback((newStep: number) => {
+    console.log('🔄 [STEP-CHANGE] Réinitialisation des priorités lors du changement d\'étape:', {
+      newStep,
+      currentStep: sodWorkflow.state.currentStep,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Réinitialiser les priorités avant le changement d'étape
+    resetPriorityRoles();
+    
+    // Changer l'étape
+    sodWorkflow.actions.setCurrentStep(newStep);
+  }, [resetPriorityRoles, sodWorkflow.actions, sodWorkflow.state.currentStep]);
+
+  // 🎯 PRIORITY-BASED LAZY LOADING : Timer automatique supprimé
+  // La réinitialisation se fait maintenant uniquement lors des changements de page/étape
+  // useEffect(() => {
+  //   // Timer automatique supprimé - réinitialisation basée sur l'activité utilisateur
+  // }, []);
+
   const handleStartRemediation = useCallback(async () => {
     await sodWorkflow.actions.startAutomaticRemediation();
   }, [sodWorkflow.actions]);
