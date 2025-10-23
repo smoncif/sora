@@ -173,7 +173,29 @@ export function useLazyRoleRendering<T>({
       });
       observer.observe(observerRef.current);
     } else {
-      console.log('❌ [LAZY LOAD] observerRef.current est null!');
+      console.log('❌ [LAZY LOAD] observerRef.current est null! Attente du DOM...');
+      
+      // ✅ SOLUTION : Attendre que l'élément DOM soit disponible
+      const attachObserver = () => {
+        if (observerRef.current) {
+          console.log('✅ [LAZY LOAD] Observer attaché après attente:', {
+            elementTag: observerRef.current.tagName,
+            elementId: observerRef.current.id,
+            elementClass: observerRef.current.className
+          });
+          observer.observe(observerRef.current);
+        } else {
+          console.log('❌ [LAZY LOAD] observerRef.current toujours null après attente');
+        }
+      };
+      
+      // Essayer immédiatement
+      attachObserver();
+      
+      // Si toujours null, essayer après le prochain cycle de rendu
+      if (!observerRef.current) {
+        setTimeout(attachObserver, 0);
+      }
     }
 
     return () => {
