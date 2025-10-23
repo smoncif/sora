@@ -600,6 +600,8 @@ export default function SodAnalysisPage() {
     };
 
     // Gérer la pagination : trouver la page qui contient le rôle
+    let pageChanged = false;
+    
     if (correctedTargetStep === 1) {
       // Étape 1 : Rôles simples
       const roleIndex = simpleRoles.findIndex(role => role.roleName === roleName);
@@ -612,9 +614,7 @@ export default function SodAnalysisPage() {
             roleIndex
           });
           simplePagination.handlePageChange(null as any, targetPage);
-          // Attendre que TanStack Query charge la nouvelle page
-          setTimeout(waitForDataAndScroll, 50);
-          return;
+          pageChanged = true;
         }
       }
     } else if (correctedTargetStep === 2) {
@@ -629,11 +629,15 @@ export default function SodAnalysisPage() {
             roleIndex
           });
           compositePagination.handlePageChange(null as any, targetPage);
-          // Attendre que TanStack Query charge la nouvelle page
-          setTimeout(waitForDataAndScroll, 50);
-          return;
+          pageChanged = true;
         }
       }
+    }
+
+    if (pageChanged) {
+      // Attendre que TanStack Query charge la nouvelle page
+      setTimeout(waitForDataAndScroll, 50);
+      return;
     }
 
     // Pas de changement de page nécessaire, scroll immédiatement
@@ -654,12 +658,10 @@ export default function SodAnalysisPage() {
           const element = document.querySelector(selector);
           
           if (element) {
-            console.log('🎯 [SCROLL] Élément trouvé:', { selector, attempts });
             resolve(element);
           } else if (attempts < maxRetries) {
             setTimeout(search, delay);
           } else {
-            console.log('🎯 [SCROLL] Élément non trouvé après', maxRetries, 'tentatives:', selector);
             resolve(null);
           }
         };
@@ -708,7 +710,7 @@ export default function SodAnalysisPage() {
         console.log('🎯 [SCROLL] Aucun élément trouvé pour:', { roleName, riskCode });
       }
     }, 300); // Augmenter le délai initial
-  }, [sodWorkflow, simpleRoles, compositeRoles, simplePagination, compositePagination]);
+  }, []);
   
 
   // Handler pour la remédiation automatique
@@ -1228,6 +1230,7 @@ export default function SodAnalysisPage() {
     </Container>
   );
 }
+
 
 
 
