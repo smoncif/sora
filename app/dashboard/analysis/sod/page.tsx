@@ -551,18 +551,53 @@ export default function SodAnalysisPage() {
   }, [sodWorkflow.state.session, sodWorkflow.state.parsing]);
 
   // 🧭 NAVIGATION VERS RISQUE : Callback pour naviguer vers un rôle/risque spécifique
+  // 🎯 SOLUTION C INTÉGRÉE : Synchronisation avec TanStack Query pour navigation intelligente
   const handleNavigateToRisk = useCallback((
     roleName: string, 
     riskCode: string, 
     targetStep: number
   ) => {
+    console.log('🧭 [NAVIGATION] Début navigation vers risque:', {
+      roleName,
+      riskCode,
+      targetStep,
+      currentStep: sodWorkflow.state.currentStep
+    });
+
     // Corriger targetStep si undefined
     const correctedTargetStep = targetStep || sodWorkflow.state.currentStep;
     
     // Changer l'étape si nécessaire
     if (sodWorkflow.state.currentStep !== correctedTargetStep) {
+      console.log('🧭 [NAVIGATION] Changement d\'étape:', {
+        from: sodWorkflow.state.currentStep,
+        to: correctedTargetStep
+      });
       sodWorkflow.actions.setCurrentStep(correctedTargetStep);
     }
+
+    // 🎯 SOLUTION C : Attendre que TanStack Query charge les données avant le scroll
+    const waitForDataAndScroll = () => {
+      const isDataLoading = correctedTargetStep === 1 ? isSimplePaginationLoading : isCompositePaginationLoading;
+      const isDataFetching = correctedTargetStep === 1 ? isSimplePaginationFetching : isCompositePaginationFetching;
+      
+      console.log('🧭 [NAVIGATION] État TanStack Query:', {
+        isLoading: isDataLoading,
+        isFetching: isDataFetching,
+        correctedTargetStep
+      });
+
+      if (isDataLoading) {
+        console.log('🧭 [NAVIGATION] Données en cours de chargement, attente...');
+        // Attendre que les données soient chargées
+        setTimeout(waitForDataAndScroll, 100);
+        return;
+      }
+
+      // Données prêtes, procéder au scroll
+      console.log('🧭 [NAVIGATION] Données prêtes, scroll vers risque');
+      performScrollToRisk(roleName, riskCode);
+    };
 
     // Gérer la pagination : trouver la page qui contient le rôle
     if (correctedTargetStep === 1) {
@@ -571,7 +606,15 @@ export default function SodAnalysisPage() {
       if (roleIndex !== -1) {
         const targetPage = Math.floor(roleIndex / 5);
         if (targetPage !== simplePagination.currentPage) {
+          console.log('🧭 [NAVIGATION] Changement de page simple:', {
+            from: simplePagination.currentPage,
+            to: targetPage,
+            roleIndex
+          });
           simplePagination.handlePageChange(null as any, targetPage);
+          // Attendre que TanStack Query charge la nouvelle page
+          setTimeout(waitForDataAndScroll, 50);
+          return;
         }
       }
     } else if (correctedTargetStep === 2) {
@@ -580,10 +623,26 @@ export default function SodAnalysisPage() {
       if (roleIndex !== -1) {
         const targetPage = Math.floor(roleIndex / 5);
         if (targetPage !== compositePagination.currentPage) {
+          console.log('🧭 [NAVIGATION] Changement de page composite:', {
+            from: compositePagination.currentPage,
+            to: targetPage,
+            roleIndex
+          });
           compositePagination.handlePageChange(null as any, targetPage);
+          // Attendre que TanStack Query charge la nouvelle page
+          setTimeout(waitForDataAndScroll, 50);
+          return;
         }
       }
     }
+
+    // Pas de changement de page nécessaire, scroll immédiatement
+    waitForDataAndScroll();
+  }, [sodWorkflow, simpleRoles, compositeRoles, simplePagination, compositePagination, isSimplePaginationLoading, isCompositePaginationLoading, isSimplePaginationFetching, isCompositePaginationFetching]);
+
+  // 🎯 SOLUTION C : Fonction de scroll séparée pour synchronisation TanStack Query
+  const performScrollToRisk = useCallback(async (roleName: string, riskCode: string) => {
+    console.log('🎯 [SCROLL] Début scroll vers risque:', { roleName, riskCode });
 
     // Fonction pour chercher l'élément avec retry
     const findElementWithRetry = (selector: string, maxRetries = 10, delay = 200) => {
@@ -595,10 +654,12 @@ export default function SodAnalysisPage() {
           const element = document.querySelector(selector);
           
           if (element) {
+            console.log('🎯 [SCROLL] Élément trouvé:', { selector, attempts });
             resolve(element);
           } else if (attempts < maxRetries) {
             setTimeout(search, delay);
           } else {
+            console.log('🎯 [SCROLL] Élément non trouvé après', maxRetries, 'tentatives:', selector);
             resolve(null);
           }
         };
@@ -613,14 +674,18 @@ export default function SodAnalysisPage() {
       const uniqueRiskSelector = `[data-role-risk="${roleName}-${riskCode}"]`;
       const roleSelector = `[data-role-name="${roleName}"]`;
       
+      console.log('🎯 [SCROLL] Recherche élément:', { uniqueRiskSelector, roleSelector });
+      
       let element = await findElementWithRetry(uniqueRiskSelector);
       
       // Si le risque spécifique n'est pas trouvé, chercher le rôle
       if (!element) {
+        console.log('🎯 [SCROLL] Risque spécifique non trouvé, recherche du rôle');
         element = await findElementWithRetry(roleSelector);
       }
       
       if (element) {
+        console.log('🎯 [SCROLL] Scroll vers élément trouvé');
         element.scrollIntoView({ 
           behavior: 'smooth', 
           block: 'center' 
@@ -639,6 +704,8 @@ export default function SodAnalysisPage() {
         setTimeout(() => {
           element.setAttribute('style', originalStyle);
         }, 2000);
+      } else {
+        console.log('🎯 [SCROLL] Aucun élément trouvé pour:', { roleName, riskCode });
       }
     }, 300); // Augmenter le délai initial
   }, [sodWorkflow, simpleRoles, compositeRoles, simplePagination, compositePagination]);
