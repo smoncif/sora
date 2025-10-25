@@ -1,13 +1,15 @@
 /**
  * Bouton de navigation flottant pour l'analyse SoD
  * Affiche un badge avec le nombre de risques non remédiés
+ * Style harmonisé avec le bouton de comparaison des analyses
  */
 
 'use client';
 
 import React from 'react';
 import {
-  Fab,
+  Box,
+  IconButton,
   Badge,
   Tooltip,
   useTheme,
@@ -38,25 +40,17 @@ export const SodNavigationButton: React.FC<SodNavigationButtonProps> = ({
   }
 
   return (
-    <Tooltip title="Navigation des risques SoD" placement="left">
-      <Fab
-        color="primary"
-        onClick={onOpenSlider}
-        sx={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          zIndex: 1200,
-          backgroundColor: theme.palette.success.main,
-          '&:hover': {
-            backgroundColor: theme.palette.success.dark,
-          },
-          boxShadow: theme.shadows[8],
-          border: `2px solid ${alpha(theme.palette.success.light, 0.3)}`,
-        }}
-      >
-        <Badge
-          badgeContent={nonRemediatedCount}
+    <Box
+      sx={{
+        position: 'fixed',
+        bottom: 20,
+        right: 20,
+        zIndex: 1000,
+      }}
+    >
+      <Tooltip title="Navigation des risques SoD" placement="left">
+        <Badge 
+          badgeContent={nonRemediatedCount} 
           color="error"
           sx={{
             '& .MuiBadge-badge': {
@@ -66,12 +60,66 @@ export const SodNavigationButton: React.FC<SodNavigationButtonProps> = ({
               fontSize: '0.75rem',
               minWidth: 20,
               height: 20,
+              border: `2px solid ${theme.palette.background.paper}`,
+              // Positionner le badge plus proche du bouton
+              top: 8,
+              right: 8,
             },
           }}
         >
-          <KeyboardArrowUpIcon sx={{ color: 'white' }} />
+          <IconButton
+            onClick={onOpenSlider}
+            sx={{
+              bgcolor: 'success.main',
+              color: 'white',
+              width: 56,
+              height: 56,
+              '&:hover': {
+                bgcolor: 'success.dark',
+                transform: 'translateY(-2px)',
+                boxShadow: 3,
+              },
+              boxShadow: 2,
+              transition: 'all 0.2s ease-in-out',
+              // Animation de pulsation pour attirer l'attention
+              animation: 'pulse 2s infinite',
+              '@keyframes pulse': {
+                '0%': {
+                  boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)',
+                },
+                '70%': {
+                  boxShadow: '0 0 0 10px rgba(76, 175, 80, 0)',
+                },
+                '100%': {
+                  boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)',
+                },
+              },
+            }}
+          >
+            <KeyboardArrowUpIcon 
+              sx={{ 
+                fontSize: 28,
+                // Animation de rebond sur hover
+                transition: 'transform 0.2s ease-in-out',
+                '&:hover': {
+                  animation: 'bounce 0.6s ease-in-out',
+                },
+                '@keyframes bounce': {
+                  '0%, 20%, 50%, 80%, 100%': {
+                    transform: 'translateY(0)',
+                  },
+                  '40%': {
+                    transform: 'translateY(-4px)',
+                  },
+                  '60%': {
+                    transform: 'translateY(-2px)',
+                  },
+                },
+              }} 
+            />
+          </IconButton>
         </Badge>
-      </Fab>
-    </Tooltip>
+      </Tooltip>
+    </Box>
   );
 };

@@ -34,6 +34,8 @@ export interface SodFileUploadSectionProps {
   onLoadSavedAnalysis: () => void;
   /** Callback pour reprendre depuis un fichier */
   onResumeFromFile: () => void;
+  /** Callback pour réinitialiser complètement avant upload */
+  onResetBeforeUpload?: () => void;
 }
 
 export const SodFileUploadSection: React.FC<SodFileUploadSectionProps> = ({
@@ -45,12 +47,20 @@ export const SodFileUploadSection: React.FC<SodFileUploadSectionProps> = ({
   onFileUpload,
   onLoadSavedAnalysis,
   onResumeFromFile,
+  onResetBeforeUpload,
 }) => {
   const theme = useTheme();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // 🔄 RÉINITIALISATION COMPLÈTE avant upload
+      if (onResetBeforeUpload) {
+        console.log('🔄 [UPLOAD] Réinitialisation complète avant upload du nouveau fichier...');
+        onResetBeforeUpload();
+      }
+      
+      // Upload du fichier
       onFileUpload(file);
     }
   };

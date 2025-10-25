@@ -71,6 +71,31 @@ export const excludedSimpleRolesMap = new Map<string, boolean>();
 export const actionResourcesMap = new Map<string, any>();
 
 /**
+ * Réinitialise complètement toutes les Maps globales SoD
+ * 
+ * Cette fonction doit être appelée avant d'importer un nouveau fichier Excel
+ * pour s'assurer qu'aucun état précédent ne persiste.
+ */
+export function resetSodGlobalMaps(): void {
+  console.log('🔄 [SOD RESET] Réinitialisation des Maps globales...');
+  
+  // Vider toutes les Maps
+  restrictedResourcesMap.clear();
+  restrictedActionsMap.clear();
+  deletedActionsMap.clear();
+  excludedSimpleRolesMap.clear();
+  actionResourcesMap.clear();
+  
+  console.log('✅ [SOD RESET] Maps globales réinitialisées:', {
+    restrictedResourcesMap: restrictedResourcesMap.size,
+    restrictedActionsMap: restrictedActionsMap.size,
+    deletedActionsMap: deletedActionsMap.size,
+    excludedSimpleRolesMap: excludedSimpleRolesMap.size,
+    actionResourcesMap: actionResourcesMap.size,
+  });
+}
+
+/**
  * Fonction utilitaire pour créer une clé de ressource d'action
  */
 export function getActionResourceKey(

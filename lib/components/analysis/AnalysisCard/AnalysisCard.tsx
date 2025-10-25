@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { TransactionBlock } from '../TransactionBlock';
 import { UserTransactionDisplay } from '../UserTransactionDisplay/UserTransactionDisplay';
+import { RoleMetricsDisplay } from '../RoleMetricsDisplay/RoleMetricsDisplay';
 import { UserSelectedRoles } from '../UserSelectedRoles/UserSelectedRoles';
 import { ZeroCoverageToggle } from '../ZeroCoverageToggle';
 import { ComparisonIcon } from '../ComparisonIcon';
@@ -1091,220 +1092,10 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               )}
             </Box>
             
-            {/* Informations compactes du rôle métier */}
-            {mode === 'roles' ? (
-              <Box sx={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                gap: 2, 
-                mb: 2,
-                p: 2,
-                bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
-                borderRadius: 2
-              }}>
-              {/* Transactions du rôle métier */}
-              <Tooltip
-                title={
-                  <TransactionTooltipTable
-                    transactions={Array.from(analysis.uniqueTransactions)}
-                    title="📋 Transactions du Rôle Métier"
-                    txExecutionMap={staticData.txExecutionMap}
-                    coveredTransactions={dynamicData.selectedTransactions}
-                  />
-                }
-                arrow
-                placement="top"
-                enterDelay={300}
-                leaveDelay={100}
-              >
-                <Box sx={{ 
-                  cursor: 'help',
-                  p: 1.5,
-                  borderRadius: 1,
-                  bgcolor: 'transparent',
-                  border: 'none'
-                }}>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary, display: 'block' }}>
-                    📋 Transactions Métier
-                </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
-                    {analysis.uniqueTransactions.length} transactions
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    {analysis.uniqueTransactions.slice(0, 3).join(', ')}
-                    {analysis.uniqueTransactions.length > 3 && ` +${analysis.uniqueTransactions.length - 3} autres`}
-                </Typography>
-              </Box>
-              </Tooltip>
-              
-              {/* Couverture actuelle vs maximum */}
-              <Box sx={{ 
-                p: 1.5,
-                borderRadius: 1,
-                bgcolor: 'transparent',
-                border: 'none'
-              }}>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary, display: 'block' }}>
-                  🎯 Couverture
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  <span style={{ color: stableUtilityFunctions.getScoreColor((dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100) }}>
-                    {dynamicData.coveredTransactionsCount}
-                  </span>
-                  <span style={{ color: theme.palette.text.secondary }}> / </span>
-                  <span style={{ color: theme.palette.info.main }}>
-                    {staticData.maxAchievableInfo.maxAchievableTransactions}
-                  </span>
-                  <span style={{ color: theme.palette.text.secondary }}> / {staticData.maxAchievableInfo.totalTransactions}</span>
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                  {((dynamicData.coveredTransactionsCount / staticData.maxAchievableInfo.maxAchievableTransactions) * 100).toFixed(1)}% du max possible
-                </Typography>
-              </Box>
-              
-              {/* Transactions orphelines */}
-              <Tooltip
-                title={
-                  staticData.maxAchievableInfo.orphanTransactions.length > 0 ? (
-                    <Box sx={{ 
-                      width: '320px',
-                      maxWidth: '320px',
-                      minWidth: '320px',
-                      p: 0.5,
-                      boxSizing: 'border-box',
-                      overflow: 'hidden'
-                    }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5, fontSize: '0.8rem' }}>
-                        ⚠️ Transactions Orphelines
-                </Typography>
-                      <Typography variant="body2" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                        Transactions du rôle métier qui ne peuvent être couvertes par aucun rôle simple disponible.
-                </Typography>
-                      <TransactionTooltipTable
-                        transactions={staticData.maxAchievableInfo.orphanTransactions}
-                        title=""
-                        txExecutionMap={staticData.txExecutionMap}
-                      />
-                    </Box>
-                  ) : (
-                    <Box sx={{ p: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                        ⚠️ Transactions Orphelines
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        Transactions du rôle métier qui ne peuvent être couvertes par aucun rôle simple disponible.
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                        Aucune transaction orpheline
-                </Typography>
-              </Box>
-                  )
-                }
-                arrow
-                placement="top"
-                enterDelay={300}
-                leaveDelay={100}
-              >
-                <Box sx={{ 
-                  cursor: 'help',
-                  p: 1.5,
-                  borderRadius: 1,
-                  bgcolor: 'transparent',
-                  border: 'none'
-                }}>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.warning.main, display: 'block' }}>
-                    ⚠️ Orphelines
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.warning.main }}>
-                    {staticData.maxAchievableInfo.orphanTransactions.length} transactions
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    {staticData.maxAchievableInfo.orphanTransactions.length > 0 
-                      ? `${staticData.maxAchievableInfo.orphanTransactions.slice(0, 2).join(', ')}${staticData.maxAchievableInfo.orphanTransactions.length > 2 ? '...' : ''}`
-                      : 'Aucune transaction orpheline'
-                    }
-                  </Typography>
-            </Box>
-              </Tooltip>
-
-              {/* Transactions non utilisées */}
-              <Tooltip
-                title={
-                  <Box sx={{ p: 1 }}>
-                    <Typography sx={{ fontWeight: 600, mb: 1, fontSize: '0.75rem' }}>
-                      🚫 Transactions Non Utilisées
-                    </Typography>
-                    <Typography sx={{ mb: 1, fontSize: '0.75rem' }}>
-                      Transactions ajoutées par les rôles simples sélectionnés mais qui ne sont jamais utilisées par ce rôle métier.
-                    </Typography>
-                    <Typography sx={{ mb: 1, fontSize: '0.75rem' }}>
-                      <strong>Total:</strong> {dynamicData.unusedTransactions.length} transactions
-                    </Typography>
-                    {dynamicData.unusedTransactions.length > 0 && (
-                      <Box sx={{ maxHeight: 150, overflowY: 'auto' }}>
-                        <Typography sx={{ fontWeight: 600, mb: 0.5, fontSize: '0.75rem' }}>Transactions non utilisées:</Typography>
-                        {dynamicData.unusedTransactions.slice(0, 20).map((tx, idx) => (
-                          <Typography key={idx} sx={{ display: 'block', fontSize: '0.7rem' }}>
-                            • {tx}
-                          </Typography>
-                        ))}
-                        {dynamicData.unusedTransactions.length > 20 && (
-                          <Typography sx={{ fontStyle: 'italic', fontSize: '0.7rem' }}>
-                            ... et {dynamicData.unusedTransactions.length - 20} autres
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </Box>
-                }
-                arrow
-                placement="top"
-                enterDelay={300}
-                leaveDelay={100}
-              >
-                <Box sx={{ 
-                  cursor: 'help',
-                  p: 1.5,
-                  borderRadius: 1,
-                  bgcolor: 'transparent',
-                  border: 'none'
-                }}>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.error.main, display: 'block' }}>
-                    🚫 Non Utilisées
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.error.main }}>
-                    {dynamicData.unusedTransactions.length} transactions
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    Ajoutées par sélection mais inutiles
-                  </Typography>
-            </Box>
-              </Tooltip>
-              </Box>
-            ) : (
-              /* Mode utilisateur - Nouveau composant d'affichage unifié des transactions */
-              <Box sx={{ 
-                p: 0, 
-                borderRadius: 2, 
-                mb: 0,
-                bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
-                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`
-              }}>
-
-                <UserTransactionDisplay
-                  userTransactions={analysis.uniqueTransactions}
-                  selectedTransactions={Array.from(dynamicData.selectedTransactions)}
-                  orphanTransactions={staticData.maxAchievableInfo.orphanTransactions}
-                  unusedTransactions={dynamicData.unusedTransactions}
-                  executionMap={staticData.txExecutionMap}
-                  mode="detailed"
-                />
-              </Box>
-            )}
-
           </Box>
           
-          <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
+          {/* Bouton Focus sur la même ligne que le titre */}
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {!isInFocusMode ? (
               <Button
                 size="small"
@@ -1325,6 +1116,43 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               </Button>
             )}
           </Box>
+        </Box>
+        
+        {/* Section des transactions maintenant en pleine largeur */}
+        <Box sx={{ width: '100%' }}>
+          {/* Informations compactes du rôle métier */}
+          {mode === 'roles' ? (
+            <RoleMetricsDisplay
+              uniqueTransactions={analysis.uniqueTransactions}
+              coveredTransactionsCount={dynamicData.coveredTransactionsCount}
+              maxAchievableTransactions={staticData.maxAchievableInfo.maxAchievableTransactions}
+              totalTransactions={staticData.maxAchievableInfo.totalTransactions}
+              orphanTransactions={staticData.maxAchievableInfo.orphanTransactions}
+              unusedTransactions={dynamicData.unusedTransactions}
+              executionMap={staticData.txExecutionMap}
+              mode="detailed"
+            />
+          ) : (
+            /* Mode utilisateur - Nouveau composant d'affichage unifié des transactions */
+            <Box sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              mb: 0,
+              bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.4 : 0.7),
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              width: '100%'
+            }}>
+
+              <UserTransactionDisplay
+                userTransactions={analysis.uniqueTransactions}
+                selectedTransactions={Array.from(dynamicData.selectedTransactions)}
+                orphanTransactions={staticData.maxAchievableInfo.orphanTransactions}
+                unusedTransactions={dynamicData.unusedTransactions}
+                executionMap={staticData.txExecutionMap}
+                mode="detailed"
+              />
+            </Box>
+          )}
         </Box>
 
         {/* Section des rôles sélectionnés pour le mode utilisateur */}

@@ -9,6 +9,7 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSodSession } from './useSodAnalysisQuery';
 import { useSodExcelParserOptimized } from './useSodExcelParserOptimized';
+import { resetSodGlobalMaps } from 'lib/utils/sodRulesApplication';
 import type { SodAnalysisSession } from 'lib/types/sodAnalysis';
 
 export interface SodWorkflowConfig {
@@ -234,18 +235,34 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
     },
     
     resetWorkflow: () => {
+      console.log('🔄 [SOD RESET] Réinitialisation complète du workflow...');
+      
+      // 1. Réinitialiser les Maps globales (source de vérité)
+      resetSodGlobalMaps();
+      
+      // 2. Réinitialiser les états locaux du workflow
       setImportType('new');
       setEnableUsageAnalysis(false);
       
-      // 🎯 OPTION B : Réinitialiser le sessionId actif
+      // 3. Réinitialiser le sessionId actif
       setActiveSessionId(undefined);
       
-      // Invalider toutes les queries SOD
+      // 4. Invalider toutes les queries SOD dans TanStack Query
+      queryClient.invalidateQueries({ queryKey: ['sod'] });
       queryClient.invalidateQueries({ queryKey: ['sod-session', config.userId] });
       queryClient.invalidateQueries({ queryKey: ['sod-sessions', config.userId] });
       
-      // Nettoyer le parser
+      // 5. Supprimer toutes les données du cache SOD
+      queryClient.removeQueries({ queryKey: ['sod'] });
+      
+      // 6. Nettoyer le parser Excel
       excelParser.cancelParsing?.();
+      excelParser.reset?.();
+      
+      // 7. Nettoyer la référence au fichier uploadé
+      uploadedFileRef.current = null;
+      
+      console.log('✅ [SOD RESET] Workflow complètement réinitialisé');
     },
   }), [
     enableUsageAnalysis,

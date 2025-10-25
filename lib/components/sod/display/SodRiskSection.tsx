@@ -99,50 +99,40 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
       sx={{
         borderRadius: 2,
         overflow: 'hidden',
-        // ✅ Bordure verte si le risque est remedié, sinon couleur selon le niveau
-        border: `1px solid ${
-          remediationStatus.isRemediated 
-            ? alpha(theme.palette.success.main, 0.3)
-            : (() => {
-                switch (riskLevel) {
-                  case 'CRITICAL':
-                    return alpha(theme.palette.error.dark, 0.2);
-                  case 'HIGH':
-                    return alpha(theme.palette.error.main, 0.15);
-                  case 'MEDIUM':
-                    return alpha(theme.palette.warning.main, 0.15);
-                  case 'LOW':
-                    return alpha(theme.palette.success.main, 0.15);
-                  default:
-                    return alpha(theme.palette.error.main, 0.15);
-                }
-              })()
-        }`,
-        // ✅ Fond vert léger si le risque est remedié
-        backgroundColor: remediationStatus.isRemediated 
-          ? alpha(theme.palette.success.main, 0.05)
-          : 'transparent',
+        // ✅ Bordure selon le niveau de risque uniquement
+        border: `1px solid ${(() => {
+          switch (riskLevel) {
+            case 'CRITICAL':
+              return alpha(theme.palette.error.dark, 0.2);
+            case 'HIGH':
+              return alpha(theme.palette.error.main, 0.15);
+            case 'MEDIUM':
+              return alpha(theme.palette.warning.main, 0.15);
+            case 'LOW':
+              return alpha(theme.palette.success.main, 0.15);
+            default:
+              return alpha(theme.palette.error.main, 0.15);
+          }
+        })()}`,
+        // ✅ Fond transparent (pas de changement selon remédiation)
+        backgroundColor: 'transparent',
         mb: 3,
         transition: 'all 0.2s ease',
         '&:hover': {
-          border: `1px solid ${
-            remediationStatus.isRemediated
-              ? alpha(theme.palette.success.main, 0.4)
-              : (() => {
-                  switch (riskLevel) {
-                    case 'CRITICAL':
-                      return alpha(theme.palette.error.dark, 0.3);
-                    case 'HIGH':
-                      return alpha(theme.palette.error.main, 0.25);
-                    case 'MEDIUM':
-                      return alpha(theme.palette.warning.main, 0.25);
-                    case 'LOW':
-                      return alpha(theme.palette.success.main, 0.25);
-                    default:
-                      return alpha(theme.palette.error.main, 0.25);
-                  }
-                })()
-          }`,
+          border: `1px solid ${(() => {
+            switch (riskLevel) {
+              case 'CRITICAL':
+                return alpha(theme.palette.error.dark, 0.3);
+              case 'HIGH':
+                return alpha(theme.palette.error.main, 0.25);
+              case 'MEDIUM':
+                return alpha(theme.palette.warning.main, 0.25);
+              case 'LOW':
+                return alpha(theme.palette.success.main, 0.25);
+              default:
+                return alpha(theme.palette.error.main, 0.25);
+            }
+          })()}`,
         },
       }}
     >
@@ -231,11 +221,11 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
           {/* Badge de niveau */}
           <SodRiskLevelBadge level={riskLevel} size="medium" variant="filled" />
           
-          {/* ✅ Badge de remédiation avec pourcentage */}
+          {/* ✅ Badge de remédiation sans pourcentage */}
           {remediationStatus.isRemediated ? (
             <Chip
               icon={<CheckCircleIcon />}
-              label="100% Remedié"
+              label="Remedié"
               size="medium"
               sx={{
                 backgroundColor: alpha(theme.palette.success.main, 0.15),
@@ -245,17 +235,6 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
                 '& .MuiChip-icon': {
                   color: theme.palette.success.main,
                 },
-              }}
-            />
-          ) : remediationStatus.percentage > 0 ? (
-            <Chip
-              label={`${remediationStatus.percentage}% Remedié`}
-              size="medium"
-              sx={{
-                backgroundColor: alpha(theme.palette.warning.main, 0.15),
-                color: theme.palette.warning.dark,
-                fontWeight: 600,
-                fontSize: '0.875rem',
               }}
             />
           ) : null}

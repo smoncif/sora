@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodSimpleRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
@@ -168,13 +167,6 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
           )}
         </IconButton>
         
-        {/* Icône de rôle */}
-        <AccountCircleIcon
-          sx={{
-            fontSize: 32,
-            color: theme.palette.primary.main,
-          }}
-        />
         
         {/* Nom du rôle */}
         <Box sx={{ flex: 1 }}>
@@ -211,7 +203,7 @@ export const SodSimpleRoleCard: React.FC<SodSimpleRoleCardProps> = React.memo(({
           {remediationStatus.isRemediated ? (
             <Chip
               icon={<CheckCircleIcon />}
-              label="100% Remedié"
+              label="Remedié"
               size="medium"
               sx={{
                 backgroundColor: alpha(theme.palette.success.main, 0.15),

@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Box, Container, Typography, Alert, Paper, Button, TablePagination, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, alpha, useTheme } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import BugReportIcon from '@mui/icons-material/BugReport';
+import { Box, Container, Typography, Alert, TablePagination, Grid, alpha, useTheme } from '@mui/material';
 import { useAuth } from 'lib/hooks/useAuth';
 import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
@@ -26,14 +24,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { applyStateToSimpleRoles, applyStateToCompositeRoles } from 'lib/utils/sodStateApplication';
 import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 import type { SodSimpleRole, SodCompositeRole } from 'lib/types/sodAnalysis';
-// ✅ Debug Maps (source unique de vérité)
-import {
-  restrictedResourcesMap,
-  restrictedActionsMap,
-  deletedActionsMap,
-  getResourceKey,
-  getActionKey,
-} from 'lib/utils/sodRulesApplication';
 // 🚀 NOUVEAUX HOOKS : Mutations et sélecteurs TanStack Query
 import { useSodMutations } from 'lib/hooks/sod/useSodMutations';
 import { useActionState, useRoleState } from 'lib/hooks/sod/useSodSelectors';
@@ -136,159 +126,28 @@ export default function SodAnalysisPage() {
     return (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
   }, [sodWorkflow.state.session?.compositeRoles?.roles]);
 
-  // ✅ OPTIMISÉ : Utiliser directement les Maps globales (source unique de vérité)
-  // Plus besoin de recalculer, on lit directement depuis sodRulesApplication.ts
-  const debugStates = useMemo(() => {
-    return {
-      deletedActions: deletedActionsMap,
-      restrictedActions: restrictedActionsMap,
-      restrictedResources: restrictedResourcesMap
-    };
-  }, [
-    // 🔄 Trigger re-render quand les Maps changent (détecté via la session)
-    sodWorkflow.state.session?.updatedAt
-  ]);
-
-  // 🧪 Comparaison Maps vs Session vs UI
-  const debugCompare = useMemo(() => {
-    const maps = {
-      actionsDeleted: new Map<string, boolean>(deletedActionsMap),
-      actionsRestricted: new Map<string, { restrictedByAction: boolean }>(restrictedActionsMap),
-      resourcesValues: new Map<string, Set<string>>(restrictedResourcesMap),
-    };
-
-    const session = {
-      actions: new Map<string, { isDeleted: boolean; isRestricted: boolean; restrictedByAction: boolean }>(),
-      resources: new Map<string, { isRestricted: boolean }>(),
-      resourceValues: new Map<string, Set<string>>()
-    };
-
-    const collectFromAction = (roleName: string, action: any) => {
-      const actionKey = `${roleName}|${action.code}`;
-      session.actions.set(actionKey, {
-        isDeleted: !!action.isDeleted,
-        isRestricted: !!action.isRestricted,
-        restrictedByAction: !!action.restrictedByAction,
-      });
-      
-      action.resources?.forEach((res: any) => {
-        res.externalResources?.forEach((ext: any) => {
-          const values = extractExternalResourceValues(ext);
-          const resKey = getResourceKey(roleName, res.code, ext.code);
-          session.resources.set(resKey, { isRestricted: !!res.isRestricted });
-          
-          if (res.isRestricted) {
-            const valuesSet = new Set<string>(values);
-            session.resourceValues.set(resKey, valuesSet);
-          }
-        });
-      });
-    };
-
-    simpleRoles.forEach(role => {
-      role.risks?.forEach((risk: any) => {
-        risk.functions?.forEach((fn: any) => {
-          fn.actions?.forEach((action: any) => collectFromAction(role.roleName, action));
-        });
-      });
-    });
-
-    compositeRoles.forEach(role => {
-      role.risks?.forEach((risk: any) => {
-        risk.functions?.forEach((fn: any) => {
-          fn.simpleRoles?.forEach((sRole: any) => {
-            sRole.actions?.forEach((action: any) => collectFromAction(sRole.roleName, action));
-          });
-        });
-      });
-    });
-
-    // UI ≈ Session (les composants lisent depuis la session)
-    const ui = {
-      actions: session.actions,
-      resources: session.resources,
-      resourceValues: session.resourceValues,
-    };
-
-    const diffs = {
-      actions: [] as Array<{
-        key: string;
-        maps: { deleted?: boolean; restricted?: boolean; restrictedByAction?: boolean };
-        session: { isDeleted: boolean; isRestricted: boolean; restrictedByAction: boolean };
-      }>,
-      resources: [] as Array<{
-        key: string;
-        maps: { valuesCount: number };
-        session: { isRestricted: boolean };
-      }>,
-      values: [] as Array<{
-        key: string;
-        mapsValues: string[];
-        sessionValues: string[];
-        missingInMaps: string[];
-        missingInSession: string[];
-      }>,
-    };
+  // 🔄 FONCTION DE RÉINITIALISATION COMPLÈTE
+  const resetAllSodStates = useCallback(() => {
+    console.log('🔄 [SOD PAGE RESET] Réinitialisation de tous les états de la page...');
     
-    const allActionKeys = new Set<string>([
-      ...Array.from(maps.actionsDeleted.keys() as Iterable<string>),
-      ...Array.from(maps.actionsRestricted.keys() as Iterable<string>),
-      ...Array.from(session.actions.keys() as Iterable<string>),
-    ]);
-    allActionKeys.forEach(key => {
-      const mapDeleted = !!maps.actionsDeleted.get(key);
-      const mapRestricted = !!maps.actionsRestricted.get(key);
-      const mapRestrictedByAction = !!maps.actionsRestricted.get(key)?.restrictedByAction;
-      const ses = session.actions.get(key) || { isDeleted: false, isRestricted: false, restrictedByAction: false };
-
-      if (mapDeleted !== ses.isDeleted || mapRestricted !== ses.isRestricted || mapRestrictedByAction !== ses.restrictedByAction) {
-        diffs.actions.push({
-          key,
-          maps: { deleted: mapDeleted, restricted: mapRestricted, restrictedByAction: mapRestrictedByAction },
-          session: ses,
-        });
-      }
-    });
-
-    const allResKeys = new Set<string>([
-      ...Array.from(maps.resourcesValues.keys() as Iterable<string>),
-      ...Array.from(session.resources.keys() as Iterable<string>),
-    ]);
-    allResKeys.forEach(key => {
-      const mapValues = maps.resourcesValues.get(key);
-      const valuesCount = mapValues ? mapValues.size : 0;
-      const sesRes = session.resources.get(key) || { isRestricted: false };
-      const mapIsRestricted = valuesCount > 0;
-
-      if (mapIsRestricted !== sesRes.isRestricted) {
-        diffs.resources.push({ key, maps: { valuesCount }, session: { isRestricted: sesRes.isRestricted } });
-      }
-    });
-
-    const allResKeysForValues = new Set<string>([
-      ...Array.from(maps.resourcesValues.keys() as Iterable<string>),
-      ...Array.from(session.resourceValues.keys() as Iterable<string>),
-    ]);
-    allResKeysForValues.forEach(key => {
-      const mapVals = maps.resourcesValues.get(key) || new Set<string>();
-      const sesVals = session.resourceValues.get(key) || new Set<string>();
-      const mapsArray = Array.from(mapVals) as string[];
-      const sesArray = Array.from(sesVals) as string[];
-      const missingInMaps = sesArray.filter(v => !mapVals.has(v));
-      const missingInSession = mapsArray.filter(v => !sesVals.has(v));
-      if (missingInMaps.length || missingInSession.length) {
-        diffs.values.push({
-          key,
-          mapsValues: mapsArray,
-          sessionValues: sesArray,
-          missingInMaps,
-          missingInSession,
-        });
-      }
-    });
-
-    return { maps, session, ui, diffs };
-  }, [simpleRoles, compositeRoles, sodWorkflow.state.session?.updatedAt]);
+    // 1. Réinitialiser les états de navigation
+    setPrioritySimpleRoleName(undefined);
+    setPriorityCompositeRoleName(undefined);
+    setIsNavigating(false);
+    
+    // 2. Réinitialiser la pagination (retour à la page 0)
+    simplePagination.handlePageChange(null, 0);
+    compositePagination.handlePageChange(null, 0);
+    
+    // 3. Réinitialiser le workflow complet (inclut Maps, Session, Parser)
+    sodWorkflow.actions.resetWorkflow();
+    
+    // 4. Réinitialiser les états UI (navigation des risques)
+    // Note: Les états UI des composants seront automatiquement réinitialisés
+    // quand la session sera vide après resetWorkflow()
+    
+    console.log('✅ [SOD PAGE RESET] Tous les états réinitialisés');
+  }, [simplePagination, compositePagination, sodWorkflow.actions]);
 
   // ⚡ Prefetch automatique des pages adjacentes au changement de page
   useEffect(() => {
@@ -303,69 +162,6 @@ export default function SodAnalysisPage() {
     }
   }, [compositePagination.currentPage, prefetchCompositePages, sodWorkflow.state.session?.id]);
 
-  {/* ====== DEBUG: Comparaison Maps vs Session vs UI ====== */}
-  <Box sx={{ mt: 2 }}>
-    <Typography variant="subtitle1" fontWeight="bold">Comparaison Maps vs Session vs UI</Typography>
-    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-      <Chip label={`Actions (Maps): D=${Array.from(debugCompare.maps.actionsDeleted.keys()).length} R=${Array.from(debugCompare.maps.actionsRestricted.keys()).length}`} size="small" />
-      <Chip label={`Ressources (Maps): ${debugCompare.maps.resourcesValues.size}`} size="small" />
-      <Chip label={`Divergences (Actions): ${debugCompare.diffs.actions.length}`} color={debugCompare.diffs.actions.length ? 'warning' : 'success'} size="small" />
-      <Chip label={`Divergences (Ressources): ${debugCompare.diffs.resources.length}`} color={debugCompare.diffs.resources.length ? 'warning' : 'success'} size="small" />
-      <Chip label={`Divergences (Valeurs): ${debugCompare.diffs.values.length}`} color={debugCompare.diffs.values.length ? 'warning' : 'success'} size="small" />
-    </Box>
-    <Paper sx={{ p: 2, mt: 1 }}>
-      <Typography variant="subtitle2" fontWeight="bold">Divergences Actions</Typography>
-      {debugCompare.diffs.actions.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">Aucune</Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
-          {debugCompare.diffs.actions.map(row => (
-            <Box key={row.key} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Chip label={row.key} size="small" />
-              <Chip label={`Maps D:${row.maps.deleted?'1':'0'} R:${row.maps.restricted?'1':'0'} RD:${row.maps.restrictedByAction?'1':'0'}`} size="small" color="warning" variant="outlined" />
-              <Chip label={`Sess D:${row.session.isDeleted?'1':'0'} R:${row.session.isRestricted?'1':'0'} RD:${row.session.restrictedByAction?'1':'0'}`} size="small" color="info" variant="outlined" />
-            </Box>
-          ))}
-        </Box>
-      )}
-    </Paper>
-    <Paper sx={{ p: 2, mt: 1 }}>
-      <Typography variant="subtitle2" fontWeight="bold">Divergences Ressources</Typography>
-      {debugCompare.diffs.resources.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">Aucune</Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
-          {debugCompare.diffs.resources.map(row => (
-            <Box key={row.key} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Chip label={row.key} size="small" />
-              <Chip label={`Maps values:${row.maps.valuesCount}`} size="small" color="warning" variant="outlined" />
-              <Chip label={`Sess isRestricted:${row.session.isRestricted?'1':'0'}`} size="small" color="info" variant="outlined" />
-            </Box>
-          ))}
-        </Box>
-      )}
-    </Paper>
-    <Paper sx={{ p: 2, mt: 1 }}>
-      <Typography variant="subtitle2" fontWeight="bold">Divergences Valeurs (par ressource)</Typography>
-      {debugCompare.diffs.values.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">Aucune</Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-          {debugCompare.diffs.values.map(row => (
-            <Box key={row.key}>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{row.key}</Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                <Chip label={`Maps: [${row.mapsValues.join(', ')}]`} size="small" variant="outlined" />
-                <Chip label={`Session: [${row.sessionValues.join(', ')}]`} size="small" variant="outlined" />
-                {!!row.missingInMaps.length && <Chip label={`Manque dans Maps: [${row.missingInMaps.join(', ')}]`} size="small" color="warning" />}
-                {!!row.missingInSession.length && <Chip label={`Manque dans Session: [${row.missingInSession.join(', ')}]`} size="small" color="warning" />}
-              </Box>
-            </Box>
-          ))}
-        </Box>
-      )}
-    </Paper>
-  </Box>
 
   // 🚀 LAZY LOADING : Chargement progressif RAPIDE pour pages avec beaucoup de rôles
   const {
@@ -861,6 +657,7 @@ export default function SodAnalysisPage() {
             onFileUpload={(file) => sodWorkflow.actions.startNewAnalysis(file)}
             onLoadSavedAnalysis={sodWorkflow.actions.loadSavedAnalysis}
             onResumeFromFile={sodWorkflow.actions.resumeFromFile}
+            onResetBeforeUpload={resetAllSodStates}
           />
         </Grid>
 
@@ -883,207 +680,6 @@ export default function SodAnalysisPage() {
         error={sodWorkflow.state.parsingError}
       />
 
-      {/* 🐛 Section de Debug - État des restrictions */}
-      {sodWorkflow.state.session && (
-        <Accordion sx={{ mt: 2 }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <BugReportIcon color="info" />
-              <Typography variant="h6">
-                🐛 Debug - État des Restrictions
-              </Typography>
-              <Chip 
-                label={`${debugStates.deletedActions.size} supprimées`} 
-                size="small" 
-                color="error" 
-              />
-              <Chip 
-                label={`${debugStates.restrictedActions.size} actions restreintes`} 
-                size="small" 
-                color="warning" 
-              />
-              <Chip 
-                label={`${debugStates.restrictedResources.size} ressources restreintes`} 
-                size="small" 
-                color="info" 
-              />
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              
-              {/* Actions supprimées */}
-              <Paper sx={{ p: 2, bgcolor: 'error.50' }}>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  🗑️ Actions Supprimées ({debugStates.deletedActions.size})
-                </Typography>
-                {debugStates.deletedActions.size === 0 ? (
-                  <Typography variant="body2" color="text.secondary">Aucune action supprimée</Typography>
-                ) : (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                    {Array.from(debugStates.deletedActions.entries()).map(([key, _value]) => {
-                      const [roleName, actionCode] = key.split('|');
-                      return (
-                        <Chip 
-                          key={key} 
-                          label={`${roleName} → ${actionCode}`}
-                          size="small"
-                          color="error"
-                          variant="outlined"
-                        />
-                      );
-                    })}
-                  </Box>
-                )}
-          </Paper>
-
-              {/* Actions restreintes */}
-              <Paper sx={{ p: 2, bgcolor: 'warning.50' }}>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  🚫 Actions Restreintes ({debugStates.restrictedActions.size})
-                </Typography>
-                {debugStates.restrictedActions.size === 0 ? (
-                  <Typography variant="body2" color="text.secondary">Aucune action restreinte</Typography>
-                ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                    {Array.from(debugStates.restrictedActions.entries()).map(([key, value]) => {
-                      const [roleName, actionCode] = key.split('|');
-                      return (
-                        <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Chip 
-                            label={`${roleName} → ${actionCode}`}
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                          />
-                          {value?.restrictedByAction && (
-                            <Chip 
-                              label="🚫 Directe"
-                              size="small"
-                              color="warning"
-                            />
-                          )}
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                )}
-              </Paper>
-
-              {/* Ressources restreintes */}
-              <Paper sx={{ p: 2, bgcolor: 'info.50' }}>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  🔒 Ressources Restreintes ({debugStates.restrictedResources.size})
-                </Typography>
-                {debugStates.restrictedResources.size === 0 ? (
-                  <Typography variant="body2" color="text.secondary">Aucune ressource restreinte</Typography>
-                ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                    {Array.from(debugStates.restrictedResources.entries()).map(([key, valuesSet]) => {
-                      const [roleName, resourceCode, externalResourceCode] = key.split('|');
-                      // ✅ Afficher UNIQUEMENT les valeurs qui sont dans restrictedResourcesRef
-                      const restrictedValues = Array.from(valuesSet);
-                      
-                      // Ne pas afficher si aucune valeur restreinte
-                      if (restrictedValues.length === 0) return null;
-                      
-                      return (
-                        <Box key={key} sx={{ p: 1, border: '1px solid', borderColor: 'info.main', borderRadius: 1 }}>
-                          <Typography variant="body2" fontWeight="bold">
-                            {roleName} → {resourceCode} → {externalResourceCode === 'NULL' ? '(pas de code externe)' : externalResourceCode}
-              </Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                            {restrictedValues.map((value, idx) => (
-                              <Chip 
-                                key={idx}
-                                label={value}
-                                size="small"
-                                color="info"
-                                variant="filled"
-                              />
-                            ))}
-              </Box>
-            </Box>
-                      );
-                    })}
-                  </Box>
-                )}
-              </Paper>
-
-              {/* ====== 🔍 Comparaison Maps vs Session vs UI ====== */}
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">🔍 Comparaison Maps vs Session vs UI</Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                  <Chip label={`Actions (Maps): D=${Array.from(debugCompare.maps.actionsDeleted.keys()).length} R=${Array.from(debugCompare.maps.actionsRestricted.keys()).length}`} size="small" />
-                  <Chip label={`Ressources (Maps): ${debugCompare.maps.resourcesValues.size}`} size="small" />
-                  <Chip label={`Divergences (Actions): ${debugCompare.diffs.actions.length}`} color={debugCompare.diffs.actions.length ? 'warning' : 'success'} size="small" />
-                  <Chip label={`Divergences (Ressources): ${debugCompare.diffs.resources.length}`} color={debugCompare.diffs.resources.length ? 'warning' : 'success'} size="small" />
-                  <Chip label={`Divergences (Valeurs): ${debugCompare.diffs.values.length}`} color={debugCompare.diffs.values.length ? 'warning' : 'success'} size="small" />
-                </Box>
-                
-                {/* Divergences Actions */}
-                <Paper sx={{ p: 2, mt: 1 }}>
-                  <Typography variant="subtitle2" fontWeight="bold">⚠️ Divergences Actions</Typography>
-                  {debugCompare.diffs.actions.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">✅ Aucune divergence</Typography>
-                  ) : (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
-                      {debugCompare.diffs.actions.map(row => (
-                        <Box key={row.key} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <Chip label={row.key} size="small" />
-                          <Chip label={`Maps D:${row.maps.deleted?'1':'0'} R:${row.maps.restricted?'1':'0'} RD:${row.maps.restrictedByAction?'1':'0'}`} size="small" color="warning" variant="outlined" />
-                          <Chip label={`Sess D:${row.session.isDeleted?'1':'0'} R:${row.session.isRestricted?'1':'0'} RD:${row.session.restrictedByAction?'1':'0'}`} size="small" color="info" variant="outlined" />
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                </Paper>
-                
-                {/* Divergences Ressources */}
-                <Paper sx={{ p: 2, mt: 1 }}>
-                  <Typography variant="subtitle2" fontWeight="bold">⚠️ Divergences Ressources</Typography>
-                  {debugCompare.diffs.resources.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">✅ Aucune divergence</Typography>
-                  ) : (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
-                      {debugCompare.diffs.resources.map(row => (
-                        <Box key={row.key} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <Chip label={row.key} size="small" />
-                          <Chip label={`Maps values:${row.maps.valuesCount}`} size="small" color="warning" variant="outlined" />
-                          <Chip label={`Sess isRestricted:${row.session.isRestricted?'1':'0'}`} size="small" color="info" variant="outlined" />
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                </Paper>
-                
-                {/* Divergences Valeurs */}
-                <Paper sx={{ p: 2, mt: 1 }}>
-                  <Typography variant="subtitle2" fontWeight="bold">⚠️ Divergences Valeurs (par ressource)</Typography>
-                  {debugCompare.diffs.values.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">✅ Aucune divergence</Typography>
-                  ) : (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                      {debugCompare.diffs.values.map(row => (
-                        <Box key={row.key}>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{row.key}</Typography>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                            <Chip label={`Maps: [${row.mapsValues.join(', ')}]`} size="small" variant="outlined" />
-                            <Chip label={`Session: [${row.sessionValues.join(', ')}]`} size="small" variant="outlined" />
-                            {!!row.missingInMaps.length && <Chip label={`Manque dans Maps: [${row.missingInMaps.join(', ')}]`} size="small" color="warning" />}
-                            {!!row.missingInSession.length && <Chip label={`Manque dans Session: [${row.missingInSession.join(', ')}]`} size="small" color="warning" />}
-                          </Box>
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                </Paper>
-              </Box>
-
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-      )}
 
       {/* Résultats d'analyse */}
       {sodWorkflow.state.session && (

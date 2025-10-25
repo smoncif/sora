@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SodCompositeRole } from 'lib/types/sodAnalysis';
 import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
@@ -174,13 +173,6 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
           )}
         </IconButton>
         
-        {/* Icône de rôle composite */}
-        <AccountTreeIcon
-          sx={{
-            fontSize: 32,
-            color: theme.palette.primary.main,
-          }}
-        />
         
         {/* Nom du rôle composite */}
         <Box sx={{ flex: 1 }}>
@@ -218,7 +210,7 @@ export const SodCompositeRoleCard: React.FC<SodCompositeRoleCardProps> = React.m
           {remediationStatus.isRemediated ? (
             <Chip
               icon={<CheckCircleIcon />}
-              label="100% Remedié"
+              label="Remedié"
               size="medium"
               sx={{
                 backgroundColor: alpha(theme.palette.success.main, 0.15),
