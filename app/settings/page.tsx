@@ -96,13 +96,12 @@ export default function SettingsPage() {
               sx={{
                 height: '100%',
                 borderRadius: 3,
-                border: `3px solid ${alpha(theme.palette.divider, 0.3)}`,
-                boxShadow: `0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05)`,
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
                 transition: 'all 0.3s ease-in-out',
                 '&:hover': {
                   transform: 'translateY(-4px)',
-                  boxShadow: `0 12px 32px ${alpha(theme.palette.common.black, 0.15)}, 0 0 0 1px ${alpha(card.color, 0.2)}`,
-                  border: `3px solid ${alpha(card.color, 0.6)}`,
+                  boxShadow: `0 12px 32px ${alpha(theme.palette.common.black, 0.15)}`,
+                  border: `1px solid ${alpha(card.color, 0.3)}`,
                 },
               }}
             >
