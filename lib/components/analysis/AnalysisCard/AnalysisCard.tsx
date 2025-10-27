@@ -40,7 +40,7 @@ import { useItemFocus } from '../../../contexts';
 import { useScoreCalculation } from '../../../hooks/analysis/useScoreCalculation';
 import { useComparisonContext } from '../../../contexts';
 import { calculateMaxLicense } from 'lib/services/license/licenseService';
-import { generateJobDescriptionPayload, sendJobDescriptionToWebhook } from 'lib/services/analysis/generateJobDescriptionService';
+import { generateJobDescriptionPayload, sendJobDescriptionToWebhook, testWebhookConnection } from 'lib/services/analysis/generateJobDescriptionService';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
 // 🚀 OPTIMISÉ : SimpleRoleRow avec memoization avancée
@@ -455,6 +455,9 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   // 🔀 NOUVEAU : État pour la génération de fiche
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = React.useState(false);
+  
+  // 🧪 TEST : État pour le test du webhook
+  const [isTestingWebhook, setIsTestingWebhook] = React.useState(false);
 
   // 🔀 NOUVEAU : Handlers pour la comparaison
   const handleComparisonSelect = React.useCallback((role: any) => {
@@ -468,6 +471,18 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   const handleCloseComparisonModal = React.useCallback(() => {
     setIsComparisonModalOpen(false);
+  }, []);
+
+  // 🧪 TEST : Handler pour tester le webhook
+  const handleTestWebhook = React.useCallback(async () => {
+    setIsTestingWebhook(true);
+    try {
+      await testWebhookConnection();
+    } catch (error) {
+      console.error('Erreur lors du test du webhook:', error);
+    } finally {
+      setIsTestingWebhook(false);
+    }
   }, []);
 
   // 🔀 NOUVEAU : Handler pour générer la fiche de poste
@@ -1156,6 +1171,16 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               sx={{ minWidth: 120 }}
             >
               {isGeneratingJobDescription ? 'Génération...' : 'Générer fiche'}
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="info"
+              onClick={handleTestWebhook}
+              disabled={isTestingWebhook}
+              sx={{ minWidth: 100 }}
+            >
+              {isTestingWebhook ? 'Test...' : '🧪 Test'}
             </Button>
           </Box>
         </Box>
