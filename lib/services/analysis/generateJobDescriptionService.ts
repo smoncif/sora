@@ -115,18 +115,17 @@ export function generateJobDescriptionPayload(
 }
 
 /**
- * Envoie le payload au webhook N8N
+ * Envoie le payload au webhook N8N via l'API Next.js (proxy pour éviter CORS)
  * 
  * @param payload Le payload JSON à envoyer
  * @returns La réponse du webhook
  */
 export async function sendJobDescriptionToWebhook(
   payload: JobDescriptionPayload
-): Promise<Response> {
-  const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook-test/generate-job-description';
-  
+): Promise<any> {
   try {
-    const response = await fetch(WEBHOOK_URL, {
+    // Appeler notre route API Next.js qui fait le proxy vers N8N
+    const response = await fetch('/api/job-description', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -134,11 +133,13 @@ export async function sendJobDescriptionToWebhook(
       body: JSON.stringify(payload)
     });
     
+    const data = await response.json();
+    
     if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+      throw new Error(data.error || `Erreur HTTP: ${response.status} ${response.statusText}`);
     }
     
-    return response;
+    return data;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Erreur lors de l'envoi au webhook: ${error.message}`);
