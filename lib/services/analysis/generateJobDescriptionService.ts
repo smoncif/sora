@@ -124,7 +124,10 @@ export async function testWebhookConnection(): Promise<void> {
   console.log('🧪 Test du webhook N8N avec données minimales: {test: 1}');
   
   fetch(WEBHOOK_URL, {
-    method: 'post',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({test: 1})
   })
     .then(async response => {
