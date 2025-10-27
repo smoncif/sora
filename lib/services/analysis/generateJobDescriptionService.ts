@@ -121,59 +121,25 @@ export function generateJobDescriptionPayload(
 export async function testWebhookConnection(): Promise<void> {
   const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook/generate-job-description';
   
-  const testPayload = {
-    profileName: "TEST - Accounting Clerk",
-    roles: [
-      {
-        roleId: "TEST_ROLE_001",
-        roleName: "Test Gestion",
-        type: "CREATION" as const,
-        transactions: [
-          {
-            code: "VA01",
-            description: "Test transaction 1"
-          }
-        ]
-      }
-    ]
-  };
+  console.log('🧪 Test du webhook N8N avec données minimales: {test: 1}');
   
-  console.log('🧪 Test du webhook N8N avec données:', testPayload);
-  
-  try {
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(testPayload)
-    });
-    
-    console.log('📥 Réponse reçue:', response.status, response.statusText);
-    
-    const data = await response.json().catch(async () => {
-      const text = await response.text();
-      console.log('📄 Contenu de la réponse:', text);
-      return { rawText: text };
-    });
-    
-    console.log('✅ Données reçues:', data);
-    
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
-    }
-    
-    alert('✅ Test réussi ! Vérifiez la console pour les détails.');
-  } catch (error) {
-    console.error('❌ Erreur lors du test:', error);
-    if (error instanceof Error) {
-      alert(`❌ Erreur lors du test: ${error.message}`);
+  fetch(WEBHOOK_URL, {
+    method: 'post',
+    body: JSON.stringify({test: 1})
+  })
+    .then(response => {
+      console.log('📥 Réponse reçue:', response.status, response.statusText);
+      return response.json();
+    })
+    .then(data => {
+      console.log('✅ Données reçues:', data);
+      alert('✅ Test réussi ! Vérifiez la console pour les détails.');
+    })
+    .catch(error => {
+      console.error('❌ Erreur lors du test:', error);
+      alert(`❌ Erreur lors du test: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
       throw error;
-    } else {
-      alert('❌ Erreur inconnue lors du test');
-      throw new Error('Erreur inconnue');
-    }
-  }
+    });
 }
 
 /**
