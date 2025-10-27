@@ -127,13 +127,23 @@ export async function testWebhookConnection(): Promise<void> {
     method: 'post',
     body: JSON.stringify({test: 1})
   })
-    .then(response => {
+    .then(async response => {
       console.log('📥 Réponse reçue:', response.status, response.statusText);
-      return response.json();
-    })
-    .then(data => {
-      console.log('✅ Données reçues:', data);
-      alert('✅ Test réussi ! Vérifiez la console pour les détails.');
+      console.log('📋 Headers:', response.headers);
+      
+      // Lire le contenu comme texte d'abord
+      const text = await response.text();
+      console.log('📄 Contenu brut de la réponse:', text);
+      
+      // Essayer de parser comme JSON
+      try {
+        const data = JSON.parse(text);
+        console.log('✅ Données JSON:', data);
+        alert('✅ Test réussi ! Vérifiez la console pour les détails.');
+      } catch (jsonError) {
+        console.log('⚠️ La réponse n\'est pas du JSON valide');
+        alert('⚠️ La réponse n\'est pas du JSON. Vérifiez la console pour le contenu.');
+      }
     })
     .catch(error => {
       console.error('❌ Erreur lors du test:', error);
