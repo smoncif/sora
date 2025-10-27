@@ -15,17 +15,24 @@ export const config = {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📥 API Route appelée pour générer fiche de poste');
+    
     // Récupérer le body de la requête
     const body = await request.json();
     
+    console.log('📝 Payload reçu:', JSON.stringify(body, null, 2));
+    
     // Vérifier que le body contient les données nécessaires
     if (!body || !body.profileName || !body.roles) {
+      console.error('❌ Données manquantes dans le payload');
       return NextResponse.json(
         { error: 'Données manquantes: profileName et roles sont requis' },
         { status: 400 }
       );
     }
 
+    console.log('📤 Envoi au webhook N8N:', WEBHOOK_URL);
+    
     // Appeler le webhook N8N
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
@@ -34,6 +41,8 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(body),
     });
+
+    console.log('📥 Réponse du webhook:', response.status, response.statusText);
 
     // Vérifier si la réponse est OK
     if (!response.ok) {
@@ -44,7 +53,8 @@ export async function POST(request: NextRequest) {
         { 
           error: 'Erreur lors de l\'appel au webhook',
           details: errorText,
-          status: response.status 
+          status: response.status,
+          webhookUrl: WEBHOOK_URL
         },
         { status: 500 }
       );
@@ -64,7 +74,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         error: 'Erreur lors de la génération de la fiche de poste',
-        details: error instanceof Error ? error.message : 'Erreur inconnue'
+        details: error instanceof Error ? error.message : 'Erreur inconnue',
+        type: 'fetch_error'
       },
       { status: 500 }
     );
