@@ -115,17 +115,22 @@ export function generateJobDescriptionPayload(
 }
 
 /**
- * Envoie le payload au webhook N8N via l'API Next.js (proxy pour éviter CORS)
+ * Envoie le payload au webhook N8N via l'API route Next.js
+ * 
+ * Utilise une API route locale pour éviter les problèmes CORS
+ * Cette route fait le proxy vers le webhook N8N externe
  * 
  * @param payload Le payload JSON à envoyer
  * @returns La réponse du webhook
  */
 export async function sendJobDescriptionToWebhook(
   payload: JobDescriptionPayload
-): Promise<any> {
+): Promise<Response> {
+  // Utiliser l'API route locale pour éviter les problèmes CORS
+  const API_ROUTE_URL = '/api/generate-job-description';
+  
   try {
-    // Appeler notre route API Next.js qui fait le proxy vers N8N
-    const response = await fetch('/api/job-description', {
+    const response = await fetch(API_ROUTE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -133,13 +138,14 @@ export async function sendJobDescriptionToWebhook(
       body: JSON.stringify(payload)
     });
     
-    const data = await response.json();
-    
     if (!response.ok) {
-      throw new Error(data.error || `Erreur HTTP: ${response.status} ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
+      throw new Error(
+        errorData.error || errorData.details || `Erreur HTTP: ${response.status}`
+      );
     }
     
-    return data;
+    return response;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Erreur lors de l'envoi au webhook: ${error.message}`);

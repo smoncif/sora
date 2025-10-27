@@ -1,0 +1,85 @@
+/**
+ * API Route pour générer les fiches de poste via webhook N8N
+ * 
+ * Cette route agit comme un proxy pour éviter les problèmes CORS
+ * Frontend → /api/generate-job-description → N8N Webhook
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+
+const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook-test/generate-job-description';
+
+export const config = {
+  runtime: 'edge', // Utilise Edge Runtime pour de meilleures performances
+};
+
+export async function POST(request: NextRequest) {
+  try {
+    // Récupérer le body de la requête
+    const body = await request.json();
+    
+    // Vérifier que le body contient les données nécessaires
+    if (!body || !body.profileName || !body.roles) {
+      return NextResponse.json(
+        { error: 'Données manquantes: profileName et roles sont requis' },
+        { status: 400 }
+      );
+    }
+
+    // Appeler le webhook N8N
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    // Vérifier si la réponse est OK
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Erreur inconnue');
+      console.error('❌ Erreur du webhook N8N:', response.status, errorText);
+      
+      return NextResponse.json(
+        { 
+          error: 'Erreur lors de l\'appel au webhook',
+          details: errorText,
+          status: response.status 
+        },
+        { status: 500 }
+      );
+    }
+
+    // Lire la réponse du webhook
+    const data = await response.json().catch(() => ({ message: 'Succès' }));
+    
+    console.log('✅ Webhook N8N appelé avec succès:', data);
+    
+    // Retourner la réponse au client
+    return NextResponse.json(data, { status: response.status });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors du traitement:', error);
+    
+    return NextResponse.json(
+      { 
+        error: 'Erreur lors de la génération de la fiche de poste',
+        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Handler OPTIONS pour CORS preflight (si nécessaire)
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
