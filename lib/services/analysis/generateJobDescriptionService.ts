@@ -119,7 +119,7 @@ export function generateJobDescriptionPayload(
  * Utilisé pour déboguer les problèmes de connexion CORS
  */
 export async function testWebhookConnection(): Promise<void> {
-  const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook-test/generate-job-description';
+  const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook/generate-job-description';
   
   console.log('🧪 Test du webhook N8N avec données minimales: {test: 1}');
   
@@ -164,7 +164,7 @@ export async function testWebhookConnection(): Promise<void> {
 export async function sendJobDescriptionToWebhook(
   payload: JobDescriptionPayload
 ): Promise<Response> {
-  const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook-test/generate-job-description';
+  const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook/generate-job-description';
   
   try {
     const response = await fetch(WEBHOOK_URL, {
