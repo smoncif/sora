@@ -274,6 +274,8 @@ export interface BusinessRoleTransaction {
 export interface SimpleRoleTransaction {
   simpleRole: string;       // Rôle simple (obligatoire)
   transaction: string;      // Transaction (obligatoire)
+  roleDescription?: string; // Description du rôle simple (optionnel)
+  transactionDescription?: string; // Description de la transaction (optionnel)
 }
 
 /**

@@ -131,9 +131,9 @@ function createUserTransactionSheet(includeExamples: boolean): XLSX.WorkSheet {
       data.push([
         row.Utilisateur,
         row.Transaction,
-        row['Nombre d\'exécutions'],
-        row.Année,
-        row.Mois
+        String(row['Nombre d\'exécutions']),
+        String(row.Année),
+        String(row.Mois)
       ]);
     });
   } else {
@@ -229,8 +229,10 @@ function createBusinessRoleMappingSheet(includeExamples: boolean): XLSX.WorkShee
  */
 function createSimpleRoleTransactionSheet(includeExamples: boolean): XLSX.WorkSheet {
   const headers = [
-    'Rôle Simple',
-    'Transaction'
+    'Rôle simple',
+    'Description du rôle',
+    'Transaction',
+    'Description de la transaction'
   ];
 
   const data = [headers];
@@ -240,13 +242,15 @@ function createSimpleRoleTransactionSheet(includeExamples: boolean): XLSX.WorkSh
     EXAMPLE_SIMPLE_ROLE_TRANSACTIONS.forEach(row => {
       data.push([
         row['Rôle Simple'],
-        row.Transaction
+        '', // Description du rôle (vide dans les exemples)
+        row.Transaction,
+        '' // Description de la transaction (vide dans les exemples)
       ]);
     });
   } else {
     // Ajouter quelques lignes vides pour guider l'utilisateur
     for (let i = 0; i < 5; i++) {
-      data.push(['', '']);
+      data.push(['', '', '', '']);
     }
   }
 
@@ -254,14 +258,18 @@ function createSimpleRoleTransactionSheet(includeExamples: boolean): XLSX.WorkSh
   
   // Définir la largeur des colonnes
   worksheet['!cols'] = [
-    { wch: 40 }, // Rôle Simple
-    { wch: 15 }  // Transaction
+    { wch: 40 }, // Rôle simple
+    { wch: 40 }, // Description du rôle
+    { wch: 15 }, // Transaction
+    { wch: 40 }  // Description de la transaction
   ];
 
   // Ajouter des commentaires
   const comments = [
     { cell: 'A1', comment: 'Code du rôle simple SAP (ex: YS:CA:M:MD_CHANGE_CUSTOM_MASTER)' },
-    { cell: 'B1', comment: 'Code de la transaction SAP couverte par ce rôle (ex: FB03, MIRO)' }
+    { cell: 'B1', comment: 'Description du rôle simple (ex: BC: ABAP Workbench - Affichage)' },
+    { cell: 'C1', comment: 'Code de la transaction SAP couverte par ce rôle (ex: FB03, MIRO)' },
+    { cell: 'D1', comment: 'Description de la transaction (ex: Afficher client)' }
   ];
 
   comments.forEach(({ cell, comment }) => {

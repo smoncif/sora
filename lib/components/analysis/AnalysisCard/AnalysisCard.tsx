@@ -40,6 +40,7 @@ import { useItemFocus } from '../../../contexts';
 import { useScoreCalculation } from '../../../hooks/analysis/useScoreCalculation';
 import { useComparisonContext } from '../../../contexts';
 import { calculateMaxLicense } from 'lib/services/license/licenseService';
+import { generateJobDescriptionPayload, sendJobDescriptionToWebhook } from 'lib/services/analysis/generateJobDescriptionService';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
 // 🚀 OPTIMISÉ : SimpleRoleRow avec memoization avancée
@@ -452,6 +453,9 @@ export const AnalysisCard = React.memo(function AnalysisCard({
   // 🔀 NOUVEAU : État pour la modal de comparaison
   const [isComparisonModalOpen, setIsComparisonModalOpen] = React.useState(false);
 
+  // 🔀 NOUVEAU : État pour la génération de fiche
+  const [isGeneratingJobDescription, setIsGeneratingJobDescription] = React.useState(false);
+
   // 🔀 NOUVEAU : Handlers pour la comparaison
   const handleComparisonSelect = React.useCallback((role: any) => {
     toggleRoleSelection(role, analysis.businessRole);
@@ -465,6 +469,34 @@ export const AnalysisCard = React.memo(function AnalysisCard({
   const handleCloseComparisonModal = React.useCallback(() => {
     setIsComparisonModalOpen(false);
   }, []);
+
+  // 🔀 NOUVEAU : Handler pour générer la fiche de poste
+  const handleGenerateJobDescription = React.useCallback(async () => {
+    if (selectedRoles.size === 0) {
+      alert('Veuillez sélectionner au moins un rôle simple pour générer la fiche de poste.');
+      return;
+    }
+
+    setIsGeneratingJobDescription(true);
+    try {
+      // Générer le payload JSON
+      const payload = generateJobDescriptionPayload(
+        analysis.businessRole,
+        selectedRoles,
+        simpleRoleTransactions
+      );
+
+      // Envoyer au webhook N8N
+      await sendJobDescriptionToWebhook(payload);
+
+      alert('Fiche de poste générée avec succès !');
+    } catch (error) {
+      console.error('Erreur lors de la génération de la fiche de poste:', error);
+      alert(`Erreur lors de la génération de la fiche de poste: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    } finally {
+      setIsGeneratingJobDescription(false);
+    }
+  }, [selectedRoles, analysis.businessRole, simpleRoleTransactions]);
 
   // 🏷️ Calcul optimisé de la licence maximale pour ce rôle métier
   const maxLicense = React.useMemo(() => {
@@ -1094,8 +1126,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             
           </Box>
           
-          {/* Bouton Focus sur la même ligne que le titre */}
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          {/* Bouton Focus et Générer fiche sur la même ligne que le titre */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {!isInFocusMode ? (
               <Button
                 size="small"
@@ -1115,6 +1147,16 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 Quitter Focus
               </Button>
             )}
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              onClick={handleGenerateJobDescription}
+              disabled={isGeneratingJobDescription || selectedRoles.size === 0}
+              sx={{ minWidth: 120 }}
+            >
+              {isGeneratingJobDescription ? 'Génération...' : 'Générer fiche'}
+            </Button>
           </Box>
         </Box>
         

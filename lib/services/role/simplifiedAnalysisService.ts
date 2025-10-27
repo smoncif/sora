@@ -37,6 +37,8 @@ export interface ExcelParsingConfig {
     simpleRoles: {
       simpleRole: string;
       transaction: string;
+      roleDescription?: string;
+      transactionDescription?: string;
     };
   };
 }
@@ -61,7 +63,9 @@ const DEFAULT_CONFIG: ExcelParsingConfig = {
     },
     simpleRoles: {
       simpleRole: 'Rôle simple',
-      transaction: 'Transaction'
+      transaction: 'Transaction',
+      roleDescription: 'Description du rôle',
+      transactionDescription: 'Description de la transaction'
     }
   }
 };
@@ -287,7 +291,9 @@ function parseSimpleRoleSheet(
   const headerRow = data[0];
   const columnIndexes = {
     simpleRole: findColumnIndex(headerRow, columnMapping.simpleRole),
-    transaction: findColumnIndex(headerRow, columnMapping.transaction)
+    transaction: findColumnIndex(headerRow, columnMapping.transaction),
+    roleDescription: columnMapping.roleDescription ? findColumnIndex(headerRow, columnMapping.roleDescription) : -1,
+    transactionDescription: columnMapping.transactionDescription ? findColumnIndex(headerRow, columnMapping.transactionDescription) : -1
   };
   
   if (columnIndexes.simpleRole === -1) {
@@ -315,9 +321,15 @@ function parseSimpleRoleSheet(
       continue;
     }
     
+    // Extraire les champs optionnels
+    const roleDescription = columnIndexes.roleDescription >= 0 ? getCellValue(row, columnIndexes.roleDescription) : null;
+    const transactionDescription = columnIndexes.transactionDescription >= 0 ? getCellValue(row, columnIndexes.transactionDescription) : null;
+    
     transactions.push({
       simpleRole: String(simpleRole).trim(),
-      transaction: String(transaction).trim()
+      transaction: String(transaction).trim(),
+      roleDescription: roleDescription ? String(roleDescription).trim() : undefined,
+      transactionDescription: transactionDescription ? String(transactionDescription).trim() : undefined
     });
   }
   
