@@ -9,8 +9,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook-test/generate-job-description';
 
+// Utiliser Node.js runtime au lieu d'Edge pour éviter les limites de Edge Runtime
+// Edge Runtime n'a pas accès à tous les modules Node.js et a des limites de fetch
 export const config = {
-  runtime: 'edge', // Utilise Edge Runtime pour de meilleures performances
+  runtime: 'nodejs',
 };
 
 export async function POST(request: NextRequest) {
