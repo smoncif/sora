@@ -115,44 +115,22 @@ export function generateJobDescriptionPayload(
 }
 
 /**
- * TEST : Envoie des données de test minimales au webhook N8N
- * Utilisé pour déboguer les problèmes de connexion CORS
+ * Interface pour la réponse JSON du webhook N8N
  */
-export async function testWebhookConnection(): Promise<void> {
-  const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook/generate-job-description';
-  
-  console.log('🧪 Test du webhook N8N avec données minimales: {test: 1}');
-  
-  fetch(WEBHOOK_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({test: 1})
-  })
-    .then(async response => {
-      console.log('📥 Réponse reçue:', response.status, response.statusText);
-      console.log('📋 Headers:', response.headers);
-      
-      // Lire le contenu comme texte d'abord
-      const text = await response.text();
-      console.log('📄 Contenu brut de la réponse:', text);
-      
-      // Essayer de parser comme JSON
-      try {
-        const data = JSON.parse(text);
-        console.log('✅ Données JSON:', data);
-        alert('✅ Test réussi ! Vérifiez la console pour les détails.');
-      } catch (jsonError) {
-        console.log('⚠️ La réponse n\'est pas du JSON valide');
-        alert('⚠️ La réponse n\'est pas du JSON. Vérifiez la console pour le contenu.');
-      }
-    })
-    .catch(error => {
-      console.error('❌ Erreur lors du test:', error);
-      alert(`❌ Erreur lors du test: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
-      throw error;
-    });
+export interface JobDescriptionWebhookResponse {
+  success: boolean;
+  timestamp: string;
+  data: {
+    profileName: string;
+    jobDescription: string;
+    metadata: {
+      wordCount: number;
+      lineCount: number;
+      generatedAt: string;
+      isWithinLimit: boolean;
+      model: string;
+    };
+  };
 }
 
 /**
@@ -162,11 +140,11 @@ export async function testWebhookConnection(): Promise<void> {
  * Depuis le navigateur, le certificat auto-signé du tunnel est accepté
  * 
  * @param payload Le payload JSON à envoyer
- * @returns La réponse du webhook
+ * @returns La réponse JSON parsée du webhook
  */
 export async function sendJobDescriptionToWebhook(
   payload: JobDescriptionPayload
-): Promise<Response> {
+): Promise<JobDescriptionWebhookResponse> {
   const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook/generate-job-description';
   
   console.log('📤 Envoi des données au webhook N8N:');
@@ -190,7 +168,13 @@ export async function sendJobDescriptionToWebhook(
       throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
     }
     
-    return response;
+    // Parser la réponse JSON
+    try {
+      const jsonResponse: JobDescriptionWebhookResponse = JSON.parse(responseText);
+      return jsonResponse;
+    } catch (parseError) {
+      throw new Error(`Erreur lors du parsing de la réponse JSON: ${parseError instanceof Error ? parseError.message : 'Erreur inconnue'}`);
+    }
   } catch (error) {
     console.error('❌ Erreur lors de l\'envoi au webhook:', error);
     if (error instanceof Error) {

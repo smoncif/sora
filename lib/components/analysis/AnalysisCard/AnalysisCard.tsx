@@ -40,7 +40,9 @@ import { useItemFocus } from '../../../contexts';
 import { useScoreCalculation } from '../../../hooks/analysis/useScoreCalculation';
 import { useComparisonContext } from '../../../contexts';
 import { calculateMaxLicense } from 'lib/services/license/licenseService';
-import { generateJobDescriptionPayload, sendJobDescriptionToWebhook, testWebhookConnection } from 'lib/services/analysis/generateJobDescriptionService';
+import { generateJobDescriptionPayload, sendJobDescriptionToWebhook } from 'lib/services/analysis/generateJobDescriptionService';
+import { JobDescriptionModal } from '../JobDescriptionModal/JobDescriptionModal';
+import type { JobDescriptionWebhookResponse } from 'lib/services/analysis/generateJobDescriptionService';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
 // 🚀 OPTIMISÉ : SimpleRoleRow avec memoization avancée
@@ -455,9 +457,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   // 🔀 NOUVEAU : État pour la génération de fiche
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = React.useState(false);
-  
-  // 🧪 TEST : État pour le test du webhook
-  const [isTestingWebhook, setIsTestingWebhook] = React.useState(false);
+  const [jobDescriptionModalOpen, setJobDescriptionModalOpen] = React.useState(false);
+  const [jobDescriptionResponse, setJobDescriptionResponse] = React.useState<JobDescriptionWebhookResponse | null>(null);
 
   // 🔀 NOUVEAU : Handlers pour la comparaison
   const handleComparisonSelect = React.useCallback((role: any) => {
@@ -471,18 +472,6 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   const handleCloseComparisonModal = React.useCallback(() => {
     setIsComparisonModalOpen(false);
-  }, []);
-
-  // 🧪 TEST : Handler pour tester le webhook
-  const handleTestWebhook = React.useCallback(async () => {
-    setIsTestingWebhook(true);
-    try {
-      await testWebhookConnection();
-    } catch (error) {
-      console.error('Erreur lors du test du webhook:', error);
-    } finally {
-      setIsTestingWebhook(false);
-    }
   }, []);
 
   // 🔀 NOUVEAU : Handler pour générer la fiche de poste
@@ -501,10 +490,12 @@ export const AnalysisCard = React.memo(function AnalysisCard({
         simpleRoleTransactions
       );
 
-      // Envoyer au webhook N8N
-      await sendJobDescriptionToWebhook(payload);
+      // Envoyer au webhook N8N et récupérer la réponse
+      const response = await sendJobDescriptionToWebhook(payload);
 
-      alert('Fiche de poste générée avec succès !');
+      // Ouvrir le modal avec la réponse
+      setJobDescriptionResponse(response);
+      setJobDescriptionModalOpen(true);
     } catch (error) {
       console.error('Erreur lors de la génération de la fiche de poste:', error);
       alert(`Erreur lors de la génération de la fiche de poste: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
@@ -1172,16 +1163,6 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             >
               {isGeneratingJobDescription ? 'Génération...' : 'Générer fiche'}
             </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              color="info"
-              onClick={handleTestWebhook}
-              disabled={isTestingWebhook}
-              sx={{ minWidth: 100 }}
-            >
-              {isTestingWebhook ? 'Test...' : '🧪 Test'}
-            </Button>
           </Box>
         </Box>
         
@@ -1696,6 +1677,17 @@ export const AnalysisCard = React.memo(function AnalysisCard({
         onOpenSlider={openSlider}
       />
     )}
+
+    {/* Modal de fiche de poste */}
+    <JobDescriptionModal
+      open={jobDescriptionModalOpen}
+      onClose={() => {
+        setJobDescriptionModalOpen(false);
+        setJobDescriptionResponse(null);
+      }}
+      response={jobDescriptionResponse}
+      profileName={analysis.businessRole}
+    />
   </>
   );
 }, arePropsEqual);
