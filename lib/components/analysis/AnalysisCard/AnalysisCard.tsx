@@ -493,9 +493,16 @@ export const AnalysisCard = React.memo(function AnalysisCard({
       // Envoyer au webhook N8N et récupérer la réponse
       const response = await sendJobDescriptionToWebhook(payload);
 
+      console.log('🔍 Réponse reçue dans AnalysisCard:', response);
+      console.log('🔍 Type de la réponse:', typeof response);
+      console.log('🔍 Est un tableau?', Array.isArray(response));
+      console.log('🔍 Premier élément:', response?.[0]);
+
       // Ouvrir le modal avec la réponse
       setJobDescriptionResponse(response);
       setJobDescriptionModalOpen(true);
+      
+      console.log('🔍 Modal devrait s\'ouvrir maintenant');
     } catch (error) {
       console.error('Erreur lors de la génération de la fiche de poste:', error);
       alert(`Erreur lors de la génération de la fiche de poste: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);

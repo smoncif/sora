@@ -138,6 +138,14 @@ export function JobDescriptionModal({
   // Récupérer le premier élément du tableau de réponse
   const jobData = response?.[0];
 
+  console.log('🔍 JobDescriptionModal - Props:', { open, response, profileName });
+  console.log('🔍 JobDescriptionModal - jobData:', jobData);
+  console.log('🔍 JobDescriptionModal - Condition:', { 
+    hasResponse: !!response, 
+    hasJobData: !!jobData,
+    shouldRender: !(!response || !jobData)
+  });
+
   const handleDownloadPDF = React.useCallback(async () => {
     if (!jobData?.jobDescription) return;
     await downloadPDF(jobData.jobDescription, profileName);
@@ -148,7 +156,10 @@ export function JobDescriptionModal({
     await downloadWord(jobData.jobDescription, profileName);
   }, [jobData, profileName]);
 
-  if (!response || !jobData) return null;
+  if (!response || !jobData) {
+    console.log('⚠️ JobDescriptionModal - Retour null car:', { response, jobData });
+    return null;
+  }
 
   return (
     <Dialog
