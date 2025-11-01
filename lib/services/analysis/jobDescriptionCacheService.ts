@@ -140,7 +140,8 @@ class JobDescriptionCache {
     const now = Date.now();
     let cleanedCount = 0;
     
-    for (const [key, entry] of this.cache.entries()) {
+    const entries = Array.from(this.cache.entries());
+    for (const [key, entry] of entries) {
       if (now > entry.expiresAt || entry.version !== CACHE_CONFIG.VERSION) {
         this.cache.delete(key);
         cleanedCount++;
