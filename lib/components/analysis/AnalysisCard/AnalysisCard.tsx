@@ -41,8 +41,10 @@ import { useScoreCalculation } from '../../../hooks/analysis/useScoreCalculation
 import { useComparisonContext } from '../../../contexts';
 import { calculateMaxLicense } from 'lib/services/license/licenseService';
 import { generateJobDescriptionPayload, sendJobDescriptionToWebhook } from 'lib/services/analysis/generateJobDescriptionService';
+import { getCachedJobDescription, setCachedJobDescription, invalidateJobDescriptionCache } from 'lib/services/analysis/jobDescriptionCacheService';
 import { JobDescriptionModal } from '../JobDescriptionModal/JobDescriptionModal';
 import type { JobDescriptionWebhookResponse } from 'lib/services/analysis/generateJobDescriptionService';
+import type { CachedJobDescription } from 'lib/services/analysis/jobDescriptionCacheService';
 
 // 🚀 NOUVEAU : Composant isolé pour les lignes de rôles simples
 // 🚀 OPTIMISÉ : SimpleRoleRow avec memoization avancée
@@ -459,6 +461,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = React.useState(false);
   const [jobDescriptionModalOpen, setJobDescriptionModalOpen] = React.useState(false);
   const [jobDescriptionResponse, setJobDescriptionResponse] = React.useState<JobDescriptionWebhookResponse | null>(null);
+  const [jobDescriptionFromCache, setJobDescriptionFromCache] = React.useState(false);
+  const [jobDescriptionCachedAt, setJobDescriptionCachedAt] = React.useState<number | null>(null);
 
   // 🔀 NOUVEAU : Handlers pour la comparaison
   const handleComparisonSelect = React.useCallback((role: any) => {
@@ -474,8 +478,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
     setIsComparisonModalOpen(false);
   }, []);
 
-  // 🔀 NOUVEAU : Handler pour générer la fiche de poste
-  const handleGenerateJobDescription = React.useCallback(async () => {
+  // 🔀 NOUVEAU : Handler pour générer la fiche de poste avec cache
+  const handleGenerateJobDescription = React.useCallback(async (forceRegenerate = false) => {
     if (selectedRoles.size === 0) {
       alert('Veuillez sélectionner au moins un rôle simple pour générer la fiche de poste.');
       return;
@@ -483,6 +487,23 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
     setIsGeneratingJobDescription(true);
     try {
+      // Vérifier d'abord si une version en cache existe (sauf si régénération forcée)
+      if (!forceRegenerate) {
+        const cachedData = getCachedJobDescription(analysis.businessRole, selectedRoles);
+        
+        if (cachedData) {
+          console.log('✅ Fiche chargée depuis le cache');
+          setJobDescriptionResponse(cachedData.response);
+          setJobDescriptionFromCache(true);
+          setJobDescriptionCachedAt(cachedData.cachedAt);
+          setJobDescriptionModalOpen(true);
+          setIsGeneratingJobDescription(false);
+          return;
+        }
+      }
+
+      console.log(forceRegenerate ? '♻️ Régénération forcée' : '🆕 Génération nouvelle fiche');
+
       // Générer le payload JSON
       const payload = generateJobDescriptionPayload(
         analysis.businessRole,
@@ -493,16 +514,16 @@ export const AnalysisCard = React.memo(function AnalysisCard({
       // Envoyer au webhook N8N et récupérer la réponse
       const response = await sendJobDescriptionToWebhook(payload);
 
-      console.log('🔍 Réponse reçue dans AnalysisCard:', response);
-      console.log('🔍 Type de la réponse:', typeof response);
-      console.log('🔍 Est un tableau?', Array.isArray(response));
-      console.log('🔍 Premier élément:', response?.[0]);
+      console.log('✅ Réponse reçue du webhook N8N');
+
+      // Stocker dans le cache
+      setCachedJobDescription(analysis.businessRole, selectedRoles, response);
 
       // Ouvrir le modal avec la réponse
       setJobDescriptionResponse(response);
+      setJobDescriptionFromCache(false);
+      setJobDescriptionCachedAt(null);
       setJobDescriptionModalOpen(true);
-      
-      console.log('🔍 Modal devrait s\'ouvrir maintenant');
     } catch (error) {
       console.error('Erreur lors de la génération de la fiche de poste:', error);
       alert(`Erreur lors de la génération de la fiche de poste: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
@@ -1691,9 +1712,14 @@ export const AnalysisCard = React.memo(function AnalysisCard({
       onClose={() => {
         setJobDescriptionModalOpen(false);
         setJobDescriptionResponse(null);
+        setJobDescriptionFromCache(false);
+        setJobDescriptionCachedAt(null);
       }}
       response={jobDescriptionResponse}
       profileName={analysis.businessRole}
+      fromCache={jobDescriptionFromCache}
+      cachedAt={jobDescriptionCachedAt}
+      onRegenerate={() => handleGenerateJobDescription(true)}
     />
   </>
   );

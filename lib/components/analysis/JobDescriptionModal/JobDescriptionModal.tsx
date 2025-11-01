@@ -15,14 +15,18 @@ import {
   Paper,
   Divider,
 } from '@mui/material';
-import { Close as CloseIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { Close as CloseIcon, Download as DownloadIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import type { JobDescriptionWebhookResponse } from 'lib/services/analysis/generateJobDescriptionService';
+import { Chip } from '@mui/material';
 
 interface JobDescriptionModalProps {
   open: boolean;
   onClose: () => void;
   response: JobDescriptionWebhookResponse | null;
   profileName: string;
+  fromCache?: boolean;
+  cachedAt?: number | null;
+  onRegenerate?: () => void;
 }
 
 /**
@@ -132,10 +136,13 @@ export function JobDescriptionModal({
   onClose,
   response,
   profileName,
+  fromCache = false,
+  cachedAt = null,
+  onRegenerate,
 }: JobDescriptionModalProps) {
   const theme = useTheme();
 
-  console.log('✅ JobDescriptionModal - Props:', { open, response, profileName });
+  console.log('✅ JobDescriptionModal - Props:', { open, response, profileName, fromCache, cachedAt });
 
   const handleDownloadPDF = React.useCallback(async () => {
     if (!response?.jobDescription) return;
@@ -167,9 +174,20 @@ export function JobDescriptionModal({
     >
       <DialogTitle sx={{ pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-            Fiche de poste - {profileName}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+              Fiche de poste - {profileName}
+            </Typography>
+            {fromCache && (
+              <Chip
+                label="📋 Cache"
+                size="small"
+                color="info"
+                variant="outlined"
+                sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+              />
+            )}
+          </Box>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
@@ -190,7 +208,7 @@ export function JobDescriptionModal({
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
             Informations de génération
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: fromCache ? 2 : 0 }}>
             <Typography variant="body2" color="text.secondary">
               <strong>Modèle:</strong> {response.sourceModel}
             </Typography>
@@ -208,6 +226,33 @@ export function JobDescriptionModal({
               <strong>Statut:</strong> {response.success ? '✅ Succès' : '❌ Échec'}
             </Typography>
           </Box>
+          
+          {fromCache && cachedAt && (
+            <Box sx={{ 
+              mt: 2, 
+              pt: 2, 
+              borderTop: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                📋 Chargée depuis le cache le {new Date(cachedAt).toLocaleString('fr-FR')}
+              </Typography>
+              {onRegenerate && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<RefreshIcon />}
+                  onClick={onRegenerate}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                >
+                  Régénérer
+                </Button>
+              )}
+            </Box>
+          )}
         </Paper>
 
         {/* Description du poste */}
