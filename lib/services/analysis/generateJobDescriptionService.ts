@@ -115,9 +115,9 @@ export function generateJobDescriptionPayload(
 }
 
 /**
- * Interface pour un élément de réponse JSON du webhook N8N
+ * Interface pour la réponse JSON du webhook N8N (objet unique)
  */
-export interface JobDescriptionItem {
+export interface JobDescriptionWebhookResponse {
   jobDescription: string;
   wordCount: number;
   success: boolean;
@@ -125,11 +125,6 @@ export interface JobDescriptionItem {
   provider: string;
   createdAt: number; // Timestamp Unix
 }
-
-/**
- * Interface pour la réponse JSON du webhook N8N (tableau)
- */
-export type JobDescriptionWebhookResponse = JobDescriptionItem[];
 
 /**
  * Envoie le payload au webhook N8N directement depuis le navigateur

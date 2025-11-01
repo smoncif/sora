@@ -135,29 +135,20 @@ export function JobDescriptionModal({
 }: JobDescriptionModalProps) {
   const theme = useTheme();
 
-  // Récupérer le premier élément du tableau de réponse
-  const jobData = response?.[0];
-
-  console.log('🔍 JobDescriptionModal - Props:', { open, response, profileName });
-  console.log('🔍 JobDescriptionModal - jobData:', jobData);
-  console.log('🔍 JobDescriptionModal - Condition:', { 
-    hasResponse: !!response, 
-    hasJobData: !!jobData,
-    shouldRender: !(!response || !jobData)
-  });
+  console.log('✅ JobDescriptionModal - Props:', { open, response, profileName });
 
   const handleDownloadPDF = React.useCallback(async () => {
-    if (!jobData?.jobDescription) return;
-    await downloadPDF(jobData.jobDescription, profileName);
-  }, [jobData, profileName]);
+    if (!response?.jobDescription) return;
+    await downloadPDF(response.jobDescription, profileName);
+  }, [response, profileName]);
 
   const handleDownloadWord = React.useCallback(async () => {
-    if (!jobData?.jobDescription) return;
-    await downloadWord(jobData.jobDescription, profileName);
-  }, [jobData, profileName]);
+    if (!response?.jobDescription) return;
+    await downloadWord(response.jobDescription, profileName);
+  }, [response, profileName]);
 
-  if (!response || !jobData) {
-    console.log('⚠️ JobDescriptionModal - Retour null car:', { response, jobData });
+  if (!response) {
+    console.log('⚠️ JobDescriptionModal - Pas de réponse');
     return null;
   }
 
@@ -201,20 +192,20 @@ export function JobDescriptionModal({
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              <strong>Modèle:</strong> {jobData.sourceModel}
+              <strong>Modèle:</strong> {response.sourceModel}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              <strong>Fournisseur:</strong> {jobData.provider}
+              <strong>Fournisseur:</strong> {response.provider}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              <strong>Mots:</strong> {jobData.wordCount}
+              <strong>Mots:</strong> {response.wordCount}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               <strong>Généré le:</strong>{' '}
-              {new Date(jobData.createdAt * 1000).toLocaleString('fr-FR')}
+              {new Date(response.createdAt * 1000).toLocaleString('fr-FR')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              <strong>Statut:</strong> {jobData.success ? '✅ Succès' : '❌ Échec'}
+              <strong>Statut:</strong> {response.success ? '✅ Succès' : '❌ Échec'}
             </Typography>
           </Box>
         </Paper>
@@ -248,7 +239,7 @@ export function JobDescriptionModal({
               fontFamily: theme.typography.fontFamily,
             }}
           >
-            {jobData.jobDescription}
+            {response.jobDescription}
           </Typography>
         </Paper>
       </DialogContent>
@@ -264,7 +255,7 @@ export function JobDescriptionModal({
           variant="contained"
           color="primary"
           startIcon={<DownloadIcon />}
-          disabled={!jobData?.jobDescription}
+          disabled={!response?.jobDescription}
         >
           Télécharger Word
         </Button>
@@ -273,7 +264,7 @@ export function JobDescriptionModal({
           variant="contained"
           color="secondary"
           startIcon={<DownloadIcon />}
-          disabled={!jobData?.jobDescription}
+          disabled={!response?.jobDescription}
         >
           Télécharger PDF
         </Button>
