@@ -5,9 +5,9 @@
 import { SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 
 /**
- * Type de rôle (AFFICHAGE ou CREATION)
+ * Type de rôle (AFFICHAGE ou GESTION)
  */
-export type RoleType = 'AFFICHAGE' | 'CREATION';
+export type RoleType = 'AFFICHAGE' | 'GESTION';
 
 /**
  * Interface pour une transaction dans le JSON final
@@ -39,7 +39,7 @@ export interface JobDescriptionPayload {
  * Détermine le type de rôle en fonction de son ID
  * Règles :
  * - Si le rôle contient ":D:" ou ":A:" → AFFICHAGE
- * - Si le rôle contient ":M:" ou ":G:" → CREATION
+ * - Si le rôle contient ":M:" ou ":G:" → GESTION
  */
 function determineRoleType(roleId: string): RoleType {
   const roleIdUpper = roleId.toUpperCase();
@@ -49,7 +49,7 @@ function determineRoleType(roleId: string): RoleType {
   }
   
   if (roleIdUpper.includes(':M:') || roleIdUpper.includes(':G:')) {
-    return 'CREATION';
+    return 'GESTION';
   }
   
   // Par défaut, si aucun indicateur n'est trouvé, on considère comme AFFICHAGE
@@ -115,23 +115,21 @@ export function generateJobDescriptionPayload(
 }
 
 /**
- * Interface pour la réponse JSON du webhook N8N
+ * Interface pour un élément de réponse JSON du webhook N8N
  */
-export interface JobDescriptionWebhookResponse {
+export interface JobDescriptionItem {
+  jobDescription: string;
+  wordCount: number;
   success: boolean;
-  timestamp: string;
-  data: {
-    profileName: string;
-    jobDescription: string;
-    metadata: {
-      wordCount: number;
-      lineCount: number;
-      generatedAt: string;
-      isWithinLimit: boolean;
-      model: string;
-    };
-  };
+  sourceModel: string;
+  provider: string;
+  createdAt: number; // Timestamp Unix
 }
+
+/**
+ * Interface pour la réponse JSON du webhook N8N (tableau)
+ */
+export type JobDescriptionWebhookResponse = JobDescriptionItem[];
 
 /**
  * Envoie le payload au webhook N8N directement depuis le navigateur

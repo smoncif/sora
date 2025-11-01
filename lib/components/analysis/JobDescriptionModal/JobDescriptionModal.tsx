@@ -16,27 +16,12 @@ import {
   Divider,
 } from '@mui/material';
 import { Close as CloseIcon, Download as DownloadIcon } from '@mui/icons-material';
-
-export interface JobDescriptionResponse {
-  success: boolean;
-  timestamp: string;
-  data: {
-    profileName: string;
-    jobDescription: string;
-    metadata: {
-      wordCount: number;
-      lineCount: number;
-      generatedAt: string;
-      isWithinLimit: boolean;
-      model: string;
-    };
-  };
-}
+import type { JobDescriptionWebhookResponse } from 'lib/services/analysis/generateJobDescriptionService';
 
 interface JobDescriptionModalProps {
   open: boolean;
   onClose: () => void;
-  response: JobDescriptionResponse | null;
+  response: JobDescriptionWebhookResponse | null;
   profileName: string;
 }
 
@@ -150,17 +135,20 @@ export function JobDescriptionModal({
 }: JobDescriptionModalProps) {
   const theme = useTheme();
 
+  // Récupérer le premier élément du tableau de réponse
+  const jobData = response?.[0];
+
   const handleDownloadPDF = React.useCallback(async () => {
-    if (!response?.data.jobDescription) return;
-    await downloadPDF(response.data.jobDescription, profileName);
-  }, [response, profileName]);
+    if (!jobData?.jobDescription) return;
+    await downloadPDF(jobData.jobDescription, profileName);
+  }, [jobData, profileName]);
 
   const handleDownloadWord = React.useCallback(async () => {
-    if (!response?.data.jobDescription) return;
-    await downloadWord(response.data.jobDescription, profileName);
-  }, [response, profileName]);
+    if (!jobData?.jobDescription) return;
+    await downloadWord(jobData.jobDescription, profileName);
+  }, [jobData, profileName]);
 
-  if (!response) return null;
+  if (!response || !jobData) return null;
 
   return (
     <Dialog
@@ -178,7 +166,7 @@ export function JobDescriptionModal({
       <DialogTitle sx={{ pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-            Fiche de poste - {response.data.profileName}
+            Fiche de poste - {profileName}
           </Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
@@ -202,17 +190,20 @@ export function JobDescriptionModal({
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              <strong>Modèle:</strong> {response.data.metadata.model}
+              <strong>Modèle:</strong> {jobData.sourceModel}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              <strong>Mots:</strong> {response.data.metadata.wordCount}
+              <strong>Fournisseur:</strong> {jobData.provider}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              <strong>Lignes:</strong> {response.data.metadata.lineCount}
+              <strong>Mots:</strong> {jobData.wordCount}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               <strong>Généré le:</strong>{' '}
-              {new Date(response.data.metadata.generatedAt).toLocaleString('fr-FR')}
+              {new Date(jobData.createdAt * 1000).toLocaleString('fr-FR')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Statut:</strong> {jobData.success ? '✅ Succès' : '❌ Échec'}
             </Typography>
           </Box>
         </Paper>
@@ -246,7 +237,7 @@ export function JobDescriptionModal({
               fontFamily: theme.typography.fontFamily,
             }}
           >
-            {response.data.jobDescription}
+            {jobData.jobDescription}
           </Typography>
         </Paper>
       </DialogContent>
@@ -262,7 +253,7 @@ export function JobDescriptionModal({
           variant="contained"
           color="primary"
           startIcon={<DownloadIcon />}
-          disabled={!response?.data.jobDescription}
+          disabled={!jobData?.jobDescription}
         >
           Télécharger Word
         </Button>
@@ -271,7 +262,7 @@ export function JobDescriptionModal({
           variant="contained"
           color="secondary"
           startIcon={<DownloadIcon />}
-          disabled={!response?.data.jobDescription}
+          disabled={!jobData?.jobDescription}
         >
           Télécharger PDF
         </Button>
