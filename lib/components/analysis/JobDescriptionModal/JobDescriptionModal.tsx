@@ -258,17 +258,17 @@ export function JobDescriptionModal({
             }}
             dangerouslySetInnerHTML={{
               __html: response.jobDescription
-                // Supprimer les emojis
+                // Supprimer les emojis d'abord
                 .replace(/🎯\s*/g, '')
                 .replace(/💼\s*/g, '')
                 .replace(/👁️\s*/g, '')
-                // Convertir les titres markdown en gras (avant de remplacer \n)
-                .replace(/^####\s+(.*?)$/gm, '<strong>$1</strong>')
-                .replace(/^###\s+(.*?)$/gm, '<strong>$1</strong>')
-                .replace(/^##\s+(.*?)$/gm, '<strong>$1</strong>')
-                // Mettre en gras les titres en majuscules
+                // Convertir les titres markdown en balises HTML (AVANT de remplacer \n)
+                .replace(/^##\s+(.*?)$/gm, '<h2 style="font-size: 1.25rem; font-weight: 700; margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">$1</h2>')
+                .replace(/^###\s+(.*?)$/gm, '<h3 style="font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.5rem 0; text-transform: uppercase;">$1</h3>')
+                .replace(/^####\s+(.*?)$/gm, '<h4 style="font-size: 1rem; font-weight: 700; margin: 0.75rem 0 0.5rem 0; text-transform: uppercase;">$1</h4>')
+                // Mettre en gras les titres en majuscules qui ne sont pas des headers markdown
                 .replace(/([A-Z][A-Z\sÀ-ÿ]{2,}:)/g, '<strong>$1</strong>')
-                // Convertir les sauts de ligne en HTML
+                // Convertir les sauts de ligne en HTML (EN DERNIER)
                 .replace(/\n/g, '<br/>')
             }}
           />
