@@ -259,17 +259,18 @@ export function JobDescriptionModal({
                 .replace(/👁️\s*/g, '')
                 // Convertir les titres markdown en balises HTML avec majuscules (AVANT de remplacer \n)
                 .replace(/^##\s+(.+)$/gm, (match, title) => 
-                  `<h2 style="font-size: 1.25rem; font-weight: 700; margin: 1.5rem 0 0.75rem 0;">${title.toUpperCase()}</h2>`)
+                  `<h2 style="font-size: 1.15rem; font-weight: 700; margin: 0.75rem 0 0.4rem 0;">${title.toUpperCase()}</h2>`)
                 .replace(/^###\s+(.+)$/gm, (match, title) => 
-                  `<h3 style="font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.5rem 0;">${title.toUpperCase()}</h3>`)
+                  `<h3 style="font-size: 1.05rem; font-weight: 700; margin: 0.6rem 0 0.3rem 0;">${title.toUpperCase()}</h3>`)
                 .replace(/^####\s+(.+)$/gm, (match, title) => 
-                  `<h4 style="font-size: 1rem; font-weight: 700; margin: 0.75rem 0 0.5rem 0;">${title.toUpperCase()}</h4>`)
+                  `<h4 style="font-size: 0.95rem; font-weight: 700; margin: 0.5rem 0 0.25rem 0;">${title.toUpperCase()}</h4>`)
                 // Mettre en gras les titres en majuscules qui ne sont pas des headers markdown
                 .replace(/([A-Z][A-Z\sÀ-ÿ]{2,}:)/g, '<strong>$1</strong>')
-                // Réduire les sauts de ligne multiples (3+ → 2, 2 → 1)
-                .replace(/\n{3,}/g, '\n')
-                .replace(/\n{2}/g, '\n')
-                // Convertir les sauts de ligne en HTML (EN DERNIER)
+                // Nettoyer les espaces vides excessifs
+                .replace(/\n{3,}/g, '\n\n')
+                // Convertir double saut → <br>, simple saut → espace (EN DERNIER)
+                .replace(/\n\n/g, '<br/>')
+                .replace(/\n/g, ' ')
             }}
           />
         </Paper>
