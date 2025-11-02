@@ -140,10 +140,6 @@ export async function sendJobDescriptionToWebhook(
 ): Promise<JobDescriptionWebhookResponse> {
   const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook/generate-job-description';
   
-  console.log('📤 Envoi des données au webhook N8N:');
-  console.log('📄 URL:', WEBHOOK_URL);
-  console.log('📦 Payload:', JSON.stringify(payload, null, 2));
-  
   try {
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
@@ -153,9 +149,7 @@ export async function sendJobDescriptionToWebhook(
       body: JSON.stringify(payload)
     });
     
-    console.log('📥 Réponse du webhook:', response.status, response.statusText);
     const responseText = await response.text();
-    console.log('📋 Contenu de la réponse:', responseText);
     
     if (!response.ok) {
       throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);

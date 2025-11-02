@@ -58,13 +58,11 @@ class JobDescriptionCache {
   get(key: string): CachedJobDescription | null {
     const entry = this.cache.get(key);
     if (!entry) {
-      console.log('📋 Cache MISS:', key);
       return null;
     }
     
     // Vérifier si l'entrée a expiré
     if (Date.now() > entry.expiresAt) {
-      console.log('⏰ Cache expiré:', key);
       this.cache.delete(key);
       this.saveToStorage();
       return null;
@@ -72,13 +70,11 @@ class JobDescriptionCache {
     
     // Vérifier la version
     if (entry.version !== CACHE_CONFIG.VERSION) {
-      console.log('🔄 Version incompatible:', key);
       this.cache.delete(key);
       this.saveToStorage();
       return null;
     }
     
-    console.log('✅ Cache HIT:', key);
     return entry;
   }
 
@@ -103,7 +99,6 @@ class JobDescriptionCache {
     };
     
     this.cache.set(key, entry);
-    console.log('💾 Mise en cache:', key);
     
     // Limiter la taille du cache
     this.enforceMaxSize();
@@ -119,7 +114,6 @@ class JobDescriptionCache {
     const key = this.generateKey(businessRole, selectedRoles);
     this.cache.delete(key);
     this.saveToStorage();
-    console.log('🗑️ Cache invalidé:', key);
   }
 
   /**
@@ -130,7 +124,6 @@ class JobDescriptionCache {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(this.STORAGE_KEY);
     }
-    console.log('🗑️ Cache vidé complètement');
   }
 
   /**
@@ -150,7 +143,6 @@ class JobDescriptionCache {
     
     if (cleanedCount > 0) {
       this.saveToStorage();
-      console.log(`🧹 Nettoyage: ${cleanedCount} entrée(s) expirée(s) supprimée(s)`);
     }
   }
 
@@ -167,8 +159,6 @@ class JobDescriptionCache {
     // Supprimer les entrées en excès
     const toRemove = sorted.slice(0, this.cache.size - this.MAX_ENTRIES);
     toRemove.forEach(([key]) => this.cache.delete(key));
-    
-    console.log(`📏 Limitation: ${toRemove.length} entrée(s) supprimée(s)`);
   }
 
   /**
@@ -208,14 +198,12 @@ class JobDescriptionCache {
       
       // Vérifier la version
       if (parsed.version !== CACHE_CONFIG.VERSION) {
-        console.log('🔄 Version incompatible, cache réinitialisé');
         localStorage.removeItem(this.STORAGE_KEY);
         return;
       }
       
       // Restaurer les entrées
       this.cache = new Map(parsed.entries || []);
-      console.log(`📂 Cache chargé: ${this.cache.size} entrée(s)`);
     } catch (error) {
       console.error('❌ Erreur chargement cache:', error);
       localStorage.removeItem(this.STORAGE_KEY);

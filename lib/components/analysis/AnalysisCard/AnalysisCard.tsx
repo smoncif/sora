@@ -479,7 +479,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
   }, []);
 
   // 🔀 NOUVEAU : Handler pour générer la fiche de poste avec cache
-  const handleGenerateJobDescription = React.useCallback(async (forceRegenerate = false) => {
+  const handleGenerateJobDescription = React.useCallback(async (forceRegenerate: boolean = false) => {
     if (selectedRoles.size === 0) {
       alert('Veuillez sélectionner au moins un rôle simple pour générer la fiche de poste.');
       return;
@@ -492,7 +492,6 @@ export const AnalysisCard = React.memo(function AnalysisCard({
         const cachedData = getCachedJobDescription(analysis.businessRole, selectedRoles);
         
         if (cachedData) {
-          console.log('✅ Fiche chargée depuis le cache');
           setJobDescriptionResponse(cachedData.response);
           setJobDescriptionFromCache(true);
           setJobDescriptionCachedAt(cachedData.cachedAt);
@@ -501,8 +500,6 @@ export const AnalysisCard = React.memo(function AnalysisCard({
           return;
         }
       }
-
-      console.log(forceRegenerate ? '♻️ Régénération forcée' : '🆕 Génération nouvelle fiche');
 
       // Générer le payload JSON
       const payload = generateJobDescriptionPayload(
@@ -513,8 +510,6 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
       // Envoyer au webhook N8N et récupérer la réponse
       const response = await sendJobDescriptionToWebhook(payload);
-
-      console.log('✅ Réponse reçue du webhook N8N');
 
       // Stocker dans le cache
       setCachedJobDescription(analysis.businessRole, selectedRoles, response);
@@ -1185,7 +1180,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               size="small"
               variant="contained"
               color="success"
-              onClick={handleGenerateJobDescription}
+              onClick={() => handleGenerateJobDescription(false)}
               disabled={isGeneratingJobDescription || selectedRoles.size === 0}
               sx={{ minWidth: 120 }}
             >

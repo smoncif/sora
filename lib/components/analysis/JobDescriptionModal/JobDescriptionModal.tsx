@@ -142,8 +142,6 @@ export function JobDescriptionModal({
 }: JobDescriptionModalProps) {
   const theme = useTheme();
 
-  console.log('✅ JobDescriptionModal - Props:', { open, response, profileName, fromCache, cachedAt });
-
   const handleDownloadPDF = React.useCallback(async () => {
     if (!response?.jobDescription) return;
     await downloadPDF(response.jobDescription, profileName);
@@ -155,7 +153,6 @@ export function JobDescriptionModal({
   }, [response, profileName]);
 
   if (!response) {
-    console.log('⚠️ JobDescriptionModal - Pas de réponse');
     return null;
   }
 
