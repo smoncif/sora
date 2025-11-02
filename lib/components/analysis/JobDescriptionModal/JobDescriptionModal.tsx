@@ -235,25 +235,20 @@ export function JobDescriptionModal({
             borderRadius: 2,
             maxHeight: '50vh',
             overflowY: 'auto',
-            '& pre': {
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word',
-              fontFamily: 'inherit',
-              fontSize: '0.875rem',
-              lineHeight: 1.8,
-              margin: 0,
-            },
           }}
         >
           <Typography
-            component="pre"
+            component="div"
             variant="body2"
             sx={{
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word',
               fontFamily: theme.typography.fontFamily,
+              fontSize: '0.875rem',
+              lineHeight: 1.5,
               '& strong': {
                 fontWeight: 700,
+              },
+              '& h2, & h3, & h4': {
+                lineHeight: 1.4,
               },
             }}
             dangerouslySetInnerHTML={{
@@ -272,10 +267,9 @@ export function JobDescriptionModal({
                 // Mettre en gras les titres en majuscules qui ne sont pas des headers markdown
                 .replace(/([A-Z][A-Z\sÀ-ÿ]{2,}:)/g, '<strong>$1</strong>')
                 // Réduire les sauts de ligne multiples (3+ → 2, 2 → 1)
-                .replace(/\n{3,}/g, '\n\n')
+                .replace(/\n{3,}/g, '\n')
                 .replace(/\n{2}/g, '\n')
                 // Convertir les sauts de ligne en HTML (EN DERNIER)
-                .replace(/\n/g, '<br/>')
             }}
           />
         </Paper>
