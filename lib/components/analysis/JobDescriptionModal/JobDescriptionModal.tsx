@@ -271,6 +271,9 @@ export function JobDescriptionModal({
                   `<h4 style="font-size: 1rem; font-weight: 700; margin: 0.75rem 0 0.5rem 0;">${title.toUpperCase()}</h4>`)
                 // Mettre en gras les titres en majuscules qui ne sont pas des headers markdown
                 .replace(/([A-Z][A-Z\sÀ-ÿ]{2,}:)/g, '<strong>$1</strong>')
+                // Réduire les sauts de ligne multiples (3+ → 2, 2 → 1)
+                .replace(/\n{3,}/g, '\n\n')
+                .replace(/\n{2}/g, '\n')
                 // Convertir les sauts de ligne en HTML (EN DERNIER)
                 .replace(/\n/g, '<br/>')
             }}
