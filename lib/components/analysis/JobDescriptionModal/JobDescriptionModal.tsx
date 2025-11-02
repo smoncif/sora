@@ -262,10 +262,13 @@ export function JobDescriptionModal({
                 .replace(/🎯\s*/g, '')
                 .replace(/💼\s*/g, '')
                 .replace(/👁️\s*/g, '')
-                // Convertir les titres markdown en balises HTML (AVANT de remplacer \n)
-                .replace(/^##\s+(.*?)$/gm, '<h2 style="font-size: 1.25rem; font-weight: 700; margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">$1</h2>')
-                .replace(/^###\s+(.*?)$/gm, '<h3 style="font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.5rem 0; text-transform: uppercase;">$1</h3>')
-                .replace(/^####\s+(.*?)$/gm, '<h4 style="font-size: 1rem; font-weight: 700; margin: 0.75rem 0 0.5rem 0; text-transform: uppercase;">$1</h4>')
+                // Convertir les titres markdown en balises HTML avec majuscules (AVANT de remplacer \n)
+                .replace(/^##\s+(.+)$/gm, (match, title) => 
+                  `<h2 style="font-size: 1.25rem; font-weight: 700; margin: 1.5rem 0 0.75rem 0;">${title.toUpperCase()}</h2>`)
+                .replace(/^###\s+(.+)$/gm, (match, title) => 
+                  `<h3 style="font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.5rem 0;">${title.toUpperCase()}</h3>`)
+                .replace(/^####\s+(.+)$/gm, (match, title) => 
+                  `<h4 style="font-size: 1rem; font-weight: 700; margin: 0.75rem 0 0.5rem 0;">${title.toUpperCase()}</h4>`)
                 // Mettre en gras les titres en majuscules qui ne sont pas des headers markdown
                 .replace(/([A-Z][A-Z\sÀ-ÿ]{2,}:)/g, '<strong>$1</strong>')
                 // Convertir les sauts de ligne en HTML (EN DERNIER)
