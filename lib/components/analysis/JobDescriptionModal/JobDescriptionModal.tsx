@@ -258,11 +258,18 @@ export function JobDescriptionModal({
             }}
             dangerouslySetInnerHTML={{
               __html: response.jobDescription
-                .replace(/\n/g, '<br/>')
+                // Supprimer les emojis
                 .replace(/🎯\s*/g, '')
                 .replace(/💼\s*/g, '')
                 .replace(/👁️\s*/g, '')
+                // Convertir les titres markdown en gras (avant de remplacer \n)
+                .replace(/^####\s+(.*?)$/gm, '<strong>$1</strong>')
+                .replace(/^###\s+(.*?)$/gm, '<strong>$1</strong>')
+                .replace(/^##\s+(.*?)$/gm, '<strong>$1</strong>')
+                // Mettre en gras les titres en majuscules
                 .replace(/([A-Z][A-Z\sÀ-ÿ]{2,}:)/g, '<strong>$1</strong>')
+                // Convertir les sauts de ligne en HTML
+                .replace(/\n/g, '<br/>')
             }}
           />
         </Paper>
