@@ -15,9 +15,8 @@ import {
   Paper,
   Divider,
 } from '@mui/material';
-import { Close as CloseIcon, Download as DownloadIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { Close as CloseIcon } from '@mui/icons-material';
 import type { JobDescriptionWebhookResponse } from 'lib/services/analysis/generateJobDescriptionService';
-import { Chip } from '@mui/material';
 
 interface JobDescriptionModalProps {
   open: boolean;
