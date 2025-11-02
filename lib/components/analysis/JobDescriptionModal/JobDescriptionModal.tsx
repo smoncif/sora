@@ -171,20 +171,9 @@ export function JobDescriptionModal({
     >
       <DialogTitle sx={{ pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-              Fiche de poste - {profileName}
-            </Typography>
-            {fromCache && (
-              <Chip
-                label="📋 Cache"
-                size="small"
-                color="info"
-                variant="outlined"
-                sx={{ fontWeight: 600, fontSize: '0.75rem' }}
-              />
-            )}
-          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+            Fiche de poste - {profileName}
+          </Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
@@ -205,7 +194,7 @@ export function JobDescriptionModal({
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
             Informations de génération
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: fromCache ? 2 : 0 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <Typography variant="body2" color="text.secondary">
               <strong>Modèle:</strong> {response.sourceModel}
             </Typography>
@@ -219,36 +208,21 @@ export function JobDescriptionModal({
               <strong>Généré le:</strong>{' '}
               {new Date(response.createdAt * 1000).toLocaleString('fr-FR')}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Statut:</strong> {response.success ? '✅ Succès' : '❌ Échec'}
-            </Typography>
           </Box>
           
           {fromCache && cachedAt && (
-            <Box sx={{ 
-              mt: 2, 
-              pt: 2, 
-              borderTop: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                📋 Chargée depuis le cache le {new Date(cachedAt).toLocaleString('fr-FR')}
-              </Typography>
-              {onRegenerate && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<RefreshIcon />}
-                  onClick={onRegenerate}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                >
-                  Régénérer
-                </Button>
-              )}
-            </Box>
+            <Typography 
+              variant="caption" 
+              color="text.disabled" 
+              sx={{ 
+                fontStyle: 'italic',
+                fontSize: '0.7rem',
+                display: 'block',
+                mt: 1
+              }}
+            >
+              Cache: {new Date(cachedAt).toLocaleDateString('fr-FR')} {new Date(cachedAt).toLocaleTimeString('fr-FR')}
+            </Typography>
           )}
         </Paper>
 
@@ -279,10 +253,19 @@ export function JobDescriptionModal({
               whiteSpace: 'pre-wrap',
               wordWrap: 'break-word',
               fontFamily: theme.typography.fontFamily,
+              '& strong': {
+                fontWeight: 700,
+              },
             }}
-          >
-            {response.jobDescription}
-          </Typography>
+            dangerouslySetInnerHTML={{
+              __html: response.jobDescription
+                .replace(/\n/g, '<br/>')
+                .replace(/🎯\s*/g, '')
+                .replace(/💼\s*/g, '')
+                .replace(/👁️\s*/g, '')
+                .replace(/([A-Z][A-Z\sÀ-ÿ]{2,}:)/g, '<strong>$1</strong>')
+            }}
+          />
         </Paper>
       </DialogContent>
 
@@ -292,12 +275,19 @@ export function JobDescriptionModal({
         <Button onClick={onClose} variant="outlined">
           Fermer
         </Button>
+        {fromCache && onRegenerate && (
+          <Button
+            onClick={onRegenerate}
+            variant="outlined"
+            color="primary"
+          >
+            Régénérer
+          </Button>
+        )}
         <Button
           onClick={handleDownloadWord}
           variant="contained"
           color="primary"
-          startIcon={<DownloadIcon />}
-          disabled={!response?.jobDescription}
         >
           Télécharger Word
         </Button>
@@ -305,8 +295,6 @@ export function JobDescriptionModal({
           onClick={handleDownloadPDF}
           variant="contained"
           color="secondary"
-          startIcon={<DownloadIcon />}
-          disabled={!response?.jobDescription}
         >
           Télécharger PDF
         </Button>
