@@ -247,6 +247,11 @@ function RoleTransactionsSection({
     ]
   );
 
+  const remainingTransactionsCount = React.useMemo(
+    () => Math.max(totalTransactions - visibleTransactions.length, 0),
+    [totalTransactions, visibleTransactions.length]
+  );
+
   React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
       return;
@@ -318,6 +323,7 @@ function RoleTransactionsSection({
         onTransactionApprovalChange={onTransactionApprovalChange}
         onTransactionCommentChange={onTransactionCommentChange}
         readOnly={readOnly}
+        remainingCount={remainingTransactionsCount}
       />
       <Box ref={sentinelRef} sx={{ height: 1 }} />
       {isLoadingMore && (
@@ -1144,9 +1150,6 @@ const RoleRow = React.memo(({
                   onTransactionCommentChange(businessRole, role.roleId, txCode, comment)
                 }
                 onTransactionsLoaded={onTransactionsLoaded}
-                transactionCodes={role.transactionCodes}
-                transactionDescriptions={role.transactionDescriptions}
-                transactionUsage={role.transactionUsage}
               />
             </Box>
           </Collapse>

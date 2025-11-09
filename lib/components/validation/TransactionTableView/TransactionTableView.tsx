@@ -54,6 +54,7 @@ export interface TransactionTableViewProps {
   onTransactionApprovalChange: (transactionCode: string, isApproved: boolean | null) => void;
   onTransactionCommentChange: (transactionCode: string, comment: string) => void;
   readOnly?: boolean; // 🆕 Mode lecture seule
+  remainingCount?: number;
 }
 
 export function TransactionTableView({
@@ -63,8 +64,10 @@ export function TransactionTableView({
   onTransactionApprovalChange,
   onTransactionCommentChange,
   readOnly = false,
+  remainingCount = 0,
 }: TransactionTableViewProps) {
   const theme = useTheme();
+  const totalColumns = showTechnicalView ? 7 : 5;
   const [sortField, setSortField] = useState<TransactionSortField>('transaction');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
@@ -377,6 +380,21 @@ export function TransactionTableView({
               )}
             </TableRow>
           ))}
+          {remainingCount > 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={totalColumns}
+                sx={{
+                  textAlign: 'center',
+                  py: 1.5,
+                  fontStyle: 'italic',
+                  color: theme.palette.text.secondary,
+                }}
+              >
+                {remainingCount} transaction{remainingCount > 1 ? 's' : ''} supplémentaire{remainingCount > 1 ? 's' : ''} non affichée{remainingCount > 1 ? 's' : ''}.
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
 
