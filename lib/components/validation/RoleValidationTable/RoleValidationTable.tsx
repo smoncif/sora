@@ -24,6 +24,7 @@ import {
   InputAdornment,
   Paper,
   TablePagination,
+  Button,
 } from '@mui/material';
 import { 
   ExpandMore, 
@@ -326,6 +327,26 @@ function RoleTransactionsSection({
         remainingCount={remainingTransactionsCount}
       />
       <Box ref={sentinelRef} sx={{ height: 1 }} />
+      {hasMoreTransactions && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            mt: 1.5,
+          }}
+        >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => loadMoreTransactions(false)}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore
+              ? 'Chargement...'
+              : `Charger les ${remainingTransactionsCount} transaction${remainingTransactionsCount > 1 ? 's' : ''} restantes`}
+          </Button>
+        </Box>
+      )}
       {isLoadingMore && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
           {Array.from({ length: 3 }).map((_, index) => (
