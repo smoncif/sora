@@ -78,6 +78,23 @@ export function ProcessValidationPanel({
     useSaveValidationDraftMutation(token);
 
   const draftHydratedRef = useRef(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+
+  const markDraftHydrated = useCallback(() => {
+    if (!draftHydratedRef.current) {
+      draftHydratedRef.current = true;
+      setDraftHydrated(true);
+    }
+  }, []);
+
+  const resetDraftHydration = useCallback(() => {
+    draftHydratedRef.current = false;
+    setDraftHydrated(false);
+  }, []);
+
+  useEffect(() => {
+    resetDraftHydration();
+  }, [processName, resetDraftHydration]);
 
   useEffect(() => {
     setValidationResults((prev) => {
@@ -156,16 +173,16 @@ export function ProcessValidationPanel({
       if (draftData.updatedAt) {
         setDraftSavedAt(draftData.updatedAt);
       }
-      draftHydratedRef.current = true;
+      markDraftHydrated();
       return;
     }
 
     if (!isDraftLoading && !draftHydratedRef.current) {
-      draftHydratedRef.current = true;
+      markDraftHydrated();
     }
-  }, [isSubmitted, processResults, draftData, isDraftLoading]);
+  }, [isSubmitted, processResults, draftData, isDraftLoading, markDraftHydrated]);
 
-  const showSkeleton = isSubmitted ? !submittedResults : (isDraftLoading || !draftHydratedRef.current);
+  const showSkeleton = isSubmitted ? !submittedResults : (isDraftLoading || !draftHydrated);
 
   // Handler pour soumettre ce processus
   const handleSubmit = useCallback(async () => {
@@ -218,13 +235,13 @@ export function ProcessValidationPanel({
       } else {
         setDraftSavedAt(new Date().toISOString());
       }
-      draftHydratedRef.current = true;
+      markDraftHydrated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde');
     }
-  }, [saveDraftMutation, processName, validatorName, validatorEmail, validationResults]);
+  }, [saveDraftMutation, processName, validatorName, validatorEmail, validationResults, markDraftHydrated]);
 
-  const isLoadingDraft = !isSubmitted && (isDraftLoading || (!draftHydratedRef.current && draftData === undefined));
+  const isLoadingDraft = !isSubmitted && (isDraftLoading || (!draftHydrated && draftData === undefined));
   const isLoadingSubmitted = isSubmitted && (isProcessResultsLoading || submittedResults === null);
 
   return (
