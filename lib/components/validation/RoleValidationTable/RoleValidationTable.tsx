@@ -53,6 +53,9 @@ export interface RoleData {
   transactionCount: number;
   previewTransactions: TransactionPreview[];
   remainingTransactionCount: number;
+  transactionCodes: string[];
+  transactionDescriptions: Record<string, string>;
+  transactionUsage: Record<string, number>;
 }
 
 interface RoleTransactionsSectionProps {
@@ -88,26 +91,44 @@ function RoleTransactionsSection({
     () => role.previewTransactions ?? [],
     [role.previewTransactions]
   );
+  const transactionCodes = React.useMemo(
+    () => role.transactionCodes ?? [],
+    [role.transactionCodes]
+  );
+  const transactionDescriptions = React.useMemo(
+    () => role.transactionDescriptions ?? {},
+    [role.transactionDescriptions]
+  );
+  const transactionUsage = React.useMemo(
+    () => role.transactionUsage ?? {},
+    [role.transactionUsage]
+  );
   const previewCount = previewTransactions.length;
-  const [visibleTransactions, setVisibleTransactions] = React.useState<TransactionPreview[]>(previewTransactions);
+  const totalTransactions = role.transactionCount;
+  const [visibleTransactions, setVisibleTransactions] =
+    React.useState<TransactionPreview[]>(previewTransactions);
   const [hasMoreTransactions, setHasMoreTransactions] = React.useState(
-    previewCount < role.transactionCount
+    previewCount < totalTransactions
   );
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const [loadedRemainingCount, setLoadedRemainingCount] = React.useState(0);
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
   const batchSize = 10;
+  const initialPreviewLoadedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
       return;
     }
     setVisibleTransactions(previewTransactions);
-    setHasMoreTransactions(previewTransactions.length < role.transactionCount);
+    setHasMoreTransactions(previewTransactions.length < totalTransactions);
+    setLoadedRemainingCount(0);
+    initialPreviewLoadedRef.current = false;
   }, [
     showTechnicalView,
     isExpanded,
     previewTransactions,
-    role.transactionCount,
+    totalTransactions,
     role.roleId,
   ]);
 
@@ -124,52 +145,135 @@ function RoleTransactionsSection({
     onTransactionsLoaded,
   ]);
 
-  const loadMoreTransactions = React.useCallback(async () => {
+  const loadMoreTransactions = React.useCallback(
+    async (includePreview = false) => {
+      if (!showTechnicalView || !isExpanded) {
+        return;
+      }
+      if (isLoadingMore) {
+        return;
+      }
+      if (!includePreview && !hasMoreTransactions) {
+        return;
+      }
+
+      setIsLoadingMore(true);
+      try {
+        const effectiveIncludePreview = includePreview && previewCount > 0;
+        const offset = effectiveIncludePreview ? 0 : loadedRemainingCount;
+        const requestLimit = effectiveIncludePreview ? previewCount : batchSize;
+        const response = await fetchRoleTransactionsChunk(
+          token,
+          businessRole,
+          role.roleId,
+          offset,
+          requestLimit,
+          effectiveIncludePreview
+        );
+
+        const newTransactions = Array.isArray(response.transactions)
+          ? response.transactions
+          : [];
+
+        setVisibleTransactions((current) => {
+          const transactionMap = new Map<string, TransactionPreview>();
+          current.forEach((tx) => {
+            if (tx?.code) {
+              transactionMap.set(tx.code, tx);
+            }
+          });
+          newTransactions.forEach((tx) => {
+            if (!tx?.code) {
+              return;
+            }
+            const existing = transactionMap.get(tx.code);
+            transactionMap.set(tx.code, existing ? { ...existing, ...tx } : tx);
+          });
+
+          const totalLoaded = effectiveIncludePreview
+            ? response.transactions.length
+            : previewCount + response.nextOffset;
+          const orderedCodes =
+            transactionCodes.length > 0
+              ? transactionCodes.slice(0, totalLoaded)
+              : Array.from(transactionMap.keys());
+
+          return orderedCodes.map((code) => {
+            const transaction = transactionMap.get(code);
+            if (transaction) {
+              return transaction;
+            }
+            return {
+              code,
+              description: transactionDescriptions[code] ?? code,
+              usage: transactionUsage[code] ?? 0,
+            };
+          });
+        });
+
+        if (newTransactions.length > 0) {
+          onTransactionsLoaded(businessRole, role.roleId, newTransactions);
+        }
+
+        if (effectiveIncludePreview) {
+          setLoadedRemainingCount(0);
+          setHasMoreTransactions(transactionCodes.length > response.transactions.length);
+        } else {
+          setLoadedRemainingCount(response.nextOffset);
+          setHasMoreTransactions(response.hasMore);
+        }
+      } catch (error) {
+        console.error('[RoleTransactionsSection] Chargement transactions supplémentaire', error);
+        setHasMoreTransactions(false);
+      } finally {
+        setIsLoadingMore(false);
+      }
+    },
+    [
+      showTechnicalView,
+      isExpanded,
+      isLoadingMore,
+      hasMoreTransactions,
+      previewCount,
+      loadedRemainingCount,
+      token,
+      businessRole,
+      role.roleId,
+      batchSize,
+      transactionCodes,
+      transactionDescriptions,
+      transactionUsage,
+      onTransactionsLoaded,
+    ]
+  );
+
+  React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
       return;
     }
-    if (!hasMoreTransactions || isLoadingMore) {
+    if (totalTransactions === 0) {
       return;
     }
-
-    setIsLoadingMore(true);
-    try {
-      const loadedRemainingCount = Math.max(visibleTransactions.length - previewCount, 0);
-      const response = await fetchRoleTransactionsChunk(
-        token,
-        businessRole,
-        role.roleId,
-        loadedRemainingCount,
-        batchSize
-      );
-
-      const newTransactions = Array.isArray(response.transactions)
-        ? response.transactions
-        : [];
-
-      if (newTransactions.length > 0) {
-        setVisibleTransactions((current) => [...current, ...newTransactions]);
-        onTransactionsLoaded(businessRole, role.roleId, newTransactions);
-      }
-
-      setHasMoreTransactions(response.hasMore);
-    } catch (error) {
-      console.error('[RoleTransactionsSection] Chargement transactions supplémentaire', error);
-      setHasMoreTransactions(false);
-    } finally {
-      setIsLoadingMore(false);
+    if (initialPreviewLoadedRef.current) {
+      return;
     }
+    if (previewCount > 0) {
+      loadMoreTransactions(true).finally(() => {
+        if (transactionCodes.length > previewCount) {
+          loadMoreTransactions(false);
+        }
+      });
+    } else {
+      loadMoreTransactions(false);
+    }
+    initialPreviewLoadedRef.current = true;
   }, [
     showTechnicalView,
     isExpanded,
-    hasMoreTransactions,
-    isLoadingMore,
-    visibleTransactions.length,
+    totalTransactions,
+    loadMoreTransactions,
     previewCount,
-    token,
-    businessRole,
-    role.roleId,
-    onTransactionsLoaded,
+    transactionCodes.length,
   ]);
 
   React.useEffect(() => {
@@ -180,7 +284,7 @@ function RoleTransactionsSection({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          loadMoreTransactions();
+          loadMoreTransactions(false);
         }
       },
       {
@@ -1040,6 +1144,9 @@ const RoleRow = React.memo(({
                   onTransactionCommentChange(businessRole, role.roleId, txCode, comment)
                 }
                 onTransactionsLoaded={onTransactionsLoaded}
+                transactionCodes={role.transactionCodes}
+                transactionDescriptions={role.transactionDescriptions}
+                transactionUsage={role.transactionUsage}
               />
             </Box>
           </Collapse>

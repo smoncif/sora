@@ -50,7 +50,7 @@ export interface TransactionWithModuleHierarchy {
   moduleDescription?: string;
   moduleLevel?: number;
   parentModuleId?: string;
-  hierarchy: ModuleHierarchy;
+  hierarchy?: ModuleHierarchy;
 }
 
 /**
@@ -65,16 +65,17 @@ export interface EnrichedTransactionData extends TransactionWithModuleHierarchy 
 /**
  * Données de prévisualisation de transaction (chargées immédiatement)
  */
-export interface TransactionPreview extends TransactionWithModuleHierarchy {
+export interface TransactionPreview {
+  code: string;
+  description?: string;
   usage: number;
-}
-
-/**
- * Structure de données transactionnelles enrichies pour un rôle simple
- */
-export interface RoleTransactionsPayload {
-  previewTransactions: TransactionPreview[];
-  remainingTransactionCodes: string[];
-  totalTransactions: number;
+  module?: string;
+  moduleDescription?: string;
+  level1Module?: string;
+  level1Description?: string;
+  level2Module?: string;
+  level2Description?: string;
+  level3Module?: string;
+  level3Description?: string;
 }
 

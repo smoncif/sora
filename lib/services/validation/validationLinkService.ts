@@ -5,6 +5,7 @@
 
 import { createClient } from 'lib/utils/supabase/server';
 import { v4 as uuidv4 } from 'uuid';
+import type { TransactionPreview } from 'lib/types/sapModule';
 
 /**
  * Paramètres pour créer un lien de validation (multi-rôles)
@@ -16,6 +17,7 @@ export interface CreateValidationLinkParams {
   enableTechnicalView: boolean;
   payload: any;                                    // Données complètes pour reconstruction
   createdBy: string;
+  baseUrl?: string;
 }
 
 /**
@@ -117,7 +119,11 @@ export async function createValidationLink(
     throw new Error('Impossible de créer le lien de validation');
   }
   
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const baseUrl =
+    params.baseUrl ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
+    (process.env.APP_URL ?? 'http://localhost:3000');
   const link = `${baseUrl}/validation/${token}`;
   
   return { token, link };
@@ -176,35 +182,85 @@ function sanitizeValidationPayload(payload: any) {
   const sanitizedSelectedRolesData: Record<string, any[]> = {};
 
   Object.entries(payload.selectedRolesData).forEach(([businessRole, roles]) => {
-    sanitizedSelectedRolesData[businessRole] = (roles as any[]).map((role) => {
-      const {
-        remainingTransactions = [],
-        previewTransactions = [],
-        totalTransactions,
-        remainingTransactionCount,
-        ...rest
-      } = role ?? {};
+    if (!Array.isArray(roles)) {
+      sanitizedSelectedRolesData[businessRole] = [];
+      return;
+    }
 
-      const preview = Array.isArray(previewTransactions)
-        ? previewTransactions
+    sanitizedSelectedRolesData[businessRole] = roles.map((role) => {
+      const roleData = role ?? {};
+      const transactionCodes = Array.isArray(roleData.transactionCodes)
+        ? roleData.transactionCodes.filter((code: unknown) => typeof code === 'string')
         : [];
-      const remaining = Array.isArray(remainingTransactions)
-        ? remainingTransactions
+
+      const transactionUsage =
+        typeof roleData.transactionUsage === 'object' && roleData.transactionUsage !== null
+          ? roleData.transactionUsage
+          : {};
+
+      const transactionDescriptions =
+        typeof roleData.transactionDescriptions === 'object' &&
+        roleData.transactionDescriptions !== null
+          ? roleData.transactionDescriptions
+          : {};
+
+      const previewTransactionsSource = Array.isArray(roleData.previewTransactions)
+        ? roleData.previewTransactions
         : [];
-      const total =
-        typeof totalTransactions === 'number'
-          ? totalTransactions
-          : preview.length + remaining.length;
-      const remainingCount =
-        typeof remainingTransactionCount === 'number'
-          ? remainingTransactionCount
-          : Math.max(total - preview.length, 0);
+
+      const previewTransactions = previewTransactionsSource
+        .map((transaction: any) => {
+          if (!transaction || typeof transaction.code !== 'string') {
+            return null;
+          }
+          return {
+            code: transaction.code,
+            description:
+              typeof transaction.description === 'string'
+                ? transaction.description
+                : transaction.code,
+            usage:
+              typeof transaction.usage === 'number'
+                ? transaction.usage
+                : transactionUsage[transaction.code] ?? 0,
+          };
+        })
+        .filter(Boolean) as TransactionPreview[];
+
+      if (previewTransactions.length === 0 && transactionCodes.length > 0) {
+        transactionCodes.slice(0, 5).forEach((code) => {
+          previewTransactions.push({
+            code,
+            description:
+              typeof transactionDescriptions[code] === 'string'
+                ? transactionDescriptions[code]
+                : code,
+            usage:
+              typeof transactionUsage[code] === 'number'
+                ? transactionUsage[code]
+                : 0,
+          });
+        });
+      }
+
+      const transactionCount =
+        typeof roleData.transactionCount === 'number'
+          ? roleData.transactionCount
+          : transactionCodes.length;
+
+      const remainingTransactionCount =
+        typeof roleData.remainingTransactionCount === 'number'
+          ? roleData.remainingTransactionCount
+          : Math.max(transactionCount - previewTransactions.length, 0);
 
       return {
-        ...rest,
-        previewTransactions: preview,
-        totalTransactions: total,
-        remainingTransactionCount: remainingCount,
+        ...roleData,
+        transactionCodes,
+        transactionUsage,
+        transactionDescriptions,
+        previewTransactions,
+        transactionCount,
+        remainingTransactionCount,
       };
     });
   });

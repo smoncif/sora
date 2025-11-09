@@ -48,6 +48,17 @@ export async function POST(request: NextRequest) {
     }
     
     const { businessRoles, selectedRoles, expirationDate, enableTechnicalView, payload } = validationResult.data;
+
+    const originHeader = request.headers.get('origin');
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const forwardedHost =
+      request.headers.get('x-forwarded-host') ??
+      request.headers.get('host');
+    const computedBaseUrl =
+      originHeader ??
+      (forwardedProto && forwardedHost
+        ? `${forwardedProto}://${forwardedHost}`
+        : undefined);
     
     // Créer le lien de validation
     const result = await createValidationLink({
@@ -56,6 +67,7 @@ export async function POST(request: NextRequest) {
       expirationDate: new Date(expirationDate),
       enableTechnicalView,
       payload,
+      baseUrl: computedBaseUrl,
       createdBy: user.id,
     });
     

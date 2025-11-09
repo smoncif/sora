@@ -44,10 +44,12 @@ interface PayloadRoleData {
   roleName?: string;
   description?: string;
   process?: string;
+  transactionCount?: number;
   previewTransactions?: TransactionPreview[];
-  remainingTransactions?: TransactionPreview[];
-  totalTransactions?: number;
   remainingTransactionCount?: number;
+  transactionCodes?: string[];
+  transactionDescriptions?: Record<string, string>;
+  transactionUsage?: Record<string, number>;
 }
 
 export function RoleValidationContent({ data, token }: RoleValidationContentProps) {
@@ -102,29 +104,52 @@ export function RoleValidationContent({ data, token }: RoleValidationContentProp
               ? role.process
               : 'Non assigné';
 
-          const previewTransactions = Array.isArray(role.previewTransactions)
+          const transactionCodes = Array.isArray(role.transactionCodes)
+            ? role.transactionCodes.filter((code: unknown): code is string => typeof code === 'string')
+            : [];
+          const transactionDescriptions =
+            typeof role.transactionDescriptions === 'object' && role.transactionDescriptions !== null
+              ? (role.transactionDescriptions as Record<string, string>)
+              : {};
+          const transactionUsage =
+            typeof role.transactionUsage === 'object' && role.transactionUsage !== null
+              ? (role.transactionUsage as Record<string, number>)
+              : {};
+          const previewTransactionsSource = Array.isArray(role.previewTransactions)
             ? role.previewTransactions
             : [];
-          const remainingTransactions = Array.isArray(role.remainingTransactions)
-            ? role.remainingTransactions
-            : [];
-          const totalTransactions =
-            typeof role.totalTransactions === 'number'
-              ? role.totalTransactions
-              : previewTransactions.length + remainingTransactions.length;
-          const remainingTransactionCount =
+          const previewTransactions =
+            previewTransactionsSource.length > 0
+              ? previewTransactionsSource
+              : transactionCodes.slice(0, 5).map((code) => ({
+                  code,
+                  description: transactionDescriptions[code] ?? code,
+                  usage: transactionUsage[code] ?? 0,
+                }));
+          const inferredTransactionCount = Math.max(
+            typeof role.transactionCount === 'number' ? role.transactionCount : 0,
+            transactionCodes.length,
+            previewTransactions.length
+          );
+          const remainingTransactionCount = Math.max(
             typeof role.remainingTransactionCount === 'number'
               ? role.remainingTransactionCount
-              : Math.max(totalTransactions - previewTransactions.length, 0);
+              : inferredTransactionCount - previewTransactions.length,
+            inferredTransactionCount - previewTransactions.length,
+            0
+          );
 
           const roleData: RoleData = {
             roleId: typeof role.roleId === 'string' ? role.roleId : roleName,
             roleName,
             businessRole,
             description: typeof role.description === 'string' ? role.description : '',
-            transactionCount: totalTransactions,
+            transactionCount: inferredTransactionCount,
             previewTransactions,
             remainingTransactionCount,
+            transactionCodes,
+            transactionDescriptions,
+            transactionUsage,
           };
 
           allRoles.push(roleData);

@@ -155,12 +155,17 @@ export async function fetchRoleTransactionsChunk(
   businessRole: string,
   roleId: string,
   offset: number,
-  limit: number
+  limit: number,
+  includePreview = false
 ): Promise<RoleTransactionsChunkResponse> {
   const params = new URLSearchParams({
     offset: String(offset),
     limit: String(limit),
   });
+
+  if (includePreview) {
+    params.set('includePreview', 'true');
+  }
 
   return fetchJson<RoleTransactionsChunkResponse>(
     `/api/validation/transactions/${token}/${encodeURIComponent(

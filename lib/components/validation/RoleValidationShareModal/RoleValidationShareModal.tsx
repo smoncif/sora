@@ -43,8 +43,6 @@ import {
   formatExpirationDate,
   formatBusinessRolesList,
 } from 'lib/services/email/emailValidationService';
-import { getTransactionModules } from 'lib/services/sap/moduleService';
-
 export interface RoleValidationShareModalProps {
   open: boolean;
   onClose: () => void;
@@ -112,104 +110,101 @@ export function RoleValidationShareModal({
     setError(null);
 
     try {
-      // 🆕 Récupérer tous les codes de transactions pour la requête Supabase
-      const allTransactionCodes = new Set<string>();
-      selectedRolesPerBusinessRole.forEach((selectedRoles, businessRole) => {
-        selectedRoles.forEach((roleName) => {
-          const roleTransactions = analysisResult.simpleRoleTransactions?.filter(
-            (srt: any) => srt.simpleRole === roleName
-          ) || [];
-          roleTransactions.forEach((srt: any) => {
-            allTransactionCodes.add(srt.transaction);
-          });
-        });
+      const usageByBusinessRole = new Map<string, Map<string, number>>();
+      (analysisResult?.businessRoleTransactions ?? []).forEach((brt: any) => {
+        if (!brt?.businessRole || !brt?.transaction) {
+          return;
+        }
+        if (!usageByBusinessRole.has(brt.businessRole)) {
+          usageByBusinessRole.set(brt.businessRole, new Map<string, number>());
+        }
+        usageByBusinessRole
+          .get(brt.businessRole)!
+          .set(brt.transaction, brt.executionCount ?? 0);
       });
 
-      // 🆕 Récupérer les modules depuis Supabase
-      const transactionModulesMap = await getTransactionModules(Array.from(allTransactionCodes));
+      const compactSelectedRolesData: Record<string, any[]> = {};
 
-      // 🆕 Construire un payload enrichi avec les données complètes
-      const enrichedSelectedRolesData: Record<string, any[]> = {};
-      
       selectedRolesPerBusinessRole.forEach((selectedRoles, businessRole) => {
-        // Trouver l'analyse de couverture pour ce rôle métier
         const coverageAnalysis = analysisResult?.coverageAnalyses?.find(
           (analysis: any) => analysis.businessRole === businessRole
         );
-        
+
         if (!coverageAnalysis) {
           return;
         }
-        
-        // Pour chaque rôle simple sélectionné, récupérer ses données complètes
-        const enrichedRoles: any[] = [];
-        
+
+        const roleProcess =
+          analysisResult.businessRoleTransactions?.find(
+            (brt: any) => brt.businessRole === businessRole && brt.process
+          )?.process ?? null;
+        const usageMap = usageByBusinessRole.get(businessRole);
+
+        const rolesPayload: any[] = [];
+
         selectedRoles.forEach((roleName) => {
-          // Trouver le rôle simple dans l'analyse
-          const simpleRoleCoverage = coverageAnalysis.simpleRoles?.find(
+          const hasSimpleRole = coverageAnalysis.simpleRoles?.some(
             (sr: any) => sr.roleName === roleName
           );
-          
-          if (!simpleRoleCoverage) {
+
+          if (!hasSimpleRole) {
             return;
           }
-          
-          // Récupérer la description depuis simpleRoleTransactions
-          const roleDescription = analysisResult.simpleRoleTransactions?.find(
-            (srt: any) => srt.simpleRole === roleName
-          )?.roleDescription;
-          
-          // 🆕 Récupérer le processus de ce rôle métier
-          const roleProcess = analysisResult.businessRoleTransactions?.find(
-            (brt: any) => brt.businessRole === businessRole
-          )?.process;
-          
-          // 🆕 Récupérer TOUTES les transactions du rôle simple (pas seulement celles couvertes)
-          const allRoleTransactions = analysisResult.simpleRoleTransactions?.filter(
-            (srt: any) => srt.simpleRole === roleName
-          ) || [];
-          
-          const transactions = allRoleTransactions.map((srt: any) => {
-            // Trouver l'usage dans businessRoleTransactions
-            const usage = analysisResult.businessRoleTransactions?.find(
-              (brt: any) => brt.businessRole === businessRole && brt.transaction === srt.transaction
-            )?.executionCount || 0;
-            
-            // 🆕 Récupérer le module depuis Supabase avec hiérarchie complète
-            const moduleData = transactionModulesMap.get(srt.transaction);
-            
-            return {
-              code: srt.transaction,
-              description: srt.transactionDescription || srt.transaction,
-              module: moduleData?.module,
-              moduleDescription: moduleData?.moduleDescription,
-              // 🆕 Hiérarchie complète avec descriptions
-              level1Module: moduleData?.level1Module,
-              level1Description: moduleData?.level1Description,
-              level2Module: moduleData?.level2Module,
-              level2Description: moduleData?.level2Description,
-              level3Module: moduleData?.level3Module,
-              level3Description: moduleData?.level3Description,
-              usage,
-            };
+
+          const roleTransactions =
+            analysisResult.simpleRoleTransactions?.filter(
+              (srt: any) => srt.simpleRole === roleName
+            ) ?? [];
+
+          const transactionCodes: string[] = [];
+          const transactionUsage: Record<string, number> = {};
+          const transactionDescriptions: Record<string, string> = {};
+
+          roleTransactions.forEach((srt: any) => {
+            if (!srt?.transaction) {
+              return;
+            }
+            if (!transactionCodes.includes(srt.transaction)) {
+              transactionCodes.push(srt.transaction);
+            }
+            transactionDescriptions[srt.transaction] =
+              srt.transactionDescription || srt.transaction;
+            if (usageMap?.has(srt.transaction)) {
+              transactionUsage[srt.transaction] = usageMap.get(srt.transaction)!;
+            } else {
+              transactionUsage[srt.transaction] = 0;
+            }
           });
-          
-          const previewTransactions = transactions.slice(0, 5);
-          const remainingTransactions = transactions.slice(5);
-          
-          enrichedRoles.push({
+
+          const previewTransactions = transactionCodes.slice(0, 5).map((code) => ({
+            code,
+            description: transactionDescriptions[code] ?? code,
+            usage: transactionUsage[code] ?? 0,
+          }));
+
+          const roleDescription =
+            analysisResult.simpleRoleTransactions?.find(
+              (srt: any) => srt.simpleRole === roleName
+            )?.roleDescription ?? '';
+
+          rolesPayload.push({
             roleId: roleName,
-            roleName: roleName,
-            description: roleDescription || '',
-            process: roleProcess, // 🆕 Ajouter le processus
-            totalTransactions: transactions.length,
+            roleName,
+            description: roleDescription,
+            process: roleProcess,
+            transactionCount: transactionCodes.length,
             previewTransactions,
-            remainingTransactions,
-            remainingTransactionCount: remainingTransactions.length,
+            remainingTransactionCount: Math.max(
+              transactionCodes.length - previewTransactions.length,
+              0
+            ),
+            transactionCodes,
+            transactionDescriptions,
+            transactionUsage,
           });
         });
-        
-        enrichedSelectedRolesData[businessRole] = enrichedRoles;
+
+        compactSelectedRolesData[businessRole] = rolesPayload;
       });
 
       // Convertir aussi en format simple pour l'API
@@ -221,7 +216,7 @@ export function RoleValidationShareModal({
       // Préparer le payload complet
       const payload = {
         businessRoles,
-        selectedRolesData: enrichedSelectedRolesData, // 🆕 Données enrichies
+        selectedRolesData: compactSelectedRolesData,
         totalRoleCount,
         createdBy: {
           name: currentUserName,
