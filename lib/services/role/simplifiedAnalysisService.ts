@@ -28,6 +28,7 @@ export interface ExcelParsingConfig {
   };
   columnMappings: {
     businessRoles: {
+      process?: string;         // 🆕 Processus métier (optionnel)
       businessRole: string;
       year?: string;
       month?: string;
@@ -55,6 +56,7 @@ const DEFAULT_CONFIG: ExcelParsingConfig = {
   },
   columnMappings: {
     businessRoles: {
+      process: 'Process',               // 🆕 Processus (optionnel)
       businessRole: 'Rôle métier',
       year: 'Année',
       month: 'Mois',
@@ -247,6 +249,11 @@ function parseBusinessRoleSheet(
     };
     
     // Champs optionnels
+    if (columnIndexes.process !== undefined && columnIndexes.process !== -1) {
+      const process = getCellValue(row, columnIndexes.process);
+      if (process) transactionData.process = String(process).trim();
+    }
+    
     if (columnIndexes.year !== -1) {
       const year = getCellValue(row, columnIndexes.year);
       if (year) transactionData.year = Number(year);

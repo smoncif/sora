@@ -19,6 +19,7 @@ import {
   Download as DownloadIcon,
   Refresh as RefreshIcon,
   TableChart as TableChartIcon,
+  Share as ShareIcon,
 } from '@mui/icons-material';
 
 export interface ActionsSectionProps {
@@ -33,6 +34,8 @@ export interface ActionsSectionProps {
   onExportExcel: () => void;
   onExportResults: () => void;
   onReset: () => void;
+  onShareForValidation?: () => void;  // 🆕 Handler pour partage validation
+  hasSelectedRoles?: boolean;          // 🆕 Pour désactiver si aucun rôle sélectionné
 }
 
 export function ActionsSection({
@@ -44,6 +47,8 @@ export function ActionsSection({
   onExportExcel,
   onExportResults,
   onReset,
+  onShareForValidation,
+  hasSelectedRoles = false,
 }: ActionsSectionProps) {
   const theme = useTheme();
 
@@ -178,6 +183,44 @@ export function ActionsSection({
               >
                 Exporter Spéc
               </Button>
+              
+              {/* 🆕 Bouton Partager pour Validation - Violet moderne */}
+              {onShareForValidation && (
+                <Button
+                  variant="contained"
+                  startIcon={<ShareIcon />}
+                  onClick={onShareForValidation}
+                  disabled={loading || !hasSelectedRoles}
+                  sx={{ 
+                    borderRadius: 3,
+                    px: 3,
+                    py: 1.2,
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    fontSize: '0.9rem',
+                    background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                    boxShadow: `0 4px 14px ${alpha('#8b5cf6', 0.25)}`,
+                    border: 'none',
+                    color: '#fff',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 6px 20px ${alpha('#8b5cf6', 0.35)}`,
+                    },
+                    '&:active': {
+                      transform: 'translateY(0px)',
+                    },
+                    '&:disabled': {
+                      background: alpha(theme.palette.action.disabled, 0.12),
+                      color: theme.palette.action.disabled,
+                      boxShadow: 'none',
+                    },
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                >
+                  Partager pour validation
+                </Button>
+              )}
               
               {/* Bouton Réinitialiser - Gris moderne */}
               <Button

@@ -9,7 +9,9 @@ const PUBLIC_ROUTES = [
   '/register', 
   '/auth/callback',
   '/api/auth/sign-up',
-  '/api/auth/sign-out'
+  '/api/auth/sign-out',
+  '/validation', // Pages de validation de rôles (liens temporaires)
+  '/api/validation' // API de validation (lecture et soumission)
 ];
 
 /**

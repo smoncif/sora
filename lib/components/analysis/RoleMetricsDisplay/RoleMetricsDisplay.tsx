@@ -13,6 +13,7 @@ export interface RoleMetricsDisplayProps {
   // Données des métriques du rôle métier
   uniqueTransactions: string[];
   coveredTransactionsCount: number;
+  selectedTransactions: string[]; // NOUVEAU: Les vraies transactions couvertes
   maxAchievableTransactions: number;
   totalTransactions: number;
   orphanTransactions: string[];
@@ -30,6 +31,7 @@ export interface RoleMetricsDisplayProps {
 export const RoleMetricsDisplay = React.memo(function RoleMetricsDisplay({
   uniqueTransactions,
   coveredTransactionsCount,
+  selectedTransactions,
   maxAchievableTransactions,
   totalTransactions,
   orphanTransactions,
@@ -47,14 +49,8 @@ export const RoleMetricsDisplay = React.memo(function RoleMetricsDisplay({
     // 1. Toutes les transactions du rôle métier
     const allTransactions = uniqueTransactions;
     
-    // 2. Transactions couvertes (sélectionnées par les rôles simples)
-    const coveredTransactions = Array.from(new Set(
-      uniqueTransactions.filter(tx => 
-        // Logique pour déterminer si une transaction est couverte
-        // Pour l'instant, on prend les premières transactions couvertes
-        uniqueTransactions.indexOf(tx) < coveredTransactionsCount
-      )
-    ));
+    // 2. Utiliser les vraies transactions couvertes passées en props
+    const coveredTransactions = selectedTransactions;
     
     // 3. Transactions orphelines (ne peuvent pas être couvertes)
     const orphanTxs = orphanTransactions;
@@ -76,7 +72,7 @@ export const RoleMetricsDisplay = React.memo(function RoleMetricsDisplay({
     };
   }, [
     uniqueTransactions,
-    coveredTransactionsCount,
+    selectedTransactions,
     orphanTransactions,
     unusedTransactions,
     executionMap

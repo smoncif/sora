@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box,
   Container,
@@ -31,6 +31,7 @@ import { exportResultsToExcel } from 'lib/services/analysis/exportResultsService
 import { FocusProvider } from 'lib/contexts/FocusContext';
 import { SaveAnalysisDialog } from 'lib/components/analysis/SaveAnalysisDialog';
 import { useFocus } from 'lib/contexts';
+import { RoleValidationShareModal } from 'lib/components/validation/RoleValidationShareModal/RoleValidationShareModal';
 
 /**
  * Composant interne pour le bouton Quitter Focus fixe
@@ -107,6 +108,9 @@ export default function RoleAnalysisPage() {
   // 🎯 État du focus depuis le workflow local
   const focusedItem = workflow.localState.state.focusedItem;
 
+  // 🆕 État pour le modal de partage de validation
+  const [shareValidationModalOpen, setShareValidationModalOpen] = useState(false);
+
   // 🔒 VALEURS PRIMITIVES STABLES : Extraire les valeurs avant les useMemo
   const coverageWeight = workflow.configuration.state.coverageWeight;
   const sizeWeight = workflow.configuration.state.sizeWeight;
@@ -170,6 +174,35 @@ export default function RoleAnalysisPage() {
     workflow.localState.actions.handleFocusItem,
     workflow.localState.actions.handleExitFocus
   ]);
+
+  // 🆕 Handler pour ouvrir le modal de partage de validation
+  const handleOpenShareValidation = React.useCallback(() => {
+    setShareValidationModalOpen(true);
+  }, []);
+
+  // 🆕 Calculer les rôles métier qui ont des sélections
+  const businessRolesWithSelections = React.useMemo(() => {
+    const rolesMap = new Map<string, Set<string>>();
+    
+    if (workflow.fileManager.state.analysisResult?.coverageAnalyses) {
+      workflow.fileManager.state.analysisResult.coverageAnalyses.forEach((analysis: any) => {
+        const businessRole = analysis.businessRole;
+        const selectedRoles = workflow.selections.state.selectedRoles.get(businessRole);
+        
+        if (selectedRoles && selectedRoles.size > 0) {
+          rolesMap.set(businessRole, selectedRoles);
+        }
+      });
+    }
+    
+    return rolesMap;
+  }, [
+    workflow.fileManager.state.analysisResult,
+    workflow.selections.state.selectedRoles
+  ]);
+
+  // 🆕 Vérifier s'il y a au moins un rôle métier avec des sélections
+  const hasSelectedRoles = businessRolesWithSelections.size > 0;
 
   // 🚀 NOUVEAU : Déterminer les valeurs initiales selon le contexte
   const isUpdateMode = workflow.fileManager.state.importType === 'saved' && !!workflow.fileManager.state.loadedAnalysisId;
@@ -329,6 +362,8 @@ export default function RoleAnalysisPage() {
             onExportExcel={() => workflow.exportCurrentAnalysis('excel')}
             onExportResults={handleExportResults}
             onReset={workflow.resetWorkflow}
+            onShareForValidation={handleOpenShareValidation}
+            hasSelectedRoles={hasSelectedRoles}
           />
         )}
 
@@ -405,6 +440,16 @@ export default function RoleAnalysisPage() {
         initialDescription={initialAnalysisDescription}
         isUpdate={isUpdateMode}
         saving={workflow.exportManager.state.saving}
+      />
+
+      {/* 🆕 Modal de partage de validation */}
+      <RoleValidationShareModal
+        open={shareValidationModalOpen}
+        onClose={() => setShareValidationModalOpen(false)}
+        businessRoles={Array.from(businessRolesWithSelections.keys())}
+        selectedRolesPerBusinessRole={businessRolesWithSelections}
+        analysisResult={workflow.fileManager.state.analysisResult}
+        currentUserName={(user as any)?.user_metadata?.full_name || user?.email || 'Utilisateur'}
       />
     </Container>
     </FocusProvider>

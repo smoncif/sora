@@ -1176,16 +1176,18 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 Quitter Focus
               </Button>
             )}
-            <Button
-              size="small"
-              variant="contained"
-              color="success"
-              onClick={() => handleGenerateJobDescription(false)}
-              disabled={isGeneratingJobDescription || selectedRoles.size === 0}
-              sx={{ minWidth: 120 }}
-            >
-              {isGeneratingJobDescription ? 'Génération...' : 'Générer fiche'}
-            </Button>
+            {mode === 'roles' && (
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                onClick={() => handleGenerateJobDescription(false)}
+                disabled={isGeneratingJobDescription || selectedRoles.size === 0}
+                sx={{ minWidth: 120 }}
+              >
+                {isGeneratingJobDescription ? 'Génération...' : 'Générer fiche'}
+              </Button>
+            )}
           </Box>
         </Box>
         
@@ -1196,6 +1198,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             <RoleMetricsDisplay
               uniqueTransactions={analysis.uniqueTransactions}
               coveredTransactionsCount={dynamicData.coveredTransactionsCount}
+              selectedTransactions={Array.from(dynamicData.selectedTransactions)}
               maxAchievableTransactions={staticData.maxAchievableInfo.maxAchievableTransactions}
               totalTransactions={staticData.maxAchievableInfo.totalTransactions}
               orphanTransactions={staticData.maxAchievableInfo.orphanTransactions}

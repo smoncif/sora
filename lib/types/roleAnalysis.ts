@@ -261,7 +261,8 @@ export interface UserAssignment {
  * Transaction d'un rôle métier (Feuille 1 du fichier Excel)
  */
 export interface BusinessRoleTransaction {
-  businessRole: string;      // Rôle métier (obligatoire)
+  process?: string;         // 🆕 Processus métier (optionnel) - Ex: "Comptabilité", "Achats"
+  businessRole: string;     // Rôle métier (obligatoire)
   year?: number;            // Année
   month?: number;           // Mois  
   transaction: string;      // Transaction (obligatoire)
