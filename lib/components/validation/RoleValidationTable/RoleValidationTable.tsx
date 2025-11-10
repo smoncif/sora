@@ -24,7 +24,6 @@ import {
   InputAdornment,
   Paper,
   TablePagination,
-  Button,
 } from '@mui/material';
 import { 
   ExpandMore, 
@@ -113,11 +112,12 @@ function RoleTransactionsSection({
   );
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [loadedRemainingCount, setLoadedRemainingCount] = React.useState(0);
-  const sentinelRef = React.useRef<HTMLDivElement | null>(null);
   const batchSize = 10;
   const initialPreviewLoadedRef = React.useRef(false);
   const [sortField, setSortField] = React.useState<TransactionSortField>('transaction');
   const [sortDirection, setSortDirection] = React.useState<SortDirection>('asc');
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(10);
 
   React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
@@ -129,6 +129,7 @@ function RoleTransactionsSection({
     initialPreviewLoadedRef.current = false;
     setSortField('transaction');
     setSortDirection('asc');
+    setPage(0);
   }, [
     showTechnicalView,
     isExpanded,
@@ -276,9 +277,50 @@ function RoleTransactionsSection({
       setHasMoreTransactions(true);
       setLoadedRemainingCount(0);
       initialPreviewLoadedRef.current = false;
+      setPage(0);
     },
     []
   );
+
+  const handlePageChange = React.useCallback(
+    (_: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => {
+      setPage(newPage);
+    },
+    []
+  );
+
+  const handleRowsPerPageChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  }, []);
+
+  const handleLoadMoreClick = React.useCallback(() => {
+    if (!isLoadingMore) {
+      loadMoreTransactions(false);
+    }
+  }, [isLoadingMore, loadMoreTransactions]);
+
+  React.useEffect(() => {
+    const requiredCount = (page + 1) * rowsPerPage;
+    if (
+      showTechnicalView &&
+      isExpanded &&
+      requiredCount > visibleTransactions.length &&
+      hasMoreTransactions &&
+      !isLoadingMore
+    ) {
+      loadMoreTransactions(false);
+    }
+  }, [
+    page,
+    rowsPerPage,
+    visibleTransactions.length,
+    hasMoreTransactions,
+    isLoadingMore,
+    loadMoreTransactions,
+    showTechnicalView,
+    isExpanded,
+  ]);
 
   React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
@@ -311,35 +353,6 @@ function RoleTransactionsSection({
     sortDirection,
   ]);
 
-  React.useEffect(() => {
-    if (!showTechnicalView || !isExpanded || !hasMoreTransactions) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          loadMoreTransactions(false);
-        }
-      },
-      {
-        rootMargin: '200px',
-      }
-    );
-
-    const target = sentinelRef.current;
-    if (target) {
-      observer.observe(target);
-    }
-
-    return () => {
-      if (target) {
-        observer.unobserve(target);
-      }
-      observer.disconnect();
-    };
-  }, [showTechnicalView, isExpanded, hasMoreTransactions, loadMoreTransactions]);
-
   if (!showTechnicalView || !isExpanded) {
     return null;
   }
@@ -357,41 +370,14 @@ function RoleTransactionsSection({
         sortField={sortField}
         sortDirection={sortDirection}
         onSortChange={handleSortChange}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        totalTransactions={totalTransactions}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onLoadMore={handleLoadMoreClick}
+        isLoadingMore={isLoadingMore}
       />
-      <Box ref={sentinelRef} sx={{ height: 1 }} />
-      {hasMoreTransactions && (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            mt: 1.5,
-          }}
-        >
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => loadMoreTransactions(false)}
-            disabled={isLoadingMore}
-          >
-            {isLoadingMore
-              ? 'Chargement...'
-              : `Charger les ${remainingTransactionsCount} transaction${remainingTransactionsCount > 1 ? 's' : ''} restantes`}
-          </Button>
-        </Box>
-      )}
-      {isLoadingMore && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton
-              // eslint-disable-next-line react/no-array-index-key
-              key={index}
-              variant="rectangular"
-              height={48}
-              sx={{ borderRadius: 1 }}
-            />
-          ))}
-        </Box>
-      )}
     </>
   );
 }

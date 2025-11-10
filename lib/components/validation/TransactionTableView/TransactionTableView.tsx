@@ -20,6 +20,7 @@ import {
   Tooltip,
   useTheme,
   alpha,
+  TablePagination,
 } from '@mui/material';
 import {
   CheckCircle,
@@ -58,6 +59,13 @@ export interface TransactionTableViewProps {
   sortField: TransactionSortField;
   sortDirection: SortDirection;
   onSortChange: (field: TransactionSortField) => void;
+  page: number;
+  rowsPerPage: number;
+  totalTransactions: number;
+  onPageChange: (event: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => void;
+  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onLoadMore: () => void;
+  isLoadingMore: boolean;
 }
 
 export function TransactionTableView({
@@ -71,6 +79,13 @@ export function TransactionTableView({
   sortField,
   sortDirection,
   onSortChange,
+  page,
+  rowsPerPage,
+  totalTransactions,
+  onPageChange,
+  onRowsPerPageChange,
+  onLoadMore,
+  isLoadingMore,
 }: TransactionTableViewProps) {
   const theme = useTheme();
   const totalColumns = showTechnicalView ? 7 : 5;
@@ -95,6 +110,12 @@ export function TransactionTableView({
       };
     });
   }, [transactions, transactionValidations]);
+
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return enrichedTransactions.slice(startIndex, endIndex);
+  }, [enrichedTransactions, page, rowsPerPage]);
 
   return (
     <Box sx={{ width: '100%', overflowX: 'auto' }}>
@@ -179,9 +200,9 @@ export function TransactionTableView({
         </TableHead>
 
         <TableBody>
-          {enrichedTransactions.map((tx, idx) => (
+          {paginatedTransactions.map((tx) => (
             <TableRow
-              key={idx}
+              key={tx.code}
               hover
               sx={{
                 bgcolor: 'transparent',
@@ -348,7 +369,25 @@ export function TransactionTableView({
             </TableRow>
           ))}
           {remainingCount > 0 && (
-            <TableRow>
+            <TableRow
+              hover
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (!isLoadingMore) {
+                  onLoadMore();
+                }
+              }}
+              onKeyDown={(event) => {
+                if ((event.key === 'Enter' || event.key === ' ') && !isLoadingMore) {
+                  event.preventDefault();
+                  onLoadMore();
+                }
+              }}
+              sx={{
+                cursor: isLoadingMore ? 'default' : 'pointer',
+              }}
+            >
               <TableCell
                 colSpan={totalColumns}
                 sx={{
@@ -358,7 +397,9 @@ export function TransactionTableView({
                   color: theme.palette.text.secondary,
                 }}
               >
-                {remainingCount} transaction{remainingCount > 1 ? 's' : ''} supplémentaire{remainingCount > 1 ? 's' : ''} non affichée{remainingCount > 1 ? 's' : ''}.
+                {isLoadingMore
+                  ? 'Chargement des transactions...'
+                  : `${remainingCount} transaction${remainingCount > 1 ? 's' : ''} supplémentaire${remainingCount > 1 ? 's' : ''} non affichée${remainingCount > 1 ? 's' : ''} · Cliquer pour charger`}
               </TableCell>
             </TableRow>
           )}
@@ -372,6 +413,19 @@ export function TransactionTableView({
             Aucune transaction à afficher
           </Typography>
         </Box>
+      )}
+
+      {enrichedTransactions.length > 0 && (
+        <TablePagination
+          component="div"
+          count={totalTransactions}
+          page={page}
+          onPageChange={onPageChange}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={onRowsPerPageChange}
+          rowsPerPageOptions={[5, 10, 20, 50]}
+          labelRowsPerPage="Lignes par page"
+        />
       )}
     </Box>
   );
