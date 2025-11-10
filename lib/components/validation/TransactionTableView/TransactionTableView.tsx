@@ -366,7 +366,7 @@ export function TransactionTableView({
       </Table>
 
       {/* Message si aucune transaction */}
-      {sortedTransactions.length === 0 && (
+      {enrichedTransactions.length === 0 && (
         <Box sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
             Aucune transaction à afficher
