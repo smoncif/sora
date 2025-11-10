@@ -149,6 +149,7 @@ export interface RoleTransactionsChunkResponse {
   hasMore: boolean;
   totalTransactions: number;
   previewCount: number;
+  sortedCodes?: string[];
 }
 
 export async function fetchRoleTransactionsChunk(

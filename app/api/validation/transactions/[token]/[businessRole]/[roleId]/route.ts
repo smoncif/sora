@@ -259,6 +259,7 @@ export async function GET(
         previewCount,
         sortField,
         sortDirection,
+        sortedCodes,
       },
     });
   } catch (error) {

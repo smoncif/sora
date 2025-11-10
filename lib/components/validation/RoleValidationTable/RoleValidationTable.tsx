@@ -106,7 +106,7 @@ function RoleTransactionsSection({
   const previewCount = previewTransactions.length;
   const totalTransactions = role.transactionCount;
   const [visibleTransactions, setVisibleTransactions] =
-    React.useState<TransactionPreview[]>(previewTransactions);
+    React.useState<TransactionPreview[]>([]);
   const [hasMoreTransactions, setHasMoreTransactions] = React.useState(
     previewCount < totalTransactions
   );
@@ -118,12 +118,14 @@ function RoleTransactionsSection({
   const [sortDirection, setSortDirection] = React.useState<SortDirection>('asc');
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [sortedCodes, setSortedCodes] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
       return;
     }
-    setVisibleTransactions(previewTransactions);
+    setVisibleTransactions([]);
+    setSortedCodes([]);
     setHasMoreTransactions(previewTransactions.length < totalTransactions);
     setLoadedRemainingCount(0);
     initialPreviewLoadedRef.current = false;
@@ -229,6 +231,7 @@ function RoleTransactionsSection({
         } else {
           setLoadedRemainingCount(response.nextOffset);
           setHasMoreTransactions(response.hasMore);
+        setSortedCodes(response.sortedCodes ?? []);
         }
       } catch (error) {
         console.error('[RoleTransactionsSection] Chargement transactions supplémentaire', error);
@@ -302,13 +305,7 @@ function RoleTransactionsSection({
 
   React.useEffect(() => {
     const requiredCount = (page + 1) * rowsPerPage;
-    if (
-      showTechnicalView &&
-      isExpanded &&
-      requiredCount > visibleTransactions.length &&
-      hasMoreTransactions &&
-      !isLoadingMore
-    ) {
+    if (requiredCount > visibleTransactions.length && hasMoreTransactions && !isLoadingMore) {
       loadMoreTransactions(false);
     }
   }, [
@@ -377,6 +374,7 @@ function RoleTransactionsSection({
         onRowsPerPageChange={handleRowsPerPageChange}
         onLoadMore={handleLoadMoreClick}
         isLoadingMore={isLoadingMore}
+        sortedCodes={sortedCodes}
       />
     </>
   );
