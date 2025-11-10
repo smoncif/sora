@@ -363,7 +363,6 @@ function RoleTransactionsSection({
         totalTransactions={totalTransactions}
         onPageChange={handlePageChange}
         onRowsPerPageChange={handleRowsPerPageChange}
-        sortedCodes={sortedCodes}
       />
     </>
   );
