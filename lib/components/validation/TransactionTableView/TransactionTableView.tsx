@@ -55,7 +55,6 @@ export interface TransactionTableViewProps {
   onTransactionApprovalChange: (transactionCode: string, isApproved: boolean | null) => void;
   onTransactionCommentChange: (transactionCode: string, comment: string) => void;
   readOnly?: boolean; // 🆕 Mode lecture seule
-  remainingCount?: number;
   sortField: TransactionSortField;
   sortDirection: SortDirection;
   onSortChange: (field: TransactionSortField) => void;
@@ -64,8 +63,6 @@ export interface TransactionTableViewProps {
   totalTransactions: number;
   onPageChange: (event: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => void;
   onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onLoadMore: () => void;
-  isLoadingMore: boolean;
   sortedCodes?: string[];
 }
 
@@ -76,7 +73,6 @@ export function TransactionTableView({
   onTransactionApprovalChange,
   onTransactionCommentChange,
   readOnly = false,
-  remainingCount = 0,
   sortField,
   sortDirection,
   onSortChange,
@@ -85,8 +81,6 @@ export function TransactionTableView({
   totalTransactions,
   onPageChange,
   onRowsPerPageChange,
-  onLoadMore,
-  isLoadingMore,
   sortedCodes,
 }: TransactionTableViewProps) {
   const theme = useTheme();

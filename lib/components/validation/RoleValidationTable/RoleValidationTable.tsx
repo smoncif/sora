@@ -297,12 +297,6 @@ function RoleTransactionsSection({
     setPage(0);
   }, []);
 
-  const handleLoadMoreClick = React.useCallback(() => {
-    if (!isLoadingMore) {
-      loadMoreTransactions(false);
-    }
-  }, [isLoadingMore, loadMoreTransactions]);
-
   React.useEffect(() => {
     const requiredCount = (page + 1) * rowsPerPage;
     if (requiredCount > visibleTransactions.length && hasMoreTransactions && !isLoadingMore) {
@@ -372,8 +366,6 @@ function RoleTransactionsSection({
         totalTransactions={totalTransactions}
         onPageChange={handlePageChange}
         onRowsPerPageChange={handleRowsPerPageChange}
-        onLoadMore={handleLoadMoreClick}
-        isLoadingMore={isLoadingMore}
         sortedCodes={sortedCodes}
       />
     </>
