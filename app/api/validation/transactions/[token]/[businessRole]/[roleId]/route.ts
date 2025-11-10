@@ -163,45 +163,49 @@ export async function GET(
     const modulesMapAll = await fetchModulesWithHierarchy(transactionCodes);
 
     const getSortValue = (code: string) => {
+      if (sortField === 'transaction') {
+        const description = transactionDescriptions[code] ?? '';
+        return `${code.toUpperCase()}||${description.toUpperCase()}`;
+      }
+
       const moduleData = modulesMapAll.get(code);
-    const moduleKey = moduleData?.module ?? '';
-    switch (sortField) {
-      case 'level1': {
-        const level1 = moduleData?.level1Module ?? '';
-        const level2 = moduleData?.level2Module ?? '';
-        const level3 = moduleData?.module ?? '';
-        return `${level1}||${level2}||${level3}||${code}`;
+      const moduleKey = moduleData?.module ?? '';
+      switch (sortField) {
+        case 'level1': {
+          const level1 = moduleData?.level1Module ?? '';
+          const level2 = moduleData?.level2Module ?? '';
+          const level3 = moduleData?.module ?? '';
+          return `${level1.toUpperCase()}||${level2.toUpperCase()}||${level3.toUpperCase()}||${code.toUpperCase()}`;
+        }
+        case 'level2': {
+          const level1 = moduleData?.level1Module ?? '';
+          const level2 = moduleData?.level2Module ?? '';
+          const level3 = moduleData?.module ?? '';
+          return `${level2.toUpperCase()}||${level1.toUpperCase()}||${level3.toUpperCase()}||${code.toUpperCase()}`;
+        }
+        case 'level3Plus':
+          return `${moduleKey.toUpperCase()}||${(transactionDescriptions[code] ?? '').toUpperCase()}||${code.toUpperCase()}`;
+        case 'usage': {
+          const usage = transactionUsage[code] ?? 0;
+          return usage;
+        }
+        default:
+          return code.toUpperCase();
       }
-      case 'level2': {
-        const level1 = moduleData?.level1Module ?? '';
-        const level2 = moduleData?.level2Module ?? '';
-        const level3 = moduleData?.module ?? '';
-        return `${level2}||${level1}||${level3}||${code}`;
-      }
-      case 'level3Plus':
-        return `${moduleKey}||${transactionDescriptions[code] ?? ''}||${code}`;
-      case 'usage': {
-        const usage = transactionUsage[code] ?? 0;
-        return usage;
-      }
-      case 'transaction':
-      default:
-        return code;
-    }
     };
 
     const sortedCodes = [...transactionCodes].sort((a, b) => {
       const valueA = getSortValue(a);
       const valueB = getSortValue(b);
 
-    if (typeof valueA === 'number' || typeof valueB === 'number') {
-      const numA = typeof valueA === 'number' ? valueA : transactionUsage[a] ?? 0;
-      const numB = typeof valueB === 'number' ? valueB : transactionUsage[b] ?? 0;
-      return sortDirection === 'asc' ? numA - numB : numB - numA;
+      if (typeof valueA === 'number' || typeof valueB === 'number') {
+        const numA = typeof valueA === 'number' ? valueA : transactionUsage[a] ?? 0;
+        const numB = typeof valueB === 'number' ? valueB : transactionUsage[b] ?? 0;
+        return sortDirection === 'asc' ? numA - numB : numB - numA;
       }
 
-    const stringA = String(valueA);
-    const stringB = String(valueB);
+      const stringA = String(valueA);
+      const stringB = String(valueB);
       const comparison = stringA.localeCompare(stringB, 'fr', { sensitivity: 'base' });
       return sortDirection === 'asc' ? comparison : -comparison;
     });
