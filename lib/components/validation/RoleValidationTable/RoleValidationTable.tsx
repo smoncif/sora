@@ -5,7 +5,7 @@
  * Supporte multi-rôles métier et vue technique conditionnelle
  */
 
-import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   Table,
   TableHead,
@@ -20,10 +20,11 @@ import {
   IconButton,
   useTheme,
   alpha,
-  Skeleton,
   InputAdornment,
   Paper,
   TablePagination,
+  CircularProgress,
+  Skeleton,
 } from '@mui/material';
 import { 
   ExpandMore, 
@@ -34,7 +35,7 @@ import {
   ArrowDownward,
 } from '@mui/icons-material';
 import { ApprovalSwitch } from '../ApprovalSwitch/ApprovalSwitch';
-import { TransactionTableView, TransactionSortField, SortDirection } from '../TransactionTableView/TransactionTableView';
+import { TransactionTableView, TransactionSortField, SortDirection as TransactionSortDirection } from '../TransactionTableView/TransactionTableView';
 import type { ValidationResult, TransactionValidationResult } from 'lib/services/validation/validationLinkService';
 import { useLazyValidationRendering } from 'lib/hooks/validation';
 import { fetchRoleTransactionsChunk } from 'lib/hooks/validation';
@@ -87,282 +88,163 @@ function RoleTransactionsSection({
   onTransactionCommentChange,
   onTransactionsLoaded,
 }: RoleTransactionsSectionProps) {
-  const previewTransactions = React.useMemo(
-    () => role.previewTransactions ?? [],
-    [role.previewTransactions]
-  );
-  const transactionCodes = React.useMemo(
-    () => role.transactionCodes ?? [],
-    [role.transactionCodes]
-  );
-  const transactionDescriptions = React.useMemo(
-    () => role.transactionDescriptions ?? {},
-    [role.transactionDescriptions]
-  );
-  const transactionUsage = React.useMemo(
-    () => role.transactionUsage ?? {},
-    [role.transactionUsage]
-  );
-  const previewCount = previewTransactions.length;
   const totalTransactions = role.transactionCount;
-  const [visibleTransactions, setVisibleTransactions] =
-    React.useState<TransactionPreview[]>([]);
-  const [hasMoreTransactions, setHasMoreTransactions] = React.useState(
-    previewCount < totalTransactions
-  );
-  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
-  const [loadedRemainingCount, setLoadedRemainingCount] = React.useState(0);
-  const batchSize = 10;
-  const initialPreviewLoadedRef = React.useRef(false);
-  const [sortField, setSortField] = React.useState<TransactionSortField>('transaction');
-  const [sortDirection, setSortDirection] = React.useState<SortDirection>('asc');
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(10);
-  const [sortedCodes, setSortedCodes] = React.useState<string[]>([]);
+  const [visibleTransactions, setVisibleTransactions] = useState<TransactionPreview[]>([]);
+  const [sortedCodes, setSortedCodes] = useState<string[]>([]);
+  const [sortField, setSortField] = useState<TransactionSortField>('transaction');
+  const [sortDirection, setSortDirection] = useState<TransactionSortDirection>('asc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isTransactionsLoading, setIsTransactionsLoading] = useState(false);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  const fetchAllTransactions = useCallback(async () => {
     if (!showTechnicalView || !isExpanded) {
       return;
     }
-    setVisibleTransactions([]);
-    setSortedCodes([]);
-    setHasMoreTransactions(previewTransactions.length < totalTransactions);
-    setLoadedRemainingCount(0);
-    initialPreviewLoadedRef.current = false;
-    setSortField('transaction');
-    setSortDirection('asc');
-    setPage(0);
-  }, [
-    showTechnicalView,
-    isExpanded,
-    previewTransactions,
-    totalTransactions,
-    role.roleId,
-  ]);
 
-  React.useEffect(() => {
-    if (showTechnicalView && isExpanded && previewTransactions.length > 0) {
-      onTransactionsLoaded(businessRole, role.roleId, previewTransactions);
+    setIsTransactionsLoading(true);
+    setTransactionsError(null);
+    setPage(0);
+
+    const aggregated: TransactionPreview[] = [];
+    const collectedCodes: string[] = [];
+    const CHUNK_SIZE = 200;
+    let offset = 0;
+    let includePreview = true;
+
+    try {
+      while (true) {
+        const chunk = await fetchRoleTransactionsChunk(
+          token,
+          businessRole,
+          role.roleId,
+          offset,
+          CHUNK_SIZE,
+          includePreview,
+          sortField,
+          sortDirection
+        );
+
+        aggregated.push(...chunk.transactions);
+
+        if (chunk.sortedCodes && chunk.sortedCodes.length > 0 && collectedCodes.length === 0) {
+          collectedCodes.push(...chunk.sortedCodes);
+        }
+
+        if (!chunk.hasMore) {
+          break;
+        }
+
+        includePreview = false;
+        offset = chunk.nextOffset;
+      }
+
+      setVisibleTransactions(aggregated);
+      if (collectedCodes.length > 0) {
+        setSortedCodes(collectedCodes);
+      } else if (aggregated.length > 0) {
+        setSortedCodes(aggregated.map((tx) => tx.code));
+      } else {
+        setSortedCodes([]);
+      }
+    } catch (error) {
+      console.error('[RoleTransactionsSection] fetchAllTransactions', error);
+      setTransactionsError(
+        error instanceof Error ? error.message : 'Impossible de charger les transactions'
+      );
+    } finally {
+      setIsTransactionsLoading(false);
     }
   }, [
     showTechnicalView,
     isExpanded,
-    previewTransactions,
+    token,
+    businessRole,
+    role.roleId,
+    sortField,
+    sortDirection,
+  ]);
+
+  useEffect(() => {
+    fetchAllTransactions();
+  }, [fetchAllTransactions]);
+
+  useEffect(() => {
+    if (showTechnicalView && isExpanded && visibleTransactions.length > 0) {
+      onTransactionsLoaded(businessRole, role.roleId, visibleTransactions);
+    }
+  }, [
+    showTechnicalView,
+    isExpanded,
+    visibleTransactions,
     businessRole,
     role.roleId,
     onTransactionsLoaded,
   ]);
 
-  const loadMoreTransactions = React.useCallback(
-    async (includePreview = false) => {
-      if (!showTechnicalView || !isExpanded) {
-        return;
+  const handleSortChange = useCallback((field: TransactionSortField) => {
+    setSortField((prevField) => {
+      if (prevField === field) {
+        setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
+        return prevField;
       }
-      if (isLoadingMore) {
-        return;
-      }
-      if (!includePreview && !hasMoreTransactions) {
-        return;
-      }
+      setSortDirection('asc');
+      return field;
+    });
+    setPage(0);
+  }, []);
 
-      setIsLoadingMore(true);
-      try {
-        const effectiveIncludePreview = includePreview && previewCount > 0;
-        const offset = effectiveIncludePreview ? 0 : loadedRemainingCount;
-        const requestLimit = effectiveIncludePreview ? previewCount : batchSize;
-        const response = await fetchRoleTransactionsChunk(
-          token,
-          businessRole,
-          role.roleId,
-          offset,
-          requestLimit,
-          effectiveIncludePreview,
-          sortField,
-          sortDirection
-        );
-
-        const newTransactions = Array.isArray(response.transactions)
-          ? response.transactions
-          : [];
-
-        setVisibleTransactions((current) => {
-          const transactionMap = new Map<string, TransactionPreview>();
-          current.forEach((tx) => {
-            if (tx?.code) {
-              transactionMap.set(tx.code, tx);
-            }
-          });
-          newTransactions.forEach((tx) => {
-            if (!tx?.code) {
-              return;
-            }
-            const existing = transactionMap.get(tx.code);
-            transactionMap.set(tx.code, existing ? { ...existing, ...tx } : tx);
-          });
-
-          const totalLoaded = effectiveIncludePreview
-            ? response.transactions.length
-            : previewCount + response.nextOffset;
-          const orderedCodes =
-            transactionCodes.length > 0
-              ? transactionCodes.slice(0, totalLoaded)
-              : Array.from(transactionMap.keys());
-
-          return orderedCodes.map((code) => {
-            const transaction = transactionMap.get(code);
-            if (transaction) {
-              return transaction;
-            }
-            return {
-              code,
-              description: transactionDescriptions[code] ?? code,
-              usage: transactionUsage[code] ?? 0,
-            };
-          });
-        });
-
-        if (newTransactions.length > 0) {
-          onTransactionsLoaded(businessRole, role.roleId, newTransactions);
-        }
-
-        if (effectiveIncludePreview) {
-          setLoadedRemainingCount(0);
-          setHasMoreTransactions(transactionCodes.length > response.transactions.length);
-        } else {
-          setLoadedRemainingCount(response.nextOffset);
-          setHasMoreTransactions(response.hasMore);
-        setSortedCodes(response.sortedCodes ?? []);
-        }
-      } catch (error) {
-        console.error('[RoleTransactionsSection] Chargement transactions supplémentaire', error);
-        setHasMoreTransactions(false);
-      } finally {
-        setIsLoadingMore(false);
-      }
-    },
-    [
-      showTechnicalView,
-      isExpanded,
-      isLoadingMore,
-      hasMoreTransactions,
-      previewCount,
-      loadedRemainingCount,
-      token,
-      businessRole,
-      role.roleId,
-      batchSize,
-      transactionCodes,
-      transactionDescriptions,
-      transactionUsage,
-      onTransactionsLoaded,
-      sortField,
-      sortDirection
-    ]
-  );
-
-  const handleSortChange = React.useCallback(
-    (field: TransactionSortField) => {
-      setSortField((prevField) => {
-        if (prevField === field) {
-          setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
-        } else {
-          setSortDirection('asc');
-        }
-        return field;
-      });
-      // reset state to trigger reload
-      setVisibleTransactions([]);
-      setHasMoreTransactions(true);
-      setLoadedRemainingCount(0);
-      initialPreviewLoadedRef.current = false;
-      setPage(0);
-    },
-    []
-  );
-
-  const handlePageChange = React.useCallback(
+  const handlePageChange = useCallback(
     (_: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => {
       setPage(newPage);
     },
     []
   );
 
-  const handleRowsPerPageChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   }, []);
-
-  React.useEffect(() => {
-    const requiredCount = (page + 1) * rowsPerPage;
-    if (requiredCount > visibleTransactions.length && hasMoreTransactions && !isLoadingMore) {
-      loadMoreTransactions(false);
-    }
-  }, [
-    page,
-    rowsPerPage,
-    visibleTransactions.length,
-    hasMoreTransactions,
-    isLoadingMore,
-    loadMoreTransactions,
-    showTechnicalView,
-    isExpanded,
-  ]);
-
-  React.useEffect(() => {
-    if (!showTechnicalView || !isExpanded) {
-      return;
-    }
-    if (totalTransactions === 0) {
-      return;
-    }
-    if (initialPreviewLoadedRef.current) {
-      return;
-    }
-    if (previewCount > 0) {
-      loadMoreTransactions(true).finally(() => {
-        if (transactionCodes.length > previewCount) {
-          loadMoreTransactions(false);
-        }
-      });
-    } else {
-      loadMoreTransactions(false);
-    }
-    initialPreviewLoadedRef.current = true;
-  }, [
-    showTechnicalView,
-    isExpanded,
-    totalTransactions,
-    loadMoreTransactions,
-    previewCount,
-    transactionCodes.length,
-    sortField,
-    sortDirection,
-  ]);
 
   if (!showTechnicalView || !isExpanded) {
     return null;
   }
 
+  if (isTransactionsLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  if (transactionsError) {
+    return (
+      <Box sx={{ py: 2 }}>
+        <Typography color="error">{transactionsError}</Typography>
+      </Box>
+    );
+  }
+
   return (
-    <>
-      <TransactionTableView
-        transactions={visibleTransactions}
-        showTechnicalView={showTechnicalView}
-        transactionValidations={transactionValidations}
-        onTransactionApprovalChange={onTransactionApprovalChange}
-        onTransactionCommentChange={onTransactionCommentChange}
-        readOnly={readOnly}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onSortChange={handleSortChange}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        totalTransactions={totalTransactions}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        sortedCodes={sortedCodes}
-      />
-    </>
+    <TransactionTableView
+      transactions={visibleTransactions}
+      showTechnicalView={showTechnicalView}
+      transactionValidations={transactionValidations}
+      onTransactionApprovalChange={onTransactionApprovalChange}
+      onTransactionCommentChange={onTransactionCommentChange}
+      readOnly={readOnly}
+      sortField={sortField}
+      sortDirection={sortDirection}
+      onSortChange={handleSortChange}
+      page={page}
+      rowsPerPage={rowsPerPage}
+      totalTransactions={totalTransactions}
+      onPageChange={handlePageChange}
+      onRowsPerPageChange={handleRowsPerPageChange}
+      sortedCodes={sortedCodes}
+    />
   );
 }
 
