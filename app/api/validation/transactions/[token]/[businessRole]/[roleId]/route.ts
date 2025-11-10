@@ -164,31 +164,44 @@ export async function GET(
 
     const getSortValue = (code: string) => {
       const moduleData = modulesMapAll.get(code);
-      switch (sortField) {
-        case 'level1':
-          return moduleData?.level1Module ?? '';
-        case 'level2':
-          return moduleData?.level2Module ?? '';
-        case 'level3Plus':
-          return moduleData?.module ?? '';
-        case 'usage':
-          return transactionUsage[code] ?? 0;
-        case 'transaction':
-        default:
-          return code;
+    const moduleKey = moduleData?.module ?? '';
+    switch (sortField) {
+      case 'level1': {
+        const level1 = moduleData?.level1Module ?? '';
+        const level2 = moduleData?.level2Module ?? '';
+        const level3 = moduleData?.module ?? '';
+        return `${level1}||${level2}||${level3}||${code}`;
       }
+      case 'level2': {
+        const level1 = moduleData?.level1Module ?? '';
+        const level2 = moduleData?.level2Module ?? '';
+        const level3 = moduleData?.module ?? '';
+        return `${level2}||${level1}||${level3}||${code}`;
+      }
+      case 'level3Plus':
+        return `${moduleKey}||${transactionDescriptions[code] ?? ''}||${code}`;
+      case 'usage': {
+        const usage = transactionUsage[code] ?? 0;
+        return usage;
+      }
+      case 'transaction':
+      default:
+        return code;
+    }
     };
 
     const sortedCodes = [...transactionCodes].sort((a, b) => {
       const valueA = getSortValue(a);
       const valueB = getSortValue(b);
 
-      if (typeof valueA === 'number' && typeof valueB === 'number') {
-        return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+    if (typeof valueA === 'number' || typeof valueB === 'number') {
+      const numA = typeof valueA === 'number' ? valueA : transactionUsage[a] ?? 0;
+      const numB = typeof valueB === 'number' ? valueB : transactionUsage[b] ?? 0;
+      return sortDirection === 'asc' ? numA - numB : numB - numA;
       }
 
-      const stringA = String(valueA);
-      const stringB = String(valueB);
+    const stringA = String(valueA);
+    const stringB = String(valueB);
       const comparison = stringA.localeCompare(stringB, 'fr', { sensitivity: 'base' });
       return sortDirection === 'asc' ? comparison : -comparison;
     });
