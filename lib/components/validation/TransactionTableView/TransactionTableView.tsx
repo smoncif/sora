@@ -5,7 +5,7 @@
  * Affiche : Module L1 | Module L2 | Module L3+ | Transaction | Description | Validation | Commentaire
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import {
   Table,
   TableHead,
@@ -55,6 +55,9 @@ export interface TransactionTableViewProps {
   onTransactionCommentChange: (transactionCode: string, comment: string) => void;
   readOnly?: boolean; // 🆕 Mode lecture seule
   remainingCount?: number;
+  sortField: TransactionSortField;
+  sortDirection: SortDirection;
+  onSortChange: (field: TransactionSortField) => void;
 }
 
 export function TransactionTableView({
@@ -65,21 +68,12 @@ export function TransactionTableView({
   onTransactionCommentChange,
   readOnly = false,
   remainingCount = 0,
+  sortField,
+  sortDirection,
+  onSortChange,
 }: TransactionTableViewProps) {
   const theme = useTheme();
   const totalColumns = showTechnicalView ? 7 : 5;
-  const [sortField, setSortField] = useState<TransactionSortField>('transaction');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-
-  // Handler pour le tri
-  const handleSort = useCallback((field: TransactionSortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  }, [sortField]);
 
   // Enrichir les transactions avec la hiérarchie des modules
   const enrichedTransactions = useMemo(() => {
@@ -102,33 +96,6 @@ export function TransactionTableView({
     });
   }, [transactions, transactionValidations]);
 
-  // Trier les transactions
-  const sortedTransactions = useMemo(() => {
-    return [...enrichedTransactions].sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortField) {
-        case 'level1':
-          comparison = (a.hierarchy.level1?.id || '').localeCompare(b.hierarchy.level1?.id || '');
-          break;
-        case 'level2':
-          comparison = (a.hierarchy.level2?.id || '').localeCompare(b.hierarchy.level2?.id || '');
-          break;
-        case 'level3Plus':
-          comparison = (a.hierarchy.level3Plus?.id || '').localeCompare(b.hierarchy.level3Plus?.id || '');
-          break;
-        case 'transaction':
-          comparison = a.code.localeCompare(b.code);
-          break;
-        case 'usage':
-          comparison = a.usage - b.usage;
-          break;
-      }
-
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-  }, [enrichedTransactions, sortField, sortDirection]);
-
   return (
     <Box sx={{ width: '100%', overflowX: 'auto' }}>
       <Table size="small" sx={{
@@ -147,7 +114,7 @@ export function TransactionTableView({
               <TableSortLabel
                 active={sortField === 'level1'}
                 direction={sortField === 'level1' ? sortDirection : 'asc'}
-                onClick={() => handleSort('level1')}
+                onClick={() => onSortChange('level1')}
               >
                 Module L1
               </TableSortLabel>
@@ -158,7 +125,7 @@ export function TransactionTableView({
               <TableSortLabel
                 active={sortField === 'level2'}
                 direction={sortField === 'level2' ? sortDirection : 'asc'}
-                onClick={() => handleSort('level2')}
+                onClick={() => onSortChange('level2')}
               >
                 Module L2
               </TableSortLabel>
@@ -169,7 +136,7 @@ export function TransactionTableView({
               <TableSortLabel
                 active={sortField === 'level3Plus'}
                 direction={sortField === 'level3Plus' ? sortDirection : 'asc'}
-                onClick={() => handleSort('level3Plus')}
+                onClick={() => onSortChange('level3Plus')}
               >
                 Module L3+
               </TableSortLabel>
@@ -180,7 +147,7 @@ export function TransactionTableView({
               <TableSortLabel
                 active={sortField === 'transaction'}
                 direction={sortField === 'transaction' ? sortDirection : 'asc'}
-                onClick={() => handleSort('transaction')}
+                onClick={() => onSortChange('transaction')}
               >
                 Transaction
               </TableSortLabel>
@@ -191,7 +158,7 @@ export function TransactionTableView({
               <TableSortLabel
                 active={sortField === 'usage'}
                 direction={sortField === 'usage' ? sortDirection : 'asc'}
-                onClick={() => handleSort('usage')}
+                onClick={() => onSortChange('usage')}
               >
                 Usage
               </TableSortLabel>
@@ -212,7 +179,7 @@ export function TransactionTableView({
         </TableHead>
 
         <TableBody>
-          {sortedTransactions.map((tx, idx) => (
+          {enrichedTransactions.map((tx, idx) => (
             <TableRow
               key={idx}
               hover

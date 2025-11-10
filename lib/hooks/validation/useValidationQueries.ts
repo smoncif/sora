@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient, QueryKey, useMutation } from '@tanstack/react-query';
+import type { TransactionSortField, SortDirection } from 'lib/components/validation/TransactionTableView/TransactionTableView';
 import type { SubmitValidationParams, ValidationResult } from 'lib/services/validation/validationLinkService';
 import type { TransactionPreview } from 'lib/types/sapModule';
 
@@ -156,11 +157,15 @@ export async function fetchRoleTransactionsChunk(
   roleId: string,
   offset: number,
   limit: number,
-  includePreview = false
+  includePreview = false,
+  sortField: TransactionSortField = 'transaction',
+  sortDirection: SortDirection = 'asc'
 ): Promise<RoleTransactionsChunkResponse> {
   const params = new URLSearchParams({
     offset: String(offset),
     limit: String(limit),
+    sortField,
+    sortDirection,
   });
 
   if (includePreview) {

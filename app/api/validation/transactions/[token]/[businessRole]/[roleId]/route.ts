@@ -109,6 +109,12 @@ export async function GET(
     const limitParam = Number.parseInt(searchParams.get('limit') ?? '10', 10);
     const limit = Math.min(Math.max(limitParam, 1), 50);
     const includePreview = searchParams.get('includePreview') === 'true';
+    const sortFieldParam = searchParams.get('sortField') ?? 'transaction';
+    const sortDirectionParam = searchParams.get('sortDirection') ?? 'asc';
+
+    const allowedSortFields = new Set(['level1', 'level2', 'level3Plus', 'transaction', 'usage']);
+    const sortField = allowedSortFields.has(sortFieldParam) ? sortFieldParam : 'transaction';
+    const sortDirection = sortDirectionParam === 'desc' ? 'desc' : 'asc';
 
     const link = await getValidationLinkData(token, { includeFullTransactions: true });
     if (!link?.payload?.selectedRolesData) {
@@ -154,14 +160,47 @@ export async function GET(
         : Math.min(5, transactionCodes.length);
     const totalTransactions = transactionCodes.length;
 
-    const remainingCodes = transactionCodes.slice(previewCount);
+    const modulesMapAll = await fetchModulesWithHierarchy(transactionCodes);
+
+    const getSortValue = (code: string) => {
+      const moduleData = modulesMapAll.get(code);
+      switch (sortField) {
+        case 'level1':
+          return moduleData?.level1Module ?? '';
+        case 'level2':
+          return moduleData?.level2Module ?? '';
+        case 'level3Plus':
+          return moduleData?.module ?? '';
+        case 'usage':
+          return transactionUsage[code] ?? 0;
+        case 'transaction':
+        default:
+          return code;
+      }
+    };
+
+    const sortedCodes = [...transactionCodes].sort((a, b) => {
+      const valueA = getSortValue(a);
+      const valueB = getSortValue(b);
+
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+      }
+
+      const stringA = String(valueA);
+      const stringB = String(valueB);
+      const comparison = stringA.localeCompare(stringB, 'fr', { sensitivity: 'base' });
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    const remainingCodes = sortedCodes.slice(previewCount);
 
     let sliceCodes: string[] = [];
     let nextOffset = offset;
 
     if (includePreview) {
-      const maxCount = Math.min(limit, transactionCodes.length);
-      sliceCodes = transactionCodes.slice(0, maxCount);
+      const maxCount = Math.min(limit, sortedCodes.length);
+      sliceCodes = sortedCodes.slice(0, maxCount);
       nextOffset = Math.max(sliceCodes.length - previewCount, 0);
     } else {
       sliceCodes = remainingCodes.slice(offset, offset + limit);
@@ -170,10 +209,8 @@ export async function GET(
 
     const hasMore = nextOffset < remainingCodes.length;
 
-    const modulesMap = await fetchModulesWithHierarchy(sliceCodes);
-
     const transactions = sliceCodes.map((code) => {
-      const moduleData = modulesMap.get(code);
+      const moduleData = modulesMapAll.get(code);
       return {
         code,
         description:
@@ -203,6 +240,8 @@ export async function GET(
         hasMore,
         totalTransactions,
         previewCount,
+        sortField,
+        sortDirection,
       },
     });
   } catch (error) {

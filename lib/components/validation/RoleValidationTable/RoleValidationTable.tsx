@@ -35,7 +35,7 @@ import {
   ArrowDownward,
 } from '@mui/icons-material';
 import { ApprovalSwitch } from '../ApprovalSwitch/ApprovalSwitch';
-import { TransactionTableView } from '../TransactionTableView/TransactionTableView';
+import { TransactionTableView, TransactionSortField, SortDirection } from '../TransactionTableView/TransactionTableView';
 import type { ValidationResult, TransactionValidationResult } from 'lib/services/validation/validationLinkService';
 import { useLazyValidationRendering } from 'lib/hooks/validation';
 import { fetchRoleTransactionsChunk } from 'lib/hooks/validation';
@@ -116,6 +116,8 @@ function RoleTransactionsSection({
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
   const batchSize = 10;
   const initialPreviewLoadedRef = React.useRef(false);
+  const [sortField, setSortField] = React.useState<TransactionSortField>('transaction');
+  const [sortDirection, setSortDirection] = React.useState<SortDirection>('asc');
 
   React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
@@ -125,6 +127,8 @@ function RoleTransactionsSection({
     setHasMoreTransactions(previewTransactions.length < totalTransactions);
     setLoadedRemainingCount(0);
     initialPreviewLoadedRef.current = false;
+    setSortField('transaction');
+    setSortDirection('asc');
   }, [
     showTechnicalView,
     isExpanded,
@@ -169,7 +173,9 @@ function RoleTransactionsSection({
           role.roleId,
           offset,
           requestLimit,
-          effectiveIncludePreview
+          effectiveIncludePreview,
+          sortField,
+          sortDirection
         );
 
         const newTransactions = Array.isArray(response.transactions)
@@ -245,12 +251,33 @@ function RoleTransactionsSection({
       transactionDescriptions,
       transactionUsage,
       onTransactionsLoaded,
+      sortField,
+      sortDirection
     ]
   );
 
   const remainingTransactionsCount = React.useMemo(
     () => Math.max(totalTransactions - visibleTransactions.length, 0),
     [totalTransactions, visibleTransactions.length]
+  );
+
+  const handleSortChange = React.useCallback(
+    (field: TransactionSortField) => {
+      setSortField((prevField) => {
+        if (prevField === field) {
+          setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
+        } else {
+          setSortDirection('asc');
+        }
+        return field;
+      });
+      // reset state to trigger reload
+      setVisibleTransactions([]);
+      setHasMoreTransactions(true);
+      setLoadedRemainingCount(0);
+      initialPreviewLoadedRef.current = false;
+    },
+    []
   );
 
   React.useEffect(() => {
@@ -280,6 +307,8 @@ function RoleTransactionsSection({
     loadMoreTransactions,
     previewCount,
     transactionCodes.length,
+    sortField,
+    sortDirection,
   ]);
 
   React.useEffect(() => {
@@ -325,6 +354,9 @@ function RoleTransactionsSection({
         onTransactionCommentChange={onTransactionCommentChange}
         readOnly={readOnly}
         remainingCount={remainingTransactionsCount}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={handleSortChange}
       />
       <Box ref={sentinelRef} sx={{ height: 1 }} />
       {hasMoreTransactions && (
