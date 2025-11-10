@@ -118,14 +118,12 @@ function RoleTransactionsSection({
   const [sortDirection, setSortDirection] = React.useState<SortDirection>('asc');
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
-  const [sortedCodes, setSortedCodes] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (!showTechnicalView || !isExpanded) {
       return;
     }
     setVisibleTransactions([]);
-    setSortedCodes([]);
     setHasMoreTransactions(previewTransactions.length < totalTransactions);
     setLoadedRemainingCount(0);
     initialPreviewLoadedRef.current = false;
@@ -230,8 +228,7 @@ function RoleTransactionsSection({
           setHasMoreTransactions(transactionCodes.length > response.transactions.length);
         } else {
           setLoadedRemainingCount(response.nextOffset);
-          setHasMoreTransactions(response.hasMore);
-        setSortedCodes(response.sortedCodes ?? []);
+        setHasMoreTransactions(response.hasMore);
         }
       } catch (error) {
         console.error('[RoleTransactionsSection] Chargement transactions supplémentaire', error);

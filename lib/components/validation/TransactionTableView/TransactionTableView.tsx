@@ -63,7 +63,6 @@ export interface TransactionTableViewProps {
   totalTransactions: number;
   onPageChange: (event: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => void;
   onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  sortedCodes?: string[];
 }
 
 export function TransactionTableView({
@@ -81,7 +80,6 @@ export function TransactionTableView({
   totalTransactions,
   onPageChange,
   onRowsPerPageChange,
-  sortedCodes,
 }: TransactionTableViewProps) {
   const theme = useTheme();
   const totalColumns = showTechnicalView ? 7 : 5;
@@ -107,21 +105,11 @@ export function TransactionTableView({
     });
   }, [transactions, transactionValidations]);
 
-  const orderedTransactions = useMemo(() => {
-    if (!sortedCodes || sortedCodes.length === 0) {
-      return enrichedTransactions;
-    }
-    const lookup = new Map(enrichedTransactions.map((tx) => [tx.code, tx]));
-    return sortedCodes
-      .map((code) => lookup.get(code))
-      .filter((tx): tx is (typeof enrichedTransactions)[number] => Boolean(tx));
-  }, [enrichedTransactions, sortedCodes]);
-
   const paginatedTransactions = useMemo(() => {
     const startIndex = page * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
-    return orderedTransactions.slice(startIndex, endIndex);
-  }, [orderedTransactions, page, rowsPerPage]);
+    return [...enrichedTransactions].slice(startIndex, endIndex);
+  }, [enrichedTransactions, page, rowsPerPage]);
 
   return (
     <Box sx={{ width: '100%', overflowX: 'auto' }}>
