@@ -97,11 +97,16 @@ function RoleTransactionsSection({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [isTransactionsLoading, setIsTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+  const theme = useTheme();
 
   const fetchAllTransactions = useCallback(async () => {
     if (!showTechnicalView || !isExpanded) {
       return;
     }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
     setIsTransactionsLoading(true);
     setTransactionsError(null);
@@ -140,21 +145,27 @@ function RoleTransactionsSection({
         offset = chunk.nextOffset;
       }
 
-      setVisibleTransactions(aggregated);
-      if (collectedCodes.length > 0) {
-        setSortedCodes(collectedCodes);
-      } else if (aggregated.length > 0) {
-        setSortedCodes(aggregated.map((tx) => tx.code));
-      } else {
-        setSortedCodes([]);
+      if (requestId === requestIdRef.current) {
+        setVisibleTransactions(aggregated);
+        if (collectedCodes.length > 0) {
+          setSortedCodes(collectedCodes);
+        } else if (aggregated.length > 0) {
+          setSortedCodes(aggregated.map((tx) => tx.code));
+        } else {
+          setSortedCodes([]);
+        }
       }
     } catch (error) {
-      console.error('[RoleTransactionsSection] fetchAllTransactions', error);
-      setTransactionsError(
-        error instanceof Error ? error.message : 'Impossible de charger les transactions'
-      );
+      if (requestId === requestIdRef.current) {
+        console.error('[RoleTransactionsSection] fetchAllTransactions', error);
+        setTransactionsError(
+          error instanceof Error ? error.message : 'Impossible de charger les transactions'
+        );
+      }
     } finally {
-      setIsTransactionsLoading(false);
+      if (requestId === requestIdRef.current) {
+        setIsTransactionsLoading(false);
+      }
     }
   }, [
     showTechnicalView,
@@ -211,40 +222,61 @@ function RoleTransactionsSection({
     return null;
   }
 
-  if (isTransactionsLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress size={24} />
-      </Box>
-    );
-  }
-
-  if (transactionsError) {
-    return (
-      <Box sx={{ py: 2 }}>
-        <Typography color="error">{transactionsError}</Typography>
-      </Box>
-    );
-  }
+  const showOverlay = isTransactionsLoading || Boolean(transactionsError);
 
   return (
-    <TransactionTableView
-      transactions={visibleTransactions}
-      showTechnicalView={showTechnicalView}
-      transactionValidations={transactionValidations}
-      onTransactionApprovalChange={onTransactionApprovalChange}
-      onTransactionCommentChange={onTransactionCommentChange}
-      readOnly={readOnly}
-      sortField={sortField}
-      sortDirection={sortDirection}
-      onSortChange={handleSortChange}
-      page={page}
-      rowsPerPage={rowsPerPage}
-      totalTransactions={totalTransactions}
-      onPageChange={handlePageChange}
-      onRowsPerPageChange={handleRowsPerPageChange}
-      sortedCodes={sortedCodes}
-    />
+    <Box sx={{ position: 'relative' }}>
+      <TransactionTableView
+        transactions={visibleTransactions}
+        showTechnicalView={showTechnicalView}
+        transactionValidations={transactionValidations}
+        onTransactionApprovalChange={onTransactionApprovalChange}
+        onTransactionCommentChange={onTransactionCommentChange}
+        readOnly={readOnly}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSortChange={handleSortChange}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        totalTransactions={totalTransactions}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        sortedCodes={sortedCodes}
+      />
+      {showOverlay && (
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: alpha(
+              theme.palette.background.paper,
+              theme.palette.mode === 'dark' ? 0.72 : 0.6
+            ),
+            transition: 'opacity 120ms ease-in-out',
+            pointerEvents: 'none',
+          }}
+        >
+          {transactionsError ? (
+            <Typography
+              color="error"
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                textAlign: 'center',
+                px: 2,
+              }}
+            >
+              {transactionsError}
+            </Typography>
+          ) : (
+            <CircularProgress size={22} />
+          )}
+        </Box>
+      )}
+    </Box>
   );
 }
 
