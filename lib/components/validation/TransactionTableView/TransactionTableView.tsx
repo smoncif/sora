@@ -374,41 +374,6 @@ export function TransactionTableView({
               )}
             </TableRow>
           ))}
-          {remainingCount > 0 && (
-            <TableRow
-              hover
-              role="button"
-              tabIndex={0}
-              onClick={() => {
-                if (!isLoadingMore) {
-                  onLoadMore();
-                }
-              }}
-              onKeyDown={(event) => {
-                if ((event.key === 'Enter' || event.key === ' ') && !isLoadingMore) {
-                  event.preventDefault();
-                  onLoadMore();
-                }
-              }}
-              sx={{
-                cursor: isLoadingMore ? 'default' : 'pointer',
-              }}
-            >
-              <TableCell
-                colSpan={totalColumns}
-                sx={{
-                  textAlign: 'center',
-                  py: 1.5,
-                  fontStyle: 'italic',
-                  color: theme.palette.text.secondary,
-                }}
-              >
-                {isLoadingMore
-                  ? 'Chargement des transactions...'
-                  : `${remainingCount} transaction${remainingCount > 1 ? 's' : ''} supplémentaire${remainingCount > 1 ? 's' : ''} non affichée${remainingCount > 1 ? 's' : ''} · Cliquer pour charger`}
-              </TableCell>
-            </TableRow>
-          )}
         </TableBody>
       </Table>
 
