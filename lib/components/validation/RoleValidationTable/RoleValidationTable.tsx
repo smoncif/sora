@@ -352,7 +352,6 @@ function RoleTransactionsSection({
         onTransactionApprovalChange={onTransactionApprovalChange}
         onTransactionCommentChange={onTransactionCommentChange}
         readOnly={readOnly}
-        remainingCount={remainingTransactionsCount}
         sortField={sortField}
         sortDirection={sortDirection}
         onSortChange={handleSortChange}
