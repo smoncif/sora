@@ -11,6 +11,7 @@ import type { TransactionPreview } from 'lib/types/sapModule';
  * Paramètres pour créer un lien de validation (multi-rôles)
  */
 export interface CreateValidationLinkParams {
+  mission: string;                                 // Mission ou contexte (obligatoire)
   businessRoles: string[];                        // Array des rôles métier (peut être plusieurs)
   selectedRoles: Record<string, string[]>;        // Map {businessRole: [simpleRoles]}
   expirationDate: Date;
@@ -103,6 +104,7 @@ export async function createValidationLink(
     .from('role_validation_links')
     .insert({
       token,
+      mission: params.mission,
       business_roles: params.businessRoles,
       selected_roles: params.selectedRoles,
       technical_view_enabled: params.enableTechnicalView,

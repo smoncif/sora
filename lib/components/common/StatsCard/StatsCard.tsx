@@ -38,17 +38,17 @@ export const StatsCard: React.FC<StatsCardProps> = ({
 }) => {
   const theme = useTheme();
   
-  // Palette de couleurs moderne et épurée
-  const colorMap = {
-    primary: '#8b5cf6',
-    secondary: '#f59e0b', 
-    success: '#10b981',
-    error: '#ef4444',
-    warning: '#f59e0b',
-    info: '#06b6d4',
+  // Dégradés vibrants et différents pour chaque couleur
+  const gradientMap = {
+    primary: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    secondary: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    success: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    error: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    warning: 'linear-gradient(135deg, #ffa726 0%, #fb8c00 100%)',
+    info: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
   };
 
-  const mainColor = colorMap[color];
+  const gradient = gradientMap[color];
 
   return (
     <Paper
@@ -58,28 +58,16 @@ export const StatsCard: React.FC<StatsCardProps> = ({
         cursor: onClick ? 'pointer' : 'default',
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         borderRadius: 3,
-        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-        bgcolor: alpha(theme.palette.background.paper, 0.6),
-        backdropFilter: 'blur(10px)',
+        border: 'none',
+        background: gradient,
         p: 3,
         position: 'relative',
         overflow: 'hidden',
         '&:hover': onClick ? {
-          transform: 'translateY(-3px)',
-          boxShadow: `0 8px 32px ${alpha(mainColor, 0.12)}`,
-          border: `1px solid ${alpha(mainColor, 0.15)}`,
+          transform: 'translateY(-4px)',
+          boxShadow: `0 12px 32px ${alpha(theme.palette.common.black, 0.15)}`,
         } : {
-          boxShadow: `0 4px 16px ${alpha(theme.palette.common.black, 0.04)}`,
-        },
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '3px',
-          background: `linear-gradient(90deg, ${mainColor} 0%, ${alpha(mainColor, 0.6)} 100%)`,
-          borderRadius: '3px 3px 0 0',
+          boxShadow: `0 4px 16px ${alpha(theme.palette.common.black, 0.08)}`,
         },
       }}
       onClick={onClick}
@@ -89,8 +77,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({
           <Typography
             variant="caption"
             sx={{
-              color: alpha(theme.palette.text.secondary, 0.7),
-              fontWeight: 500,
+              color: 'rgba(255, 255, 255, 0.85)',
+              fontWeight: 600,
               mb: 1.5,
               textTransform: 'uppercase',
               letterSpacing: '0.8px',
@@ -104,7 +92,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
             variant="h3"
             sx={{
               fontWeight: 700,
-              color: theme.palette.text.primary,
+              color: '#ffffff',
               mb: 'auto',
               fontSize: '2.2rem',
               lineHeight: 1.1,
@@ -118,7 +106,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
             <Typography
               variant="body2"
               sx={{
-                color: alpha(theme.palette.text.secondary, 0.8),
+                color: 'rgba(255, 255, 255, 0.8)',
                 fontSize: '0.8rem',
                 mt: 1,
               }}
@@ -136,12 +124,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({
                   px: 1.5,
                   py: 0.5,
                   borderRadius: 2,
-                  backgroundColor: trend.isPositive !== false 
-                    ? alpha('#10b981', 0.1)
-                    : alpha('#ef4444', 0.1),
-                  border: `1px solid ${trend.isPositive !== false 
-                    ? alpha('#10b981', 0.2)
-                    : alpha('#ef4444', 0.2)}`,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
                 }}
               >
                 <Typography
@@ -149,9 +133,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.7rem',
-                    color: trend.isPositive !== false 
-                      ? '#10b981'
-                      : '#ef4444',
+                    color: '#ffffff',
                   }}
                 >
                   {trend.isPositive !== false ? '+' : ''}{trend.value}%
@@ -160,7 +142,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
               <Typography
                 variant="caption"
                 sx={{
-                  color: alpha(theme.palette.text.secondary, 0.7),
+                  color: 'rgba(255, 255, 255, 0.8)',
                   fontSize: '0.7rem',
                 }}
               >
@@ -179,11 +161,11 @@ export const StatsCard: React.FC<StatsCardProps> = ({
               width: 52,
               height: 52,
               borderRadius: 2.5,
-              backgroundColor: alpha(mainColor, 0.08),
-              color: mainColor,
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              color: '#ffffff',
               ml: 2,
               flexShrink: 0,
-              border: `1px solid ${alpha(mainColor, 0.12)}`,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
             }}
           >
             <Icon sx={{ fontSize: 26 }} />

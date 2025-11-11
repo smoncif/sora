@@ -274,9 +274,12 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
                 <Chip
                   label={`${progress.rolesSelected} sélectionnés`}
                   size="small"
-                  color="success"
                   variant="outlined"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ 
+                    fontSize: '0.7rem',
+                    borderColor: alpha(theme.palette.info.main, 0.5),
+                    color: theme.palette.info.main,
+                  }}
                 />
                 <Chip
                   label={`${progress.rolesSkipped} ignorés`}
@@ -295,7 +298,7 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
               <Typography variant="body2" sx={{ 
                 fontWeight: 600,
                 fontSize: '0.8rem',
-                color: theme.palette.success.main,
+                color: theme.palette.info.main,
                 mb: 1,
               }}>
                 ✅ Sélection automatique terminée
@@ -305,8 +308,12 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
                 <Chip
                   label={`${progress.rolesSelected} rôles sélectionnés`}
                   size="small"
-                  color="success"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ 
+                    fontSize: '0.7rem',
+                    bgcolor: alpha(theme.palette.info.main, 0.12),
+                    color: theme.palette.info.main,
+                    fontWeight: 600,
+                  }}
                 />
                 <Chip
                   label={`${progress.rolesSkipped} rôles ignorés`}
@@ -317,8 +324,12 @@ export const AutoSelectionControl: React.FC<AutoSelectionControlProps> = ({
                 <Chip
                   label={`${progress.totalItems} ${labels?.itemPlural?.toLowerCase()} traités`}
                   size="small"
-                  color="info"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ 
+                    fontSize: '0.7rem',
+                    bgcolor: alpha(theme.palette.secondary.main, 0.12),
+                    color: theme.palette.secondary.main,
+                    fontWeight: 600,
+                  }}
                 />
               </Box>
             </>

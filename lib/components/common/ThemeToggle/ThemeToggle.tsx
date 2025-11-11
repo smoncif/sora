@@ -15,13 +15,11 @@ import {
 import {
   LightMode as LightIcon,
   DarkMode as DarkIcon,
-  SettingsBrightness as SystemIcon,
-  Palette as PaletteIcon,
 } from '@mui/icons-material';
 import { useTheme } from 'lib/hooks/useTheme';
 
 /**
- * Composant pour basculer entre les thèmes clair, sombre et système
+ * Composant pour basculer entre les thèmes clair et sombre
  */
 export const ThemeToggle: React.FC = () => {
   const muiTheme = useMuiTheme();
@@ -37,35 +35,17 @@ export const ThemeToggle: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const handleModeSelect = (selectedMode: 'light' | 'dark' | 'system') => {
+  const handleModeSelect = (selectedMode: 'light' | 'dark') => {
     setThemeMode(selectedMode);
     handleClose();
   };
 
   const getCurrentIcon = () => {
-    switch (mode) {
-      case 'light':
-        return <LightIcon />;
-      case 'dark':
-        return <DarkIcon />;
-      case 'system':
-        return <SystemIcon />;
-      default:
-        return <PaletteIcon />;
-    }
+    return isDark ? <DarkIcon /> : <LightIcon />;
   };
 
   const getCurrentLabel = () => {
-    switch (mode) {
-      case 'light':
-        return 'Thème clair';
-      case 'dark':
-        return 'Thème sombre';
-      case 'system':
-        return 'Thème système';
-      default:
-        return 'Thème';
-    }
+    return isDark ? 'Thème sombre' : 'Thème clair';
   };
 
   const menuItems = [
@@ -81,12 +61,6 @@ export const ThemeToggle: React.FC = () => {
       label: 'Sombre',
       description: 'Thème sombre permanent',
     },
-    {
-      mode: 'system' as const,
-      icon: <SystemIcon />,
-      label: 'Système',
-      description: 'Suit les préférences système',
-    },
   ];
 
   return (
@@ -94,18 +68,14 @@ export const ThemeToggle: React.FC = () => {
       <Tooltip title={getCurrentLabel()}>
         <IconButton
           onClick={handleClick}
-          size="medium"
+          size="small"
           sx={{
-            color: muiTheme.palette.text.primary,
-            backgroundColor: isDark 
-              ? muiTheme.palette.action.hover 
-              : muiTheme.palette.background.paper,
-            border: `1px solid ${muiTheme.palette.divider}`,
+            color: muiTheme.palette.text.secondary,
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
-              backgroundColor: muiTheme.palette.action.hover,
-              transform: 'scale(1.05)',
+              color: muiTheme.palette.primary.main,
+              transform: 'translateY(-1px)',
             },
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
           {getCurrentIcon()}

@@ -72,7 +72,17 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Rafraîchir la session Auth (force l'écriture des cookies)
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Mettre à jour la dernière activité pour les utilisateurs authentifiés
+  if (user) {
+    try {
+      await supabase.rpc('update_last_activity');
+    } catch (error) {
+      // Ne pas bloquer la requête si la mise à jour échoue
+      console.error('Failed to update last activity:', error);
+    }
+  }
 
   return response;
 } 

@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Box, Container, Typography, Alert, TablePagination, Grid, alpha, useTheme } from '@mui/material';
 import { useAuth } from 'lib/hooks/useAuth';
-import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { SodStepperNavigation } from 'lib/components/sod/navigation/SodStepperNavigation';
 import { SodFileUploadSection } from 'lib/components/sod/upload/SodFileUploadSection';
 import { SodAutoSelectionSection } from 'lib/components/sod/autoselection/SodAutoSelectionSection';
@@ -632,7 +631,6 @@ export default function SodAnalysisPage() {
             Remédiation automatique des risques de ségrégation des tâches
           </Typography>
         </Box>
-        <ThemeToggle />
       </Box>
 
 

@@ -17,6 +17,7 @@ import {
   Person as PersonIcon,
   AdminPanelSettings as AdminIcon,
   Assignment as LicenseIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -36,6 +37,15 @@ export default function SettingsPage() {
       icon: <PersonIcon />,
       href: '/settings/profile',
       color: theme.palette.primary.main,
+      roles: [UserRole.USER, UserRole.EDITOR, UserRole.ADMIN],
+    },
+    {
+      id: 'validation-tracking',
+      title: 'Suivi des validations',
+      description: 'Consultez et gérez tous vos liens de validation créés pour le partage des rôles',
+      icon: <AssignmentTurnedInIcon />,
+      href: '/settings/validation-tracking',
+      color: theme.palette.success.main,
       roles: [UserRole.USER, UserRole.EDITOR, UserRole.ADMIN],
     },
     {
@@ -67,7 +77,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <Box sx={{ py: 2, px: 3 }}>
+    <Box>
       {/* En-tête */}
       <Box sx={{ mb: 6 }}>
         <Typography 

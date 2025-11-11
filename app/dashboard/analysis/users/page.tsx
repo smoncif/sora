@@ -17,7 +17,6 @@ import {
   Grid,
 } from '@mui/material';
 import { useAuth } from 'lib/hooks/useAuth';
-import { ThemeToggle } from 'lib/components/common/ThemeToggle';
 import { FileUploadSection } from 'lib/components/analysis/FileUploadSection';
 import { ConfigurationSection } from 'lib/components/analysis/ConfigurationSection';
 import { AutoSelectionSection } from 'lib/components/analysis/AutoSelectionSection';
@@ -268,7 +267,6 @@ export default function UserAnalysisPage() {
                 Analyse et attribution des rôles métier aux utilisateurs
               </Typography>
             </Box>
-            <ThemeToggle />
           </Box>
         )}
 

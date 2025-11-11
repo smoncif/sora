@@ -7,7 +7,6 @@ import {
   useTheme,
   alpha,
   Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -15,10 +14,7 @@ import {
   TableHead,
   TableRow,
   Chip,
-  IconButton,
   Button,
-  Avatar,
-  Tooltip,
   TextField,
   InputAdornment,
   Fade,
@@ -26,7 +22,6 @@ import {
   Alert,
   TablePagination,
   Stack,
-  Grid,
   Switch,
   FormControlLabel,
   Select,
@@ -37,22 +32,12 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
+  Paper,
+  IconButton,
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Person as PersonIcon,
-  FilterList as FilterIcon,
   Refresh as RefreshIcon,
-  AdminPanelSettings as AdminIcon,
-  AccountCircle as UserIcon,
-  TrendingUp as TrendingUpIcon,
-  People as PeopleIcon,
-  Check as CheckIcon,
-  Close as CloseIcon,
-  Email as EmailIcon,
-  Schedule as ScheduleIcon,
-  Block as BlockIcon,
-  Warning as WarningIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -221,14 +206,6 @@ export default function UsersManagementPage() {
   };
 
   // Fonctions utilitaires
-  const getRoleIcon = (role: string) => {
-    return role === 'admin' ? <AdminIcon /> : <UserIcon />;
-  };
-
-  const getRoleColor = (role: string) => {
-    return role === 'admin' ? 'primary' : 'default';
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'success';
@@ -248,17 +225,6 @@ export default function UsersManagementPage() {
       case 'rejected': return 'Rejeté';
       case 'suspended': return 'Suspendu';
       default: return status;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active': return <CheckIcon />;
-      case 'pending_admin_approval': return <ScheduleIcon />;
-      case 'pending_email_confirmation': return <EmailIcon />;
-      case 'rejected': return <CloseIcon />;
-      case 'suspended': return <BlockIcon />;
-      default: return <WarningIcon />;
     }
   };
 
@@ -287,246 +253,223 @@ export default function UsersManagementPage() {
   }
 
   return (
-    <Box sx={{ py: 2, px: 3 }}>
-      {/* En-tête */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight="bold" gutterBottom>
+    <Box>
+      {/* En-tête moderne et épuré */}
+      <Box sx={{ mb: 6 }}>
+        <Typography
+          variant="h4"
+          fontWeight="bold"
+          gutterBottom
+          sx={{
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           Gestion des utilisateurs
         </Typography>
-        <Typography variant="h6" color="text.secondary">
-          Administrez les comptes utilisateurs et gérez les permissions
+        <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700 }}>
+          Administrez les comptes, gérez les permissions et approuvez les nouvelles inscriptions
         </Typography>
       </Box>
 
-      {/* Statistiques principales */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card sx={{
-            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
-            border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+      {/* Statistiques compactes avec dégradés vifs */}
+      <Stack direction="row" spacing={2} sx={{ mb: 4, flexWrap: 'wrap' }}>
+        <Paper
+          elevation={0}
+          sx={{
+            px: 3,
+            py: 2,
             borderRadius: 3,
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                  color: theme.palette.primary.main,
-                }}>
-                  <PeopleIcon />
-                </Box>
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.total}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total utilisateurs
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            border: 'none',
+            minWidth: 140,
+          }}
+        >
+          <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
+            {stats.total}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+            Total
+          </Typography>
+        </Paper>
 
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card sx={{
-            background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
-            border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
+        <Paper
+          elevation={0}
+          sx={{
+            px: 3,
+            py: 2,
             borderRadius: 3,
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  backgroundColor: alpha(theme.palette.secondary.main, 0.1),
-                  color: theme.palette.secondary.main,
-                }}>
-                  <AdminIcon />
-                </Box>
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.admins}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Administrateurs
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            border: 'none',
+            minWidth: 140,
+          }}
+        >
+          <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
+            {stats.admins}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+            Admins
+          </Typography>
+        </Paper>
 
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card sx={{
-            background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.1)} 0%, ${alpha(theme.palette.success.main, 0.05)} 100%)`,
-            border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+        <Paper
+          elevation={0}
+          sx={{
+            px: 3,
+            py: 2,
             borderRadius: 3,
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  backgroundColor: alpha(theme.palette.success.main, 0.1),
-                  color: theme.palette.success.main,
-                }}>
-                  <TrendingUpIcon />
-                </Box>
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.active}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Comptes actifs
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            border: 'none',
+            minWidth: 140,
+          }}
+        >
+          <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
+            {stats.active}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+            Actifs
+          </Typography>
+        </Paper>
 
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card sx={{
-            background: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.1)} 0%, ${alpha(theme.palette.warning.main, 0.05)} 100%)`,
-            border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
+        <Paper
+          elevation={0}
+          sx={{
+            px: 3,
+            py: 2,
             borderRadius: 3,
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  backgroundColor: alpha(theme.palette.warning.main, 0.1),
-                  color: theme.palette.warning.main,
-                }}>
-                  <ScheduleIcon />
-                </Box>
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.pendingApproval}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    En attente d'approbation
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+            background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+            border: 'none',
+            minWidth: 140,
+          }}
+        >
+          <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
+            {stats.pendingApproval}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+            En attente
+          </Typography>
+        </Paper>
+      </Stack>
 
-      </Grid>
-
-      {/* Barre d'actions et filtres */}
-      <Card sx={{ 
-        mb: 4,
-        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)} 0%, ${alpha(theme.palette.secondary.main, 0.02)} 100%)`,
+      {/* Barre de contrôle simplifiée */}
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 3,
+          p: 2.5,
+          borderRadius: 3,
+          background: alpha(theme.palette.background.paper, 0.6),
+          backdropFilter: 'blur(10px)',
         border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-        borderRadius: 3,
-      }}>
-        <CardContent sx={{ p: 3 }}>
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 3, 
-            alignItems: 'center',
-            flexWrap: 'wrap',
-          }}>
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'stretch', md: 'center' }}
+        >
             {/* Recherche */}
             <TextField
-              placeholder="Rechercher par email, nom d'utilisateur ou nom complet..."
+            placeholder="Rechercher un utilisateur..."
               value={searchTerm}
               onChange={handleSearch}
+            size="small"
               sx={{ 
                 flexGrow: 1,
                 minWidth: 300,
                 '& .MuiOutlinedInput-root': {
                   background: theme.palette.background.paper,
-                }
+                borderRadius: 2,
+              },
               }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon color="action" />
+                  <SearchIcon fontSize="small" color="action" />
                   </InputAdornment>
                 ),
               }}
             />
             
             {/* Filtres de rôle */}
-            <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap">
               <Chip
                 label="Tous"
+              size="small"
                 variant={roleFilter === 'all' ? 'filled' : 'outlined'}
                 color={roleFilter === 'all' ? 'primary' : 'default'}
                 onClick={() => handleRoleFilterChange('all')}
-                icon={<FilterIcon />}
               />
               <Chip
-                label="Administrateurs"
+              label="Admins"
+              size="small"
                 variant={roleFilter === 'admin' ? 'filled' : 'outlined'}
                 color={roleFilter === 'admin' ? 'primary' : 'default'}
                 onClick={() => handleRoleFilterChange('admin')}
-                icon={<AdminIcon />}
               />
               <Chip
-                label="Utilisateurs"
+              label="Users"
+              size="small"
                 variant={roleFilter === 'user' ? 'filled' : 'outlined'}
                 color={roleFilter === 'user' ? 'primary' : 'default'}
                 onClick={() => handleRoleFilterChange('user')}
-                icon={<UserIcon />}
               />
             </Stack>
 
             {/* Filtres de statut */}
-            <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap">
               <Chip
-                label="Tous"
+              label="Tous statuts"
+              size="small"
                 variant={statusFilter === 'all' ? 'filled' : 'outlined'}
                 color={statusFilter === 'all' ? 'secondary' : 'default'}
                 onClick={() => handleStatusFilterChange('all')}
               />
               <Chip
                 label="Actifs"
+              size="small"
                 variant={statusFilter === 'active' ? 'filled' : 'outlined'}
                 color={statusFilter === 'active' ? 'secondary' : 'default'}
                 onClick={() => handleStatusFilterChange('active')}
               />
               <Chip
-                label="En attente admin"
+              label="Attente"
+              size="small"
                 variant={statusFilter === 'pending_admin_approval' ? 'filled' : 'outlined'}
                 color={statusFilter === 'pending_admin_approval' ? 'secondary' : 'default'}
                 onClick={() => handleStatusFilterChange('pending_admin_approval')}
               />
-
             </Stack>
 
-            {/* Bouton de rafraîchissement */}
-            <Tooltip title="Actualiser">
-              <IconButton
+          {/* Bouton actualiser */}
+          <Button
+            variant="outlined"
+            size="small"
                 onClick={refreshUsers}
+            startIcon={<RefreshIcon fontSize="small" />}
                 sx={{
-                  background: alpha(theme.palette.primary.main, 0.1),
-                  '&:hover': {
-                    background: alpha(theme.palette.primary.main, 0.2),
-                  }
-                }}
-              >
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </CardContent>
-      </Card>
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 500,
+            }}
+          >
+            Actualiser
+          </Button>
+        </Stack>
+      </Paper>
 
       {/* Table des utilisateurs */}
       <Fade in={!loading} timeout={300}>
-        <Card sx={{ 
-          background: theme.palette.background.paper,
+        <Paper
+          elevation={0}
+          sx={{
           borderRadius: 3,
-          boxShadow: `0 4px 20px 0 ${alpha(theme.palette.common.black, 0.05)}`,
+            overflow: 'hidden',
           border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-        }}>
+          }}
+        >
           {error && (
             <Alert 
               severity="error" 
@@ -542,12 +485,14 @@ export default function UsersManagementPage() {
           )}
 
           {loading ? (
-            <Box sx={{ 
+            <Box
+              sx={{
               display: 'flex', 
               justifyContent: 'center', 
               alignItems: 'center',
               py: 8,
-            }}>
+              }}
+            >
               <CircularProgress />
             </Box>
           ) : (
@@ -555,28 +500,30 @@ export default function UsersManagementPage() {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ 
-                      background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
-                    }}>
-                      <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+                    <TableRow
+                      sx={{
+                        background: alpha(theme.palette.background.default, 0.5),
+                      }}
+                    >
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                         Utilisateur
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                         Rôle
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                        Statut de validation
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                        Statut
                       </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                        Activation
+                      <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                        Actif
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                         Dernière connexion
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                        Créé le
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                        Inscription
                       </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+                      <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                         Actions
                       </TableCell>
                     </TableRow>
@@ -592,16 +539,6 @@ export default function UsersManagementPage() {
                         }}
                       >
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Avatar 
-                              sx={{ 
-                                width: 40, 
-                                height: 40,
-                                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                              }}
-                            >
-                              <PersonIcon />
-                            </Avatar>
                             <Box>
                               <Typography variant="body2" fontWeight={600}>
                                 {user.fullName || user.username}
@@ -609,95 +546,72 @@ export default function UsersManagementPage() {
                               <Typography variant="caption" color="text.secondary">
                                 {user.email}
                               </Typography>
-                            </Box>
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <FormControl size="small" sx={{ minWidth: 130 }}>
+                          <FormControl size="small" sx={{ minWidth: 110 }}>
                             <Select
                               value={user.role}
-                              onChange={(e: any) => handleRoleChange(user.id, e.target.value as 'admin' | 'user')}
+                              onChange={(e: any) =>
+                                handleRoleChange(user.id, e.target.value as 'admin' | 'user')
+                              }
                               disabled={isUserActionLoading(user.id)}
                               sx={{
-                                '& .MuiSelect-select': {
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
                                   fontSize: '0.875rem',
-                                },
                                 '& .MuiOutlinedInput-notchedOutline': {
                                   borderColor: alpha(theme.palette.divider, 0.3),
-                                },
-                                '&:hover .MuiOutlinedInput-notchedOutline': {
-                                  borderColor: alpha(theme.palette.primary.main, 0.5),
                                 },
                               }}
                             >
                               <MenuItem value="user">
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <UserIcon fontSize="small" />
-                                  <Typography variant="body2">Utilisateur</Typography>
-                                </Box>
+                                <Typography variant="body2">User</Typography>
                               </MenuItem>
                               <MenuItem value="admin">
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <AdminIcon fontSize="small" />
-                                  <Typography variant="body2">Administrateur</Typography>
-                                </Box>
+                                <Typography variant="body2">Admin</Typography>
                               </MenuItem>
                             </Select>
                           </FormControl>
                         </TableCell>
                         <TableCell>
                           <Chip
-                            icon={getStatusIcon(user.status)}
                             label={getStatusLabel(user.status)}
                             color={getStatusColor(user.status) as any}
-                            variant="filled"
                             size="small"
+                            sx={{ fontSize: '0.75rem', fontWeight: 500 }}
                           />
                         </TableCell>
                         <TableCell align="center">
-                          <FormControlLabel
-                            control={
                               <Switch
                                 checked={user.status === 'active'}
                                 onChange={() => handleToggleUserStatus(user.id, user.status)}
                                 size="small"
                                 color="success"
                                 disabled={isUserActionLoading(user.id)}
-                              />
-                            }
-                            label=""
-                            sx={{ m: 0 }}
                           />
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">
+                          <Typography variant="body2" fontSize="0.8125rem">
                             {formatDate(user.lastLogin)}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">
+                          <Typography variant="body2" fontSize="0.8125rem">
                             {formatDate(user.createdAt)}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
-                          <Tooltip title="Supprimer">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteClick(user)}
-                              sx={{
-                                background: alpha(theme.palette.error.main, 0.1),
-                                color: theme.palette.error.main,
-                                '&:hover': {
-                                  background: alpha(theme.palette.error.main, 0.2),
-                                }
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteClick(user)}
+                            sx={{
+                              color: theme.palette.error.main,
+                              '&:hover': {
+                                bgcolor: alpha(theme.palette.error.main, 0.1),
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -705,12 +619,11 @@ export default function UsersManagementPage() {
                     {/* Ligne vide si aucun utilisateur */}
                     {paginatedUsers.length === 0 && !loading && (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">
+                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                          <Typography variant="body2" color="text.secondary">
                             {filteredUsers.length === 0 && searchTerm 
                               ? 'Aucun utilisateur trouvé pour votre recherche'
-                              : 'Aucun utilisateur disponible'
-                            }
+                              : 'Aucun utilisateur disponible'}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -733,13 +646,13 @@ export default function UsersManagementPage() {
               `${from}-${to} sur ${count !== -1 ? count : `plus de ${to}`}`
                 }
                 sx={{
-                  borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  borderTop: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
                   background: alpha(theme.palette.background.default, 0.3),
                 }}
               />
             </>
           )}
-        </Card>
+        </Paper>
       </Fade>
 
       {/* Dialog de confirmation de suppression */}
@@ -748,24 +661,28 @@ export default function UsersManagementPage() {
         onClose={handleDeleteCancel}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+          },
+        }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ pb: 2 }}>
+          <Typography variant="h6" fontWeight={600}>
           Confirmer la suppression
+          </Typography>
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
             Êtes-vous sûr de vouloir supprimer l&apos;utilisateur{' '}
             <strong>{userToDelete?.fullName || userToDelete?.email}</strong> ?
           </DialogContentText>
-          <DialogContentText sx={{ mt: 2, color: 'error.main' }}>
+          <Alert severity="error" sx={{ mt: 2 }}>
             Cette action est irréversible et supprimera définitivement le compte utilisateur.
-          </DialogContentText>
+          </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={handleDeleteCancel}
-            disabled={isDeleting}
-          >
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button onClick={handleDeleteCancel} disabled={isDeleting} sx={{ textTransform: 'none' }}>
             Annuler
           </Button>
           <Button 
@@ -774,6 +691,7 @@ export default function UsersManagementPage() {
             variant="contained"
             disabled={isDeleting}
             startIcon={isDeleting ? <CircularProgress size={16} /> : <DeleteIcon />}
+            sx={{ textTransform: 'none' }}
           >
             {isDeleting ? 'Suppression...' : 'Supprimer'}
           </Button>

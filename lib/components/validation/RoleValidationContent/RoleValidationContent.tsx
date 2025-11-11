@@ -315,6 +315,7 @@ export function RoleValidationContent({ data, token }: RoleValidationContentProp
               {processes.map((processName, index) => {
                 const processRoles = rolesByProcess.get(processName)!;
                 const isSubmitted = submittedProcessesSet.has(processName);
+                const businessRoleCount = processRoles.businessRoles.size;
 
                 return (
                   <Tab
@@ -323,7 +324,7 @@ export function RoleValidationContent({ data, token }: RoleValidationContentProp
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {processName}
                         <Chip
-                          label={`${processRoles.roles.length} rôles`}
+                          label={`${businessRoleCount} rôle${businessRoleCount > 1 ? 's' : ''}`}
                           size="small"
                           color={isSubmitted ? 'success' : 'default'}
                         />

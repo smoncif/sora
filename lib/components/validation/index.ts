@@ -24,3 +24,9 @@ export type { TransactionTableViewProps, TransactionData, TransactionSortField }
 export { ProcessValidationPanel } from './ProcessValidationPanel/ProcessValidationPanel';
 export type { ProcessValidationPanelProps } from './ProcessValidationPanel/ProcessValidationPanel';
 
+export { ValidationTrackingTable } from './ValidationTrackingTable';
+export type { ValidationTrackingTableProps } from './ValidationTrackingTable';
+
+export { ExtendExpirationDialog } from './ExtendExpirationDialog';
+export type { ExtendExpirationDialogProps } from './ExtendExpirationDialog';
+

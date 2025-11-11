@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { Theme } from '@mui/material/styles';
 import { lightTheme, darkTheme } from '@/config/theme';
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark';
 
 interface ThemeContextValue {
-  theme: Theme;
+  theme: typeof lightTheme;
   mode: ThemeMode;
   isDark: boolean;
   toggleTheme: () => void;
@@ -17,26 +16,12 @@ const THEME_STORAGE_KEY = 'sora-theme-mode';
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useState<ThemeMode>('system');
-  const [systemPrefersDark, setSystemPrefersDark] = useState(false);
-
-  // Détecter la préférence système
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    setSystemPrefersDark(mediaQuery.matches);
-
-    const handleChange = (e: MediaQueryListEvent) => {
-      setSystemPrefersDark(e.matches);
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  const [mode, setMode] = useState<ThemeMode>('light');
 
   // Charger le mode depuis le localStorage
   useEffect(() => {
     const savedMode = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode;
-    if (savedMode && ['light', 'dark', 'system'].includes(savedMode)) {
+    if (savedMode && ['light', 'dark'].includes(savedMode)) {
       setMode(savedMode);
     }
   }, []);
@@ -49,12 +34,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   // Basculer entre clair et sombre
   const toggleTheme = useCallback(() => {
-    const currentIsDark = mode === 'dark' || (mode === 'system' && systemPrefersDark);
-    setThemeMode(currentIsDark ? 'light' : 'dark');
-  }, [mode, systemPrefersDark, setThemeMode]);
+    setThemeMode(mode === 'dark' ? 'light' : 'dark');
+  }, [mode, setThemeMode]);
 
   // Déterminer si le thème actuel est sombre
-  const isDark = mode === 'dark' || (mode === 'system' && systemPrefersDark);
+  const isDark = mode === 'dark';
 
   // Sélectionner le thème approprié
   const theme = isDark ? darkTheme : lightTheme;

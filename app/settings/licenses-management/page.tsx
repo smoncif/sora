@@ -5,13 +5,11 @@ import {
   Box,
   Typography,
   Card,
-  CardContent,
   Button,
   Alert,
   Stack,
   LinearProgress,
   useTheme,
-  Divider,
 } from '@mui/material';
 import {
   Upload as UploadIcon,
@@ -47,8 +45,13 @@ export default function LicensesManagementPage() {
   // États pour l'upload Excel
   const [uploadingExcel, setUploadingExcel] = useState(false);
 
-  // Vérification des permissions admin
+  // Vérification des permissions admin et chargement des licences
   useEffect(() => {
+    // Attendre que userRole soit chargé avant de vérifier
+    if (userRole === undefined) {
+      return; // userRole n'est pas encore chargé
+    }
+    
     if (userRole !== UserRole.ADMIN) {
       setError('Accès refusé : droits administrateur requis');
       setLoading(false);
@@ -285,7 +288,7 @@ export default function LicensesManagementPage() {
   }
 
   return (
-    <Box sx={{ py: 2, px: 3 }}>
+    <Box>
       {/* En-tête */}
       <Box sx={{ mb: 4 }}>
         <Typography 
@@ -319,42 +322,35 @@ export default function LicensesManagementPage() {
       )}
 
       {/* Actions */}
-      <Card sx={{ mb: 3, borderRadius: 3 }}>
-        <CardContent>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenAddDialog(true)}
-              sx={{ flexShrink: 0 }}
-            >
-              Ajouter une licence
-            </Button>
-            
-            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
-            
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={uploadingExcel ? <LinearProgress size={20} /> : <UploadIcon />}
-              disabled={uploadingExcel}
-              sx={{ flexShrink: 0 }}
-            >
-              {uploadingExcel ? 'Import en cours...' : 'Importer Excel'}
-              <input
-                type="file"
-                hidden
-                accept=".xlsx,.xls"
-                onChange={handleExcelUpload}
-              />
-            </Button>
-            
-          </Stack>
-        </CardContent>
-      </Card>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ mb: 3 }}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenAddDialog(true)}
+          sx={{ flexShrink: 0 }}
+        >
+          Ajouter une licence
+        </Button>
+        
+        <Button
+          variant="outlined"
+          component="label"
+          startIcon={uploadingExcel ? <LinearProgress size={20} /> : <UploadIcon />}
+          disabled={uploadingExcel}
+          sx={{ flexShrink: 0 }}
+        >
+          {uploadingExcel ? 'Import en cours...' : 'Importer Excel'}
+          <input
+            type="file"
+            hidden
+            accept=".xlsx,.xls"
+            onChange={handleExcelUpload}
+          />
+        </Button>
+      </Stack>
 
       {/* Tableau des licences */}
-      <Card sx={{ borderRadius: 3 }}>
+      <Card sx={{ borderRadius: 3, border: 'none' }}>
         {loading && <LinearProgress />}
         <LicenseTable
           licenses={licenses}

@@ -1142,8 +1142,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                   variant="outlined"
                   sx={{
                     ml: 1,
-                    borderColor: theme.palette.success.main,
-                    color: theme.palette.success.main,
+                    borderColor: theme.palette.secondary.main,
+                    color: theme.palette.secondary.main,
                     fontWeight: 600,
                     '& .MuiChip-label': {
                       fontSize: '0.75rem',
@@ -1162,7 +1162,15 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 size="small"
                 variant="outlined"
                 onClick={handleFocus}
-                sx={{ minWidth: 100 }}
+                sx={{ 
+                  minWidth: 100,
+                  borderColor: alpha(theme.palette.info.main, 0.5),
+                  color: theme.palette.info.main,
+                  '&:hover': {
+                    borderColor: theme.palette.info.main,
+                    bgcolor: alpha(theme.palette.info.main, 0.08),
+                  }
+                }}
               >
                 Focus
               </Button>
@@ -1171,7 +1179,13 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 size="small"
                 variant="contained"
                 onClick={handleExitFocus}
-                sx={{ minWidth: 100 }}
+                sx={{ 
+                  minWidth: 100,
+                  bgcolor: theme.palette.info.main,
+                  '&:hover': {
+                    bgcolor: theme.palette.info.dark,
+                  }
+                }}
               >
                 Quitter Focus
               </Button>
@@ -1180,10 +1194,15 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               <Button
                 size="small"
                 variant="contained"
-                color="success"
                 onClick={() => handleGenerateJobDescription(false)}
                 disabled={isGeneratingJobDescription || selectedRoles.size === 0}
-                sx={{ minWidth: 120 }}
+                sx={{ 
+                  minWidth: 120,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  }
+                }}
               >
                 {isGeneratingJobDescription ? 'Génération...' : 'Générer fiche'}
               </Button>
@@ -1244,39 +1263,10 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             width: '100%', 
             mb: 3,
             p: 2,
-            bgcolor: alpha(theme.palette.success.main, 0.05),
+            bgcolor: alpha(theme.palette.info.main, 0.05),
             borderRadius: 2
           }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-              <Tooltip
-                title={
-                  <Box sx={{ p: 1 }}>
-                    <Typography sx={{ fontWeight: 600, mb: 1, fontSize: '0.75rem' }}>
-                      ✅ Rôles Sélectionnés
-                    </Typography>
-                    <Typography sx={{ mb: 1, fontSize: '0.75rem' }}>
-                      Rôles simples actuellement sélectionnés pour couvrir les transactions de ce rôle métier.
-                    </Typography>
-                    <Typography sx={{ mb: 1, fontSize: '0.75rem' }}>
-                      <strong>Gestion:</strong> Rôles avec permissions de modification/création
-                    </Typography>
-                    <Typography sx={{ mb: 1, fontSize: '0.75rem' }}>
-                      <strong>Affichage:</strong> Rôles avec permissions de lecture/consultation
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>
-                      <strong>Autres:</strong> Rôles avec permissions spécifiques ou mixtes
-                    </Typography>
-                  </Box>
-                }
-                arrow
-                placement="top"
-                enterDelay={300}
-                leaveDelay={100}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.success.main, cursor: 'help' }}>
-                  ✅ Rôles Sélectionnés ({selectedRoles.size})
-          </Typography>
-              </Tooltip>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 1.5 }}>
               <Button
                 size="small"
                 variant="outlined"
@@ -1314,13 +1304,23 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                         label={roleName.split(':').pop() || roleName}
                             onDelete={() => handleSelectionChange(roleName, false)}
                             size="small"
-                            color="success"
                             variant="outlined"
                             sx={{ 
                               fontSize: '0.75rem',
                           height: 24,
+                          borderColor: alpha(theme.palette.text.primary, 0.23),
+                          color: theme.palette.text.primary,
+                          bgcolor: 'transparent',
                           '& .MuiChip-label': { px: 1, fontSize: '0.75rem', color: theme.palette.text.primary },
-                          '& .MuiChip-deleteIcon': { fontSize: '0.875rem', ml: 0.5 },
+                          '& .MuiChip-deleteIcon': { 
+                            fontSize: '0.875rem', 
+                            ml: 0.5, 
+                            color: theme.palette.text.primary,
+                            transition: 'color 0.2s ease',
+                            '&:hover': {
+                              color: theme.palette.error.main,
+                            }
+                          },
                           whiteSpace: 'nowrap',
                           flexShrink: 0,
                             }}
@@ -1342,13 +1342,23 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                         label={roleName.split(':').pop() || roleName}
                             onDelete={() => handleSelectionChange(roleName, false)}
                             size="small"
-                            color="info"
                             variant="outlined"
                             sx={{ 
                               fontSize: '0.75rem',
                           height: 24,
+                          borderColor: alpha(theme.palette.text.primary, 0.23),
+                          color: theme.palette.text.primary,
+                          bgcolor: 'transparent',
                           '& .MuiChip-label': { px: 1, fontSize: '0.75rem', color: theme.palette.text.primary },
-                          '& .MuiChip-deleteIcon': { fontSize: '0.875rem', ml: 0.5 },
+                          '& .MuiChip-deleteIcon': { 
+                            fontSize: '0.875rem', 
+                            ml: 0.5, 
+                            color: theme.palette.text.primary,
+                            transition: 'color 0.2s ease',
+                            '&:hover': {
+                              color: theme.palette.error.main,
+                            }
+                          },
                           whiteSpace: 'nowrap',
                           flexShrink: 0,
                             }}
@@ -1370,13 +1380,23 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                             label={roleName}
                             onDelete={() => handleSelectionChange(roleName, false)}
                             size="small"
-                        color="secondary"
                             variant="outlined"
                             sx={{ 
                               fontSize: '0.75rem',
                           height: 24,
+                          borderColor: alpha(theme.palette.text.primary, 0.23),
+                          color: theme.palette.text.primary,
+                          bgcolor: 'transparent',
                           '& .MuiChip-label': { px: 1, fontSize: '0.75rem', color: theme.palette.text.primary },
-                          '& .MuiChip-deleteIcon': { fontSize: '0.875rem', ml: 0.5 },
+                          '& .MuiChip-deleteIcon': { 
+                            fontSize: '0.875rem', 
+                            ml: 0.5, 
+                            color: theme.palette.text.primary,
+                            transition: 'color 0.2s ease',
+                            '&:hover': {
+                              color: theme.palette.error.main,
+                            }
+                          },
                           whiteSpace: 'nowrap',
                           flexShrink: 0,
                             }}

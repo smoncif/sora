@@ -12,6 +12,7 @@ import { z } from 'zod';
  * Schema de validation Zod pour les paramètres
  */
 const CreateValidationLinkSchema = z.object({
+  mission: z.string().min(1, 'La mission est obligatoire').max(255, 'La mission ne peut pas dépasser 255 caractères'),
   businessRoles: z.array(z.string()).min(1, 'Au moins un rôle métier est requis'),
   selectedRoles: z.record(z.array(z.string())),
   expirationDate: z.string().datetime(),
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { businessRoles, selectedRoles, expirationDate, enableTechnicalView, payload } = validationResult.data;
+    const { mission, businessRoles, selectedRoles, expirationDate, enableTechnicalView, payload } = validationResult.data;
 
     const originHeader = request.headers.get('origin');
     const forwardedProto = request.headers.get('x-forwarded-proto');
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
     
     // Créer le lien de validation
     const result = await createValidationLink({
+      mission,
       businessRoles,
       selectedRoles,
       expirationDate: new Date(expirationDate),

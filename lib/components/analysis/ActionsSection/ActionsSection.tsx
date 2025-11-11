@@ -67,15 +67,6 @@ export function ActionsSection({
               justifyContent: 'flex-start',
               mb: 6, // 🎯 AJOUT : Espacement avec la section Vue d'ensemble
             }}>
-              <Typography variant="subtitle2" sx={{ 
-                color: theme.palette.text.secondary,
-                mr: 1,
-                fontWeight: 500,
-                fontSize: '0.9rem',
-              }}>
-                Actions :
-              </Typography>
-              
               {/* Bouton Sauvegarder - Vert sophistiqué */}
               <Button
                 variant="contained"

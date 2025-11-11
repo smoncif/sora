@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
         department,
         created_at,
         updated_at,
+        last_activity,
         admin_approved,
         admin_approved_at,
         admin_approved_by,
@@ -188,7 +189,7 @@ export async function GET(request: NextRequest) {
         department: profile.department || '',
         createdAt: profile.created_at,
         updatedAt: profile.updated_at,
-        lastLogin: authUser?.last_sign_in_at || null,
+        lastLogin: profile.last_activity || authUser?.last_sign_in_at || null, // Priorité à last_activity
         emailConfirmed: !!authUser?.email_confirmed_at,
         emailConfirmationSentAt: profile.email_confirmation_sent_at || null,
         adminApproved: !!profile.admin_approved,

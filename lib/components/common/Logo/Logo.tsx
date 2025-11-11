@@ -32,39 +32,11 @@ export const Logo: React.FC<LogoProps> = ({
   // Configuration des tailles selon le variant
   const sizeConfig = {
     small: { fontSize: '1.2rem' },
-    medium: { fontSize: variant === 'auth' ? '2.5rem' : '1.8rem' },
+    medium: { fontSize: variant === 'auth' ? '2.5rem' : '2.2rem' },
     large: { fontSize: '3rem' }
   };
 
   const config = sizeConfig[size];
-
-  // Couleurs selon le variant
-  const getColors = () => {
-    switch (variant) {
-      case 'header':
-        return {
-          primary: '#ffffff',
-          secondary: alpha('#ffffff', 0.9)
-        };
-      case 'mobile':
-        return {
-          primary: theme.palette.primary.main,
-          secondary: alpha(theme.palette.primary.main, 0.8)
-        };
-      case 'auth':
-        return {
-          primary: theme.palette.primary.main,
-          secondary: alpha(theme.palette.primary.main, 0.8)
-        };
-      default:
-        return {
-          primary: theme.palette.primary.main,
-          secondary: alpha(theme.palette.primary.main, 0.8)
-        };
-    }
-  };
-
-  const colors = getColors();
 
   return (
     <Box
@@ -73,9 +45,9 @@ export const Logo: React.FC<LogoProps> = ({
         display: 'flex',
         alignItems: 'center',
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover .logo-text': {
-          opacity: 0.85,
+          transform: 'scale(1.05)',
         }
       }}
     >
@@ -84,25 +56,17 @@ export const Logo: React.FC<LogoProps> = ({
         variant="h4"
         component="div"
         sx={{
-          fontWeight: 700,
+          fontWeight: 800,
           fontSize: config.fontSize,
-          letterSpacing: '0.05em',
-          fontFamily: '"Inter", "Roboto", sans-serif',
-          transition: 'all 0.3s ease',
-          ...(variant === 'header'
-            ? {
-                color: '#fff',
-                background: 'none',
-                WebkitTextFillColor: '#fff',
-              }
-            : {
-                background: 'linear-gradient(90deg, #00C3FF 0%, #7D5FFF 40%, #FF61A6 70%, #FFB347 100%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                color: 'transparent',
-                WebkitTextFillColor: 'transparent',
-              }
-          )
+          letterSpacing: '0.08em',
+          fontFamily: '"Montserrat", "Inter", "Roboto", sans-serif',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          color: 'transparent',
+          WebkitTextFillColor: 'transparent',
+          textShadow: `0 2px 10px ${alpha(theme.palette.primary.main, 0.2)}`,
         }}
       >
         SORA

@@ -138,13 +138,23 @@ export default function ProfilePage() {
   const passwordStrength = getPasswordStrength(passwordData.newPassword);
 
   return (
-    <Box sx={{ py: 2, px: 3 }}>
-      {/* En-tête */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight="bold" gutterBottom>
+    <Box>
+      {/* En-tête moderne */}
+      <Box sx={{ mb: 6 }}>
+        <Typography
+          variant="h4"
+          fontWeight="bold"
+          gutterBottom
+          sx={{
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           Profil et sécurité
         </Typography>
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700 }}>
           Modifiez vos informations personnelles et gérez la sécurité de votre compte
         </Typography>
       </Box>
@@ -160,48 +170,26 @@ export default function ProfilePage() {
         </Alert>
       )}
 
-      <Grid container spacing={4}>
+      <Grid container spacing={3}>
         {/* Informations du profil */}
         <Grid size={{ xs: 12, lg: 8 }}>
-          <Card
-            sx={{
-              borderRadius: 3,
-              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 4 }}>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Avatar
-                    sx={{
-                      bgcolor: alpha(theme.palette.primary.main, 0.1),
-                      color: theme.palette.primary.main,
-                      width: 48,
-                      height: 48,
-                    }}
-                  >
-                    <PersonIcon />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      Informations personnelles
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Modifiez vos informations de base
-                    </Typography>
-                  </Box>
-                </Stack>
+          <Card elevation={0} sx={{ borderRadius: 3, border: 'none', mb: 3 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Informations personnelles
+                </Typography>
                 
                 {!isEditingProfile && (
                   <IconButton
                     onClick={() => setIsEditingProfile(true)}
+                    size="small"
                     sx={{
                       bgcolor: alpha(theme.palette.primary.main, 0.1),
                       '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
                     }}
                   >
-                    <EditIcon />
+                    <EditIcon fontSize="small" />
                   </IconButton>
                 )}
               </Stack>
@@ -251,20 +239,24 @@ export default function ProfilePage() {
               </Grid>
 
               {isEditingProfile && (
-                <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
+                <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
                   <Button
                     variant="contained"
-                    startIcon={<SaveIcon />}
+                    size="small"
+                    startIcon={<SaveIcon fontSize="small" />}
                     onClick={handleSaveProfile}
                     disabled={loading}
+                    sx={{ textTransform: 'none' }}
                   >
                     Sauvegarder
                   </Button>
                   <Button
                     variant="outlined"
-                    startIcon={<CancelIcon />}
+                    size="small"
+                    startIcon={<CancelIcon fontSize="small" />}
                     onClick={handleCancelEdit}
                     disabled={loading}
+                    sx={{ textTransform: 'none' }}
                   >
                     Annuler
                   </Button>
@@ -272,38 +264,13 @@ export default function ProfilePage() {
               )}
             </CardContent>
           </Card>
-        </Grid>
 
-        {/* Changement de mot de passe */}
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Card
-            sx={{
-              borderRadius: 3,
-              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 4 }}>
-                <Avatar
-                  sx={{
-                    bgcolor: alpha(theme.palette.warning.main, 0.1),
-                    color: theme.palette.warning.main,
-                    width: 48,
-                    height: 48,
-                  }}
-                >
-                  <LockIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="h6" fontWeight="bold">
-                    Changer le mot de passe
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Modifiez votre mot de passe pour sécuriser votre compte
-                  </Typography>
-                </Box>
-              </Stack>
+          {/* Changement de mot de passe */}
+          <Card elevation={0} sx={{ borderRadius: 3, border: 'none' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" fontWeight={600} sx={{ mb: 3 }}>
+                Changer le mot de passe
+              </Typography>
 
               <Grid container spacing={3}>
                 <Grid size={{ xs: 12 }}>
@@ -384,20 +351,24 @@ export default function ProfilePage() {
                 </Grid>
               </Grid>
 
-              <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
+              <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
                 <Button
                   variant="contained"
-                  startIcon={<SaveIcon />}
+                  size="small"
+                  startIcon={<SaveIcon fontSize="small" />}
                   onClick={handleSavePassword}
                   disabled={loading || !passwordData.currentPassword || !passwordData.newPassword || passwordData.newPassword !== passwordData.confirmPassword}
+                  sx={{ textTransform: 'none' }}
                 >
                   Changer le mot de passe
                 </Button>
                 <Button
                   variant="outlined"
-                  startIcon={<CancelIcon />}
+                  size="small"
+                  startIcon={<CancelIcon fontSize="small" />}
                   onClick={handleCancelPassword}
                   disabled={loading}
+                  sx={{ textTransform: 'none' }}
                 >
                   Annuler
                 </Button>
@@ -408,46 +379,36 @@ export default function ProfilePage() {
 
         {/* Avatar et informations du compte */}
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Card
-            sx={{
-              borderRadius: 3,
-              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
-            }}
-          >
-            <CardContent sx={{ p: 4, textAlign: 'center' }}>
+          <Card elevation={0} sx={{ borderRadius: 3, border: 'none' }}>
+            <CardContent sx={{ p: 3, textAlign: 'center' }}>
               <Avatar
                 sx={{
-                  width: 100,
-                  height: 100,
+                  width: 80,
+                  height: 80,
                   margin: '0 auto',
-                  mb: 3,
+                  mb: 2,
                   bgcolor: theme.palette.primary.main,
-                  fontSize: '2rem',
+                  fontSize: '1.75rem',
+                  fontWeight: 600,
                 }}
               >
                 {userMetadata?.first_name?.[0] || user?.email?.[0] || 'U'}
               </Avatar>
               
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
                 {userMetadata?.full_name || 'Utilisateur'}
               </Typography>
               
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
                 {user?.email}
               </Typography>
 
-              <Box sx={{ 
-                mt: 3, 
-                p: 2, 
-                borderRadius: 2, 
-                bgcolor: alpha(theme.palette.success.main, 0.1),
-                border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
-              }}>
-                <Typography variant="caption" color="success.main" fontWeight="bold">
-                  COMPTE ACTIF
-                </Typography>
-              </Box>
+              <Chip
+                label="COMPTE ACTIF"
+                color="success"
+                size="small"
+                sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+              />
             </CardContent>
           </Card>
         </Grid>

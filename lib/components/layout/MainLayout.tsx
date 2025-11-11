@@ -35,7 +35,9 @@ import SecurityIcon from '@mui/icons-material/Security';
 
 import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import { Logo } from 'lib/components/common';
+import { ThemeToggle } from 'lib/components/common';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -89,7 +91,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const handleProfileClick = () => {
     handleMenuClose();
-    router.push('/profile');
+    router.push('/settings/profile');
   };
 
   const navItems = [
@@ -130,19 +132,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <CssBaseline />
       
-      {/* 🎨 Header minimaliste et professionnel */}
+      {/* 🎨 Header épuré avec fond blanc */}
       <AppBar 
         position="sticky" 
         elevation={0}
         sx={{ 
           zIndex: theme.zIndex.drawer + 1,
-          backgroundColor: theme.palette.primary.main,
+          background: `linear-gradient(to right, ${alpha(theme.palette.background.paper, 0.95)}, ${alpha(theme.palette.background.paper, 0.98)})`,
+          backdropFilter: 'blur(20px)',
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.02)}`,
         }}
       >
         <Toolbar sx={{ 
-          minHeight: { xs: 64, sm: 70 },
-          px: { xs: 2, sm: 3 },
+          minHeight: { xs: 64, sm: 78 },
+          px: { xs: 2, sm: 4 },
         }}>
           {/* 🎯 Menu mobile */}
           <IconButton
@@ -152,9 +156,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             sx={{ 
               mr: 2, 
               display: { xs: 'flex', md: 'none' },
-              color: '#ffffff',
+              color: theme.palette.text.primary,
               '&:hover': {
-                backgroundColor: alpha('#ffffff', 0.1),
+                backgroundColor: alpha(theme.palette.primary.main, 0.08),
               },
             }}
             onClick={handleMobileMenuOpen}
@@ -186,17 +190,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   <Box
                     sx={{
                       position: 'relative',
-                      px: 3,
+                      px: 2.5,
                       py: 1.5,
                       cursor: 'pointer',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                       '&:hover': {
                         '& .nav-text': {
-                          color: '#ffffff',
+                          color: theme.palette.primary.main,
                           transform: 'translateY(-1px)',
-                        },
-                        '& .nav-icon': {
-                          transform: 'scale(1.1)',
                         },
                         '&::before': {
                           opacity: 1,
@@ -211,7 +212,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: alpha('#ffffff', 0.12),
+                        backgroundColor: alpha(theme.palette.primary.main, 0.06),
                         opacity: isActive ? 1 : 0,
                         transform: isActive ? 'scaleX(1)' : 'scaleX(0)',
                         transformOrigin: 'center',
@@ -227,10 +228,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         transform: 'translateX(-50%)',
                         width: isActive ? '24px' : '0px',
                         height: '3px',
-                        backgroundColor: '#ffffff',
+                        backgroundColor: theme.palette.primary.main,
                         borderRadius: '2px',
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        boxShadow: isActive ? `0 2px 8px ${alpha('#ffffff', 0.4)}` : 'none',
+                        boxShadow: isActive ? `0 2px 8px ${alpha(theme.palette.primary.main, 0.4)}` : 'none',
                       },
                     }}
                   >
@@ -241,29 +242,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       position: 'relative',
                       zIndex: 1,
                     }}>
-                      <Box 
-                        className="nav-icon"
-                        sx={{ 
-                          color: isActive ? '#ffffff' : alpha('#ffffff', 0.85),
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                      >
-                        {item.icon}
-                      </Box>
+                      {/* Icônes supprimées pour un design épuré */}
                       <Typography 
                         className="nav-text"
                         variant="body2"
                         sx={{
                           fontWeight: isActive ? 600 : 500,
-                          color: isActive ? '#ffffff' : alpha('#ffffff', 0.85),
-                          fontSize: '0.9rem',
-                          letterSpacing: '0.02em',
+                          color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+                          fontSize: '0.9375rem',
+                          letterSpacing: '0.01em',
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}
-                >
-                  {item.text}
+                      >
+                        {item.text}
                       </Typography>
                     </Box>
                   </Box>
@@ -274,8 +265,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
           {/* 🎯 Section utilisateur moderne */}
           {isAuthenticated && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {/* Notifications avec design moderne */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Theme Toggle */}
+              <Box
+                sx={{
+                  position: 'relative',
+                  p: 1,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                <ThemeToggle />
+              </Box>
+
+              {/* Notifications */}
               <Box
                 sx={{
                   position: 'relative',
@@ -285,7 +287,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   '&:hover': {
                     transform: 'translateY(-1px)',
                     '& .notification-icon': {
-                      color: '#ffffff',
+                      color: theme.palette.primary.main,
                     },
                   },
                 }}
@@ -293,7 +295,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <Box 
                   className="notification-icon"
                   sx={{ 
-                    color: alpha('#ffffff', 0.85),
+                    color: theme.palette.text.secondary,
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     display: 'flex',
                     alignItems: 'center',
@@ -303,13 +305,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     badgeContent={3} 
                     sx={{
                       '& .MuiBadge-badge': {
-                        backgroundColor: '#ff4444',
+                        backgroundColor: theme.palette.error.main,
                         color: '#ffffff',
                         fontSize: '0.7rem',
                         fontWeight: 600,
                         minWidth: '18px',
                         height: '18px',
-                        boxShadow: `0 2px 8px ${alpha('#ff4444', 0.4)}`,
+                        boxShadow: `0 2px 8px ${alpha(theme.palette.error.main, 0.4)}`,
                       },
                     }}
                   >
@@ -318,7 +320,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 </Box>
               </Box>
 
-              {/* Avatar utilisateur avec design moderne */}
+              {/* Avatar utilisateur épuré */}
               <Box
                 onClick={handleProfileMenuOpen}
                 sx={{
@@ -329,7 +331,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   '&:hover': {
                     transform: 'translateY(-1px)',
                     '& .avatar-container': {
-                      boxShadow: `0 4px 16px ${alpha('#ffffff', 0.3)}`,
+                      boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
                       transform: 'scale(1.05)',
                     },
                   },
@@ -341,18 +343,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     width: 36,
                     height: 36,
                     borderRadius: '50%',
-                    border: `2px solid ${alpha('#ffffff', 0.3)}`,
+                    border: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: alpha('#ffffff', 0.15),
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    backdropFilter: 'blur(10px)',
                   }}
                 >
                   <AccountCircleIcon 
                     sx={{ 
-                      color: '#ffffff', 
+                      color: theme.palette.primary.main, 
                       fontSize: '1.4rem',
                     }} 
                   />
@@ -457,6 +458,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </Typography>
                   </MenuItem>
                   
+                  <MenuItem 
+                    onClick={() => { handleMenuClose(); router.push('/settings/validation-tracking'); }}
+                    sx={{
+                      borderRadius: '12px',
+                      mx: 1,
+                      my: 0.5,
+                      px: 2,
+                      py: 1.5,
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.success.main, 0.08),
+                        transform: 'translateX(4px)',
+                      },
+                    }}
+                  >
+                    <AssignmentTurnedInIcon 
+                      fontSize="small" 
+                      sx={{ 
+                        mr: 2, 
+                        color: theme.palette.success.main,
+                      }} 
+                    />
+                    <Typography sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
+                      Suivi des validations
+                    </Typography>
+                  </MenuItem>
+
                   <MenuItem 
                     onClick={() => { handleMenuClose(); router.push('/settings'); }}
                     sx={{

@@ -63,6 +63,7 @@ export function RoleValidationShareModal({
   const theme = useTheme();
 
   // États locaux
+  const [mission, setMission] = useState<string>(''); // 🆕 Mission (obligatoire)
   const [expirationDate, setExpirationDate] = useState<Date>(addWeeks(new Date(), 2)); // Par défaut: +2 semaines
   const [enableTechnicalView, setEnableTechnicalView] = useState(false);
   const [recipients, setRecipients] = useState<string>('');  // Emails séparés par virgule ou ligne
@@ -227,6 +228,7 @@ export function RoleValidationShareModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mission, // 🆕 Mission obligatoire
           businessRoles,
           selectedRoles: selectedRolesObject,
           expirationDate: expirationDate.toISOString(),
@@ -331,6 +333,7 @@ export function RoleValidationShareModal({
 
   // Reset au close
   const handleClose = useCallback(() => {
+    setMission('');
     setGeneratedLink(null);
     setError(null);
     setCopiedToClipboard(false);
@@ -367,6 +370,29 @@ export function RoleValidationShareModal({
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
             Configuration du lien
           </Typography>
+
+          {/* 🆕 Mission (obligatoire) */}
+          <TextField
+            fullWidth
+            required
+            label="Mission"
+            value={mission}
+            onChange={(e) => setMission(e.target.value)}
+            placeholder="Ex: Audit Q4 2025, Réorganisation Comptabilité..."
+            helperText="Décrivez brièvement le contexte ou l'objectif de cette validation (obligatoire)"
+            sx={{ 
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                bgcolor: alpha(theme.palette.background.paper, 0.5),
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                },
+                '&.Mui-focused': {
+                  bgcolor: theme.palette.background.paper,
+                },
+              },
+            }}
+          />
 
           {/* Date d'expiration */}
           <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
@@ -567,7 +593,7 @@ export function RoleValidationShareModal({
           <Button
             onClick={handleGenerateLink}
             variant="contained"
-            disabled={isGenerating || businessRoles.length === 0}
+            disabled={isGenerating || businessRoles.length === 0 || !mission.trim()}
             startIcon={isGenerating ? <CircularProgress size={16} /> : null}
           >
             {isGenerating ? 'Génération...' : 'Générer le lien'}
