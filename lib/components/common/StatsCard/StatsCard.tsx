@@ -8,13 +8,13 @@ import {
   useTheme,
   alpha,
 } from '@mui/material';
-import { SvgIconComponent } from '@mui/icons-material';
+import type { SvgIconComponent } from '@mui/icons-material';
 
 export interface StatsCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  icon?: SvgIconComponent;
+  icon?: typeof SvgIconComponent;
   color?: 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'info';
   trend?: {
     value: number;
@@ -42,9 +42,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   const gradientMap = {
     primary: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     secondary: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    success: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    success: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', // Vert - pour transactions = 0
     error: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    warning: 'linear-gradient(135deg, #ffa726 0%, #fb8c00 100%)',
+    warning: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Bleu - pour transactions > 0
     info: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
   };
 

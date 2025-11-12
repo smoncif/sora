@@ -291,7 +291,7 @@ export function OverviewStatsSection({
               title="Transactions"
               value={analysisResult.metadata?.totalTransactions || 0}
               icon={TransactionIcon}
-              color="success"
+              color="info"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
