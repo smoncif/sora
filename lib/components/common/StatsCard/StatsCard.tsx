@@ -44,8 +44,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     secondary: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
     success: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', // Vert - pour transactions = 0
     error: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    warning: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Bleu - pour transactions > 0
-    info: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
+    warning: 'linear-gradient(135deg, #ffa726 0%, #fb8c00 100%)', // Orange - pour transactions > 0
+    info: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Bleu cyan
   };
 
   const gradient = gradientMap[color];
