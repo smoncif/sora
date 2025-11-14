@@ -288,11 +288,11 @@ export default function UsersManagementPage() {
           }}
         >
           <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
-            {stats.total}
-          </Typography>
+                    {stats.total}
+                  </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
             Total
-          </Typography>
+                  </Typography>
         </Paper>
 
         <Paper
@@ -307,11 +307,11 @@ export default function UsersManagementPage() {
           }}
         >
           <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
-            {stats.admins}
-          </Typography>
+                    {stats.admins}
+                  </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
             Admins
-          </Typography>
+                  </Typography>
         </Paper>
 
         <Paper
@@ -326,11 +326,11 @@ export default function UsersManagementPage() {
           }}
         >
           <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
-            {stats.active}
-          </Typography>
+                    {stats.active}
+                  </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
             Actifs
-          </Typography>
+                  </Typography>
         </Paper>
 
         <Paper
@@ -345,11 +345,11 @@ export default function UsersManagementPage() {
           }}
         >
           <Typography variant="h4" fontWeight="bold" sx={{ color: '#fff' }}>
-            {stats.pendingApproval}
-          </Typography>
+                    {stats.pendingApproval}
+                  </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
             En attente
-          </Typography>
+                  </Typography>
         </Paper>
       </Stack>
 
@@ -453,8 +453,8 @@ export default function UsersManagementPage() {
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 500,
-            }}
-          >
+                }}
+              >
             Actualiser
           </Button>
         </Stack>
@@ -600,18 +600,18 @@ export default function UsersManagementPage() {
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteClick(user)}
-                            sx={{
-                              color: theme.palette.error.main,
-                              '&:hover': {
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteClick(user)}
+                              sx={{
+                                color: theme.palette.error.main,
+                                '&:hover': {
                                 bgcolor: alpha(theme.palette.error.main, 0.1),
-                              }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                                }
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -323,31 +323,31 @@ export default function LicensesManagementPage() {
 
       {/* Actions */}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ mb: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenAddDialog(true)}
-          sx={{ flexShrink: 0 }}
-        >
-          Ajouter une licence
-        </Button>
-        
-        <Button
-          variant="outlined"
-          component="label"
-          startIcon={uploadingExcel ? <LinearProgress size={20} /> : <UploadIcon />}
-          disabled={uploadingExcel}
-          sx={{ flexShrink: 0 }}
-        >
-          {uploadingExcel ? 'Import en cours...' : 'Importer Excel'}
-          <input
-            type="file"
-            hidden
-            accept=".xlsx,.xls"
-            onChange={handleExcelUpload}
-          />
-        </Button>
-      </Stack>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenAddDialog(true)}
+              sx={{ flexShrink: 0 }}
+            >
+              Ajouter une licence
+            </Button>
+            
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={uploadingExcel ? <LinearProgress size={20} /> : <UploadIcon />}
+              disabled={uploadingExcel}
+              sx={{ flexShrink: 0 }}
+            >
+              {uploadingExcel ? 'Import en cours...' : 'Importer Excel'}
+              <input
+                type="file"
+                hidden
+                accept=".xlsx,.xls"
+                onChange={handleExcelUpload}
+              />
+            </Button>
+          </Stack>
 
       {/* Tableau des licences */}
       <Card sx={{ borderRadius: 3, border: 'none' }}>

@@ -253,8 +253,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                           letterSpacing: '0.01em',
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}
-                      >
-                        {item.text}
+                >
+                  {item.text}
                       </Typography>
                     </Box>
                   </Box>
@@ -484,7 +484,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       Suivi des validations
                     </Typography>
                   </MenuItem>
-
+                  
                   <MenuItem 
                     onClick={() => { handleMenuClose(); router.push('/settings'); }}
                     sx={{
