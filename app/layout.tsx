@@ -1,8 +1,20 @@
 import './globals.css';
-import { Inter } from 'next/font/google';
+import 'lib/styles/neoBrutalism.css';
+import { IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google';
 import { Providers } from 'lib/components/layout';
 
-const inter = Inter({ subsets: ['latin'] });
+// Neo-Brutalism fonts
+const ibmPlexSans = IBM_Plex_Sans({ 
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-ibm-plex-sans',
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  weight: ['400', '500', '600', '700', '800'],
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+});
 
 export const metadata = {
   title: 'Sora - Business Role Analysis',
@@ -22,7 +34,7 @@ export default function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className={inter.className}>
+      <body className={`${ibmPlexSans.variable} ${jetBrainsMono.variable}`}>
         <Providers>
           {children}
         </Providers>
