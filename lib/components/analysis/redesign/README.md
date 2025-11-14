@@ -130,7 +130,80 @@ import { CompactStatsCard } from 'lib/components/analysis/redesign';
 - État de chargement (skeleton)
 - Hover effect avec lift
 
-### 5. FloatingActionBar
+### 5. ResultCard
+
+Cartes de résultats compactes et modernes pour l'affichage des analyses.
+
+```tsx
+import { ResultCard, createResultMetric, ResultCardIcons } from 'lib/components/analysis/redesign';
+
+<ResultCard
+  title="Rôle Métier - Comptabilité"
+  subtitle="Analyse des transactions SAP"
+  score={85}
+  metrics={[
+    createResultMetric('Couverture', 45, 50, '#06D6A0'),
+    createResultMetric('Utilisation', 38, 45, '#00A8E8'),
+    createResultMetric('Non utilisées', 7, 50, '#EF476F'),
+  ]}
+  tags={[
+    { label: 'FI', color: '#FF6B35' },
+    { label: 'CO', color: '#004E89' },
+  ]}
+  actions={[
+    {
+      icon: ResultCardIcons.View,
+      label: 'Voir détails',
+      onClick: handleView,
+    },
+    {
+      icon: ResultCardIcons.Edit,
+      label: 'Modifier',
+      onClick: handleEdit,
+      color: '#00A8E8',
+    },
+  ]}
+  onView={handleView}
+  featured={true}
+  delay={100}
+/>
+```
+
+**Features:**
+- Score visuel avec code couleur (vert/bleu/orange)
+- Métriques avec barres de progression
+- Tags colorés personnalisables
+- Actions avec icônes et tooltips
+- Badge "TOP" pour les résultats featured
+- Hover effect avec lift
+- Coin décoratif animé
+
+### 6. ResultsGrid
+
+Grille responsive pour organiser les ResultCard.
+
+```tsx
+import { ResultsGrid, ResultCard } from 'lib/components/analysis/redesign';
+
+<ResultsGrid
+  title="RÉSULTATS D'ANALYSE"
+  emptyMessage="Aucune analyse disponible"
+  loading={false}
+>
+  {results.map((result, index) => (
+    <ResultCard key={result.id} {...result} delay={index * 100} />
+  ))}
+</ResultsGrid>
+```
+
+**Features:**
+- Grid responsive (1/2/3 colonnes selon écran)
+- État vide avec message personnalisable
+- Skeleton loading avec shimmer
+- Titre avec bordure inférieure
+- Espacement automatique
+
+### 7. FloatingActionBar
 
 Barre d'actions sticky en bas de page avec glassmorphism.
 
@@ -257,11 +330,13 @@ Cette page montre l'intégration complète de tous les composants redesignés.
 
 ## 🎯 Prochaines étapes
 
-- [ ] Créer ResultCard compact pour l'affichage des résultats
+- [x] Créer ResultCard compact pour l'affichage des résultats ✅
+- [x] Créer ResultsGrid pour organiser les cartes ✅
 - [ ] Tests de responsivité sur différents devices
 - [ ] Optimisations de performance
 - [ ] Tests d'accessibilité (WCAG)
 - [ ] Documentation Storybook
+- [ ] Remplacer l'ancienne page par la nouvelle refonte
 
 ## 📝 Notes
 
