@@ -2,14 +2,9 @@
  * API Route: POST /api/job-description/generate
  * Proxy pour le webhook N8N de génération de fiche de poste
  * Permet d'ajouter des logs serveur et de contourner les problèmes CORS
- * 
- * Sécurité SSL:
- * Utilise les certificats CA officiels de Cloudflare pour une vérification SSL complète
- * au lieu de désactiver SSL complètement (plus sécurisé).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { CLOUDFLARE_CA_CERTIFICATES } from 'lib/utils/cloudflare-ca';
 
 interface JobDescriptionPayload {
   profileName: string;
@@ -40,7 +35,6 @@ export async function POST(request: NextRequest) {
   console.log('📍 [SERVER] URL du webhook:', WEBHOOK_URL);
   console.log('🌐 [SERVER] Origin de la requête:', request.headers.get('origin'));
   console.log('🔑 [SERVER] User-Agent:', request.headers.get('user-agent'));
-  console.log('🔐 [SERVER] Vérification SSL avec CA Cloudflare (sécurisé)');
 
   try {
     // Parser le body de la requête
@@ -70,35 +64,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Faire l'appel au webhook N8N avec les certificats CA Cloudflare
+    // Faire l'appel au webhook N8N
     console.log('⏳ [SERVER] Envoi de la requête au webhook N8N...');
     const startTime = Date.now();
     
-    // Configuration pour Vercel Edge Runtime
-    // Vercel Edge Runtime ne supporte pas https.Agent, donc on utilise
-    // une approche alternative avec les headers TLS
-    const fetchOptions: RequestInit = {
+    // Désactiver temporairement la vérification SSL pour Cloudflare tunnel
+    // TODO: Remplacer par certificat Let's Encrypt sur N8N pour sécurité parfaite
+    if (process.env.VERCEL === '1') {
+      // @ts-ignore
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      console.log('⚠️ [SERVER] Vérification SSL désactivée (temporaire - en attente Let\'s Encrypt)');
+    }
+    
+    const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Sora-Server/1.0',
       },
       body: JSON.stringify(payload),
-      // Ajouter un timeout de 60 secondes
       signal: AbortSignal.timeout(60000),
-    };
-    
-    // Sur Vercel, on doit temporairement désactiver la vérification stricte
-    // car l'Edge Runtime ne supporte pas l'injection de CA personnalisés
-    // C'est sécurisé car on vérifie quand même que le domaine est correct
-    if (process.env.VERCEL === '1') {
-      // @ts-ignore - Variable d'environnement Node.js
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-      console.log('⚠️ [SERVER] Mode Vercel: Désactivation temporaire de la vérification SSL stricte');
-      console.log('   (Le domaine et le tunnel Cloudflare restent vérifiés)');
-    }
-    
-    const response = await fetch(WEBHOOK_URL, fetchOptions);
+    });
 
     const duration = Date.now() - startTime;
     console.log(`⏱️ [SERVER] Requête terminée en ${duration}ms`);
