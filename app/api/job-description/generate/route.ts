@@ -38,12 +38,12 @@ export async function POST(request: NextRequest) {
   
   // ⚠️ IMPORTANT: Désactiver la vérification SSL en développement pour les certificats auto-signés
   // En production, utilisez un certificat valide et supprimez cette ligne
-  // ❌ DÉSACTIVÉ TEMPORAIREMENT POUR TEST
-  // if (process.env.NODE_ENV !== 'production') {
-  //   console.log('⚠️ [SERVER] Mode développement: Désactivation de la vérification SSL');
-  //   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-  // }
-  console.log('🔒 [SERVER] Vérification SSL ACTIVÉE (mode test)');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('⚠️ [SERVER] Mode développement: Désactivation de la vérification SSL');
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  } else {
+    console.log('🔒 [SERVER] Vérification SSL ACTIVÉE (production)');
+  }
 
   try {
     // Parser le body de la requête
