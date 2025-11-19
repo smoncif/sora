@@ -480,49 +480,89 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   // 🔀 NOUVEAU : Handler pour générer la fiche de poste avec cache
   const handleGenerateJobDescription = React.useCallback(async (forceRegenerate: boolean = false) => {
+    console.log('🎯 [HANDLER] Début de handleGenerateJobDescription');
+    console.log('📊 [HANDLER] Paramètres:', {
+      forceRegenerate,
+      selectedRolesCount: selectedRoles.size,
+      selectedRoles: Array.from(selectedRoles),
+      businessRole: analysis.businessRole,
+      simpleRoleTransactionsCount: simpleRoleTransactions.length
+    });
+
     if (selectedRoles.size === 0) {
+      console.warn('⚠️ [HANDLER] Aucun rôle sélectionné');
       alert('Veuillez sélectionner au moins un rôle simple pour générer la fiche de poste.');
       return;
     }
 
+    console.log('⏳ [HANDLER] Démarrage de la génération...');
     setIsGeneratingJobDescription(true);
     try {
       // Vérifier d'abord si une version en cache existe (sauf si régénération forcée)
       if (!forceRegenerate) {
+        console.log('🔍 [HANDLER] Vérification du cache...');
         const cachedData = getCachedJobDescription(analysis.businessRole, selectedRoles);
         
         if (cachedData) {
+          console.log('✅ [HANDLER] Données trouvées en cache:', {
+            cachedAt: cachedData.cachedAt,
+            responseSuccess: cachedData.response.success,
+            wordCount: cachedData.response.wordCount
+          });
           setJobDescriptionResponse(cachedData.response);
           setJobDescriptionFromCache(true);
           setJobDescriptionCachedAt(cachedData.cachedAt);
           setJobDescriptionModalOpen(true);
           setIsGeneratingJobDescription(false);
           return;
+        } else {
+          console.log('ℹ️ [HANDLER] Aucune donnée en cache trouvée');
         }
+      } else {
+        console.log('🔄 [HANDLER] Régénération forcée - skip du cache');
       }
 
       // Générer le payload JSON
+      console.log('📦 [HANDLER] Génération du payload...');
       const payload = generateJobDescriptionPayload(
         analysis.businessRole,
         selectedRoles,
         simpleRoleTransactions
       );
+      console.log('✅ [HANDLER] Payload généré:', {
+        profileName: payload.profileName,
+        rolesCount: payload.roles.length,
+        totalTransactions: payload.roles.reduce((sum, r) => sum + r.transactions.length, 0)
+      });
 
       // Envoyer au webhook N8N et récupérer la réponse
+      console.log('🚀 [HANDLER] Appel à sendJobDescriptionToWebhook...');
       const response = await sendJobDescriptionToWebhook(payload);
+      console.log('✅ [HANDLER] Réponse reçue du webhook:', {
+        success: response.success,
+        wordCount: response.wordCount,
+        sourceModel: response.sourceModel,
+        provider: response.provider
+      });
 
       // Stocker dans le cache
+      console.log('💾 [HANDLER] Stockage dans le cache...');
       setCachedJobDescription(analysis.businessRole, selectedRoles, response);
 
       // Ouvrir le modal avec la réponse
+      console.log('🎉 [HANDLER] Ouverture du modal avec la réponse');
       setJobDescriptionResponse(response);
       setJobDescriptionFromCache(false);
       setJobDescriptionCachedAt(null);
       setJobDescriptionModalOpen(true);
     } catch (error) {
-      console.error('Erreur lors de la génération de la fiche de poste:', error);
+      console.error('❌ [HANDLER] Erreur lors de la génération de la fiche de poste:', error);
+      console.error('🔍 [HANDLER] Type d\'erreur:', error?.constructor?.name);
+      console.error('📝 [HANDLER] Message:', error instanceof Error ? error.message : 'Erreur inconnue');
+      console.error('📚 [HANDLER] Stack:', error instanceof Error ? error.stack : 'N/A');
       alert(`Erreur lors de la génération de la fiche de poste: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
+      console.log('🏁 [HANDLER] Fin de handleGenerateJobDescription');
       setIsGeneratingJobDescription(false);
     }
   }, [selectedRoles, analysis.businessRole, simpleRoleTransactions]);

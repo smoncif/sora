@@ -266,6 +266,7 @@ export function RoleValidationShareModal({
     totalRoleCount,
     currentUserName,
     emailBody,
+    mission,
   ]);
 
   // Handler pour copier le lien
@@ -378,7 +379,6 @@ export function RoleValidationShareModal({
             label="Mission"
             value={mission}
             onChange={(e) => setMission(e.target.value)}
-            placeholder="Ex: Audit Q4 2025, Réorganisation Comptabilité..."
             helperText="Décrivez brièvement le contexte ou l'objectif de cette validation (obligatoire)"
             sx={{ 
               mb: 2,
