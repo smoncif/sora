@@ -140,16 +140,7 @@ export async function sendJobDescriptionToWebhook(
 ): Promise<JobDescriptionWebhookResponse> {
   const WEBHOOK_URL = 'https://n8n.nasmsi.cc/webhook/generate-job-description';
   
-  // 🔍 LOG 1: Début de l'appel webhook
-  console.log('🚀 [WEBHOOK] Début de l\'appel au webhook N8N');
-  console.log('📍 [WEBHOOK] URL:', WEBHOOK_URL);
-  console.log('📦 [WEBHOOK] Payload:', JSON.stringify(payload, null, 2));
-  
   try {
-    // 🔍 LOG 2: Avant le fetch
-    console.log('⏳ [WEBHOOK] Envoi de la requête fetch...');
-    const startTime = Date.now();
-    
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
@@ -158,53 +149,21 @@ export async function sendJobDescriptionToWebhook(
       body: JSON.stringify(payload)
     });
     
-    const fetchDuration = Date.now() - startTime;
-    
-    // 🔍 LOG 3: Réponse reçue
-    console.log(`✅ [WEBHOOK] Réponse reçue en ${fetchDuration}ms`);
-    console.log('📊 [WEBHOOK] Status:', response.status, response.statusText);
-    console.log('📋 [WEBHOOK] Headers:', Object.fromEntries(response.headers.entries()));
-    
     const responseText = await response.text();
     
-    // 🔍 LOG 4: Corps de la réponse
-    console.log('📄 [WEBHOOK] Réponse brute (premiers 500 chars):', responseText.substring(0, 500));
-    
     if (!response.ok) {
-      console.error('❌ [WEBHOOK] Réponse HTTP non-OK:', response.status, response.statusText);
-      console.error('📄 [WEBHOOK] Corps complet de l\'erreur:', responseText);
       throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
     }
     
     // Parser la réponse JSON
     try {
-      console.log('🔄 [WEBHOOK] Parsing de la réponse JSON...');
       const jsonResponse: JobDescriptionWebhookResponse = JSON.parse(responseText);
-      console.log('✅ [WEBHOOK] JSON parsé avec succès');
-      console.log('📊 [WEBHOOK] Réponse:', jsonResponse);
       return jsonResponse;
     } catch (parseError) {
-      console.error('❌ [WEBHOOK] Erreur de parsing JSON:', parseError);
-      console.error('📄 [WEBHOOK] Texte qui a causé l\'erreur:', responseText);
       throw new Error(`Erreur lors du parsing de la réponse JSON: ${parseError instanceof Error ? parseError.message : 'Erreur inconnue'}`);
     }
   } catch (error) {
-    // 🔍 LOG 5: Erreur détaillée
-    console.error('❌ [WEBHOOK] Erreur lors de l\'envoi au webhook');
-    console.error('🔍 [WEBHOOK] Type d\'erreur:', error instanceof TypeError ? 'TypeError (Network/CORS/SSL)' : error instanceof Error ? error.constructor.name : typeof error);
-    console.error('📝 [WEBHOOK] Message:', error instanceof Error ? error.message : String(error));
-    console.error('🔍 [WEBHOOK] Stack:', error instanceof Error ? error.stack : 'N/A');
-    
-    // Détection spécifique des erreurs SSL/Network
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      console.error('🔒 [WEBHOOK] Erreur "Failed to fetch" détectée - Causes possibles:');
-      console.error('   1. Problème SSL/Certificat');
-      console.error('   2. Serveur N8N inaccessible');
-      console.error('   3. Problème CORS');
-      console.error('   4. Pas de connexion Internet');
-      console.error('💡 [WEBHOOK] Vérifiez que le serveur N8N est accessible:', WEBHOOK_URL);
-    }
-    
+    console.error('❌ Erreur lors de l\'envoi au webhook:', error);
     if (error instanceof Error) {
       throw new Error(`Erreur lors de l'envoi au webhook: ${error.message}`);
     }

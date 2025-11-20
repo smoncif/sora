@@ -480,15 +480,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   // 🔀 NOUVEAU : Handler pour générer la fiche de poste avec cache
   const handleGenerateJobDescription = React.useCallback(async (forceRegenerate: boolean = false) => {
-    // 🔍 LOG 1: Début du processus
-    console.log('🎯 [CLIENT] Début de la génération de fiche de poste');
-    console.log('📋 [CLIENT] Rôle métier:', analysis.businessRole);
-    console.log('🔢 [CLIENT] Nombre de rôles sélectionnés:', selectedRoles.size);
-    console.log('📝 [CLIENT] Rôles sélectionnés:', Array.from(selectedRoles));
-    console.log('🔄 [CLIENT] Régénération forcée:', forceRegenerate);
-    
     if (selectedRoles.size === 0) {
-      console.warn('⚠️ [CLIENT] Aucun rôle sélectionné');
       alert('Veuillez sélectionner au moins un rôle simple pour générer la fiche de poste.');
       return;
     }
@@ -497,12 +489,9 @@ export const AnalysisCard = React.memo(function AnalysisCard({
     try {
       // Vérifier d'abord si une version en cache existe (sauf si régénération forcée)
       if (!forceRegenerate) {
-        console.log('🔍 [CLIENT] Vérification du cache...');
         const cachedData = getCachedJobDescription(analysis.businessRole, selectedRoles);
         
         if (cachedData) {
-          console.log('✅ [CLIENT] Données trouvées en cache');
-          console.log('⏰ [CLIENT] Date de mise en cache:', new Date(cachedData.cachedAt).toLocaleString());
           setJobDescriptionResponse(cachedData.response);
           setJobDescriptionFromCache(true);
           setJobDescriptionCachedAt(cachedData.cachedAt);
@@ -510,58 +499,30 @@ export const AnalysisCard = React.memo(function AnalysisCard({
           setIsGeneratingJobDescription(false);
           return;
         }
-        console.log('ℹ️ [CLIENT] Pas de données en cache, génération nécessaire');
       }
 
       // Générer le payload JSON
-      console.log('🔧 [CLIENT] Génération du payload...');
       const payload = generateJobDescriptionPayload(
         analysis.businessRole,
         selectedRoles,
         simpleRoleTransactions
       );
-      console.log('✅ [CLIENT] Payload généré:', {
-        profileName: payload.profileName,
-        rolesCount: payload.roles.length,
-        roles: payload.roles.map(r => ({ roleId: r.roleId, type: r.type, transactionsCount: r.transactions.length }))
-      });
 
       // Envoyer au webhook N8N et récupérer la réponse
-      console.log('📡 [CLIENT] Appel du service webhook...');
-      const startTime = Date.now();
       const response = await sendJobDescriptionToWebhook(payload);
-      const duration = Date.now() - startTime;
-      
-      console.log(`✅ [CLIENT] Réponse reçue du webhook en ${duration}ms`);
-      console.log('📊 [CLIENT] Réponse:', {
-        success: response.success,
-        wordCount: response.wordCount,
-        provider: response.provider,
-        sourceModel: response.sourceModel,
-        descriptionLength: response.jobDescription?.length || 0
-      });
 
       // Stocker dans le cache
-      console.log('💾 [CLIENT] Mise en cache de la réponse...');
       setCachedJobDescription(analysis.businessRole, selectedRoles, response);
 
       // Ouvrir le modal avec la réponse
-      console.log('✅ [CLIENT] Ouverture du modal avec la fiche de poste');
       setJobDescriptionResponse(response);
       setJobDescriptionFromCache(false);
       setJobDescriptionCachedAt(null);
       setJobDescriptionModalOpen(true);
     } catch (error) {
-      // 🔍 LOG: Erreur détaillée côté client
-      console.error('❌ [CLIENT] Erreur lors de la génération de la fiche de poste');
-      console.error('🔍 [CLIENT] Type d\'erreur:', error instanceof Error ? error.constructor.name : typeof error);
-      console.error('📝 [CLIENT] Message:', error instanceof Error ? error.message : String(error));
-      console.error('🔍 [CLIENT] Stack:', error instanceof Error ? error.stack : 'N/A');
-      console.error('📦 [CLIENT] Objet erreur complet:', error);
-      
+      console.error('Erreur lors de la génération de la fiche de poste:', error);
       alert(`Erreur lors de la génération de la fiche de poste: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
-      console.log('🏁 [CLIENT] Fin du processus de génération');
       setIsGeneratingJobDescription(false);
     }
   }, [selectedRoles, analysis.businessRole, simpleRoleTransactions]);
