@@ -23,7 +23,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 // import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'; // Supprimé
 import { SodSimpleRoleFunction, SodSimpleRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodActionItem } from './SodActionItem';
-import { detectDuplicateActionsInRisk, extractActionSignature } from 'lib/utils/sodConflictDetection';
+import { detectDuplicateActionsInRisk, extractActionSignature, detectActionsWithOnlyTCodeInFunction } from 'lib/utils/sodConflictDetection';
 import { useLazyActionRendering } from 'lib/hooks/sod/useLazyActionRendering';
 import { SodActionSkeleton } from '../skeleton/SodActionSkeleton';
 
@@ -90,6 +90,11 @@ const SodFunctionCard: React.FC<{
       total: allRisks.length
     };
   }, [allRisks, code]);
+  
+  // 🎯 Calculer les actions avec seulement S_TCODE dans cette fonction
+  const onlyTCodeMap = useMemo(() => {
+    return detectActionsWithOnlyTCodeInFunction(func);
+  }, [func]);
   
   // 🚀 LAZY LOADING : Chargement progressif des actions dans la fonction
   const {
@@ -241,6 +246,7 @@ const SodFunctionCard: React.FC<{
                     level={0}
                     defaultExpanded={false}
                     isDuplicate={isDuplicate}
+                    hasOnlyTCodeInFunction={onlyTCodeMap.get(action.code) || false}
                     onDelete={(code, resources) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
                     onRestrict={(code, resources) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
                     onRestrictResource={(actionCode, resourceCode, externalResourceCode, values) => 

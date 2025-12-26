@@ -185,6 +185,12 @@ export interface AuthMethods {
    * Confirme une réinitialisation du mot de passe
    */
   confirmPasswordReset: (password: string) => Promise<{ success: boolean; error?: string }>;
+  
+  /**
+   * Change le mot de passe de l'utilisateur connecté
+   * Vérifie l'ancien mot de passe avant de le changer
+   */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 /**

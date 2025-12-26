@@ -141,3 +141,6 @@ GRANT EXECUTE ON FUNCTION get_user_validation_links(UUID) TO authenticated;
 
 
 
+
+
+

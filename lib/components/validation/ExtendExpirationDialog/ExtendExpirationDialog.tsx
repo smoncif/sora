@@ -14,6 +14,7 @@ import {
   Box,
   Typography,
   CircularProgress,
+  Alert,
   useTheme,
   alpha,
 } from '@mui/material';
@@ -29,7 +30,8 @@ export interface ExtendExpirationDialogProps {
   linkId: string;
   mission: string;
   currentExpiration: Date;
-  onSuccess: () => void;
+  isExpired?: boolean;
+  onExtend: (id: string, newDate: Date) => Promise<boolean>;
 }
 
 export function ExtendExpirationDialog({
@@ -38,7 +40,8 @@ export function ExtendExpirationDialog({
   linkId,
   mission,
   currentExpiration,
-  onSuccess,
+  isExpired = false,
+  onExtend,
 }: ExtendExpirationDialogProps) {
   const theme = useTheme();
   const [newDate, setNewDate] = useState<Date | null>(
@@ -54,21 +57,7 @@ export function ExtendExpirationDialog({
     setError(null);
 
     try {
-      const response = await fetch(`/api/validation/links/${linkId}/extend`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          newExpirationDate: newDate.toISOString(),
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error || 'Erreur lors de la prolongation');
-      }
-
-      onSuccess();
+      await onExtend(linkId, newDate);
       onClose();
     } catch (err) {
       console.error('Erreur:', err);
@@ -93,6 +82,13 @@ export function ExtendExpirationDialog({
       
       <DialogContent>
         <Box sx={{ py: 2 }}>
+          {/* Message de réactivation pour les liens expirés */}
+          {isExpired && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Ce lien est actuellement expiré. En prolongeant la date, il sera automatiquement réactivé.
+            </Alert>
+          )}
+
           {/* Informations du lien */}
           <Box
             sx={{

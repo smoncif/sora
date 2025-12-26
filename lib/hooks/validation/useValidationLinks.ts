@@ -87,7 +87,7 @@ export function useValidationLinks() {
     }
   }, [fetchLinks]);
 
-  // Prolonger un lien
+  // Prolonger un lien (mise à jour optimiste pour fluidité)
   const extendLink = useCallback(async (id: string, newExpirationDate: Date) => {
     try {
       const response = await fetch(`/api/validation/links/${id}/extend`, {
@@ -104,15 +104,33 @@ export function useValidationLinks() {
         throw new Error(result.error || 'Erreur lors de la prolongation');
       }
 
-      // Rafraîchir la liste
-      await fetchLinks();
+      // Mise à jour optimiste : mettre à jour uniquement le lien concerné
+      const now = new Date();
+      const daysRemaining = Math.ceil(
+        (newExpirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      setLinks(prevLinks =>
+        prevLinks.map(link =>
+          link.id === id
+            ? {
+                ...link,
+                expiresAt: newExpirationDate.toISOString(),
+                status: 'active',
+                isExpired: false,
+                isExpiringSoon: daysRemaining >= 0 && daysRemaining <= 2,
+                daysRemaining,
+              }
+            : link
+        )
+      );
       
       return true;
     } catch (err) {
       console.error('Erreur prolongation lien:', err);
       throw err;
     }
-  }, [fetchLinks]);
+  }, []);
 
   // Ouvrir un lien
   const openLink = useCallback((token: string) => {

@@ -24,6 +24,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 // import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'; // Supprimé
 import { SodCompositeRoleFunction, SodCompositeRoleRiskItem } from 'lib/types/sodAnalysis';
 import { SodSimpleRoleInCompositeItem } from './SodSimpleRoleInCompositeItem';
+import { detectActionsWithOnlyTCodeInFunction } from 'lib/utils/sodConflictDetection';
 import { useLazySimpleRoleRendering } from 'lib/hooks/sod/useLazySimpleRoleRendering';
 import { SodSimpleRoleSkeleton } from '../skeleton/SodSimpleRoleSkeleton';
 
@@ -88,6 +89,12 @@ const SodCompositeFunctionCard: React.FC<{
       total: allRisks.length
     };
   }, [allRisks, code]);
+  
+  // 🎯 Calculer les actions avec seulement S_TCODE dans cette fonction
+  // Pour les composites, agrège les ressources de tous les rôles simples
+  const onlyTCodeMap = useMemo(() => {
+    return detectActionsWithOnlyTCodeInFunction(func);
+  }, [func]);
   
   // 🚀 LAZY LOADING : Chargement progressif des rôles simples dans la fonction composite
   const {
@@ -234,6 +241,7 @@ const SodCompositeFunctionCard: React.FC<{
                   defaultExpanded={false}
                   compositeRoleName={compositeRoleName}
                   riskId={riskId}
+                  onlyTCodeMap={onlyTCodeMap}
                   onDeleteAction={onDeleteAction}
                   onRestrictAction={onRestrictAction}
                   onRestrictResource={onRestrictResource}

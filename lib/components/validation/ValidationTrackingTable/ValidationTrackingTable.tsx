@@ -89,8 +89,7 @@ export function ValidationTrackingTable({
     setExtendDialogOpen(true);
   };
 
-  const handleExtendSuccess = () => {
-    onRefresh();
+  const handleExtendClose = () => {
     setExtendDialogOpen(false);
     setSelectedLinkForExtend(null);
   };
@@ -273,20 +272,17 @@ export function ValidationTrackingTable({
                       </IconButton>
                     </Tooltip>
 
-                    <Tooltip title={link.isExpired ? "Ce lien est expiré" : "Prolonger l'expiration"}>
-                      <span>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExtendClick(link)}
-                          disabled={link.isExpired}
-                          sx={{
-                            color: theme.palette.warning.main,
-                            '&:hover': { bgcolor: alpha(theme.palette.warning.main, 0.1) },
-                          }}
-                        >
-                          <AccessTimeIcon fontSize="small" />
-                        </IconButton>
-                      </span>
+                    <Tooltip title={link.isExpired ? "Prolonger et réactiver le lien" : "Prolonger l'expiration"}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleExtendClick(link)}
+                        sx={{
+                          color: theme.palette.warning.main,
+                          '&:hover': { bgcolor: alpha(theme.palette.warning.main, 0.1) },
+                        }}
+                      >
+                        <AccessTimeIcon fontSize="small" />
+                      </IconButton>
                     </Tooltip>
 
                     <Tooltip title="Supprimer">
@@ -340,11 +336,12 @@ export function ValidationTrackingTable({
       {selectedLinkForExtend && (
         <ExtendExpirationDialog
           open={extendDialogOpen}
-          onClose={() => setExtendDialogOpen(false)}
+          onClose={handleExtendClose}
           linkId={selectedLinkForExtend.id}
           mission={selectedLinkForExtend.mission}
           currentExpiration={new Date(selectedLinkForExtend.expiresAt)}
-          onSuccess={handleExtendSuccess}
+          isExpired={selectedLinkForExtend.isExpired}
+          onExtend={onExtend}
         />
       )}
     </>

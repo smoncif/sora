@@ -43,6 +43,9 @@ export interface SodActionItemProps {
   /** Action dupliquée dans le risque */
   isDuplicate?: boolean;
   
+  /** Action avec seulement S_TCODE dans toute la fonction (matrice SoD incomplète) */
+  hasOnlyTCodeInFunction?: boolean;
+  
   /** Désactiver tous les boutons (si le rôle parent est exclu) */
   disableButtons?: boolean;
   
@@ -58,19 +61,25 @@ export interface SodActionItemProps {
 
 /**
  * Génère les messages d'alerte pour une action
+ * @param action L'action à analyser
+ * @param isDuplicate True si l'action est dupliquée dans le risque
+ * @param hasOnlyTCodeInFunction True si l'action n'a que S_TCODE dans toute la fonction
  */
-function getActionAlertMessages(action: SodAction, isDuplicate: boolean): string[] {
+function getActionAlertMessages(
+  action: SodAction, 
+  isDuplicate: boolean,
+  hasOnlyTCodeInFunction: boolean = false
+): string[] {
   const messages: string[] = [];
   
-  // RÈGLE 1 : Action dupliquée dans le risque (MODIFIÉE)
+  // RÈGLE 1 : Action dupliquée dans le risque
   if (isDuplicate) {
     messages.push("Action identique dans les deux fonctions du risque, veuillez mettre à jour la matrice SoD");
   }
   
-  // RÈGLE 2 : Action avec seulement S_TCODE (NOUVEAU)
-  if (action.resources && 
-      action.resources.length === 1 && 
-      action.resources[0].code === 'S_TCODE') {
+  // RÈGLE 2 : Action avec seulement S_TCODE dans TOUTE la fonction
+  // L'analyse se fait au niveau de la fonction (agrégation de tous les rôles)
+  if (hasOnlyTCodeInFunction) {
     messages.push("Seul le S_TCODE est défini dans la Matrice SoD");
   }
   
@@ -88,6 +97,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
   defaultExpanded = false,
   variant = 'default',
   isDuplicate = false,
+  hasOnlyTCodeInFunction = false,
   disableButtons = false,
   onDelete,
   onRestrict,
@@ -330,7 +340,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
 
             {/* Icône d'alerte avec messages multiples - après les badges */}
             {(() => {
-              const alertMessages = getActionAlertMessages(action, isDuplicate);
+              const alertMessages = getActionAlertMessages(action, isDuplicate, hasOnlyTCodeInFunction);
               return alertMessages.length > 0 && (
                 <Tooltip title={alertMessages.join('\n')} arrow>
                   <WarningIcon 
@@ -478,6 +488,7 @@ export const SodActionItem: React.FC<SodActionItemProps> = React.memo(({
     prevAction.restrictedByAction === nextAction.restrictedByAction &&
     prevAction.resources === nextAction.resources &&
     prevProps.isDuplicate === nextProps.isDuplicate &&
+    prevProps.hasOnlyTCodeInFunction === nextProps.hasOnlyTCodeInFunction &&
     prevProps.disableButtons === nextProps.disableButtons &&
     prevProps.defaultExpanded === nextProps.defaultExpanded
   );

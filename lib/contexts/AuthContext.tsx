@@ -472,6 +472,47 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   };
 
   /**
+   * Change le mot de passe de l'utilisateur connecté
+   * Vérifie d'abord l'ancien mot de passe en réauthentifiant l'utilisateur
+   */
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      setLoading(true);
+      
+      // Vérifier que l'utilisateur est connecté
+      if (!user?.email) {
+        return { success: false, error: 'Utilisateur non connecté' };
+      }
+
+      // Étape 1: Vérifier l'ancien mot de passe en réauthentifiant
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        return { success: false, error: 'Mot de passe actuel incorrect' };
+      }
+
+      // Étape 2: Changer le mot de passe
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        return { success: false, error: updateError.message };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Erreur changement mot de passe:', error);
+      return { success: false, error: error.message || 'Erreur inconnue' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Vérifie si l'utilisateur a le rôle requis
    */
   const hasRole = (requiredRole: UserRole | UserRole[]): boolean => {
@@ -524,6 +565,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     refreshUserProfile,
     resetPassword,
     confirmPasswordReset,
+    changePassword,
     checkSession
   };
 

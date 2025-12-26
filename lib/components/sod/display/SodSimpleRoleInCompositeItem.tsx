@@ -57,6 +57,9 @@ export interface SodSimpleRoleInCompositeItemProps {
   
   /** Callback pour exclure un rôle simple dans un rôle composite */
   onExcludeRole?: (compositeRoleName: string, simpleRoleName: string) => void;
+  
+  /** Map des actions avec seulement S_TCODE dans la fonction (calculée au niveau parent) */
+  onlyTCodeMap?: Map<string, boolean>;
 }
 
 /**
@@ -73,6 +76,7 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
   onRestrictAction,
   onRestrictResource,
   onExcludeRole,
+  onlyTCodeMap,
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -687,9 +691,10 @@ export const SodSimpleRoleInCompositeItem: React.FC<SodSimpleRoleInCompositeItem
                 level={0}
                 defaultExpanded={false}
                 disableButtons={isRoleExcluded}
-        onDelete={(code: string, resources: any[]) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
-        onRestrict={(code: string, resources: any[]) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
-        onRestrictResource={(actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) =>
+                hasOnlyTCodeInFunction={onlyTCodeMap?.get(action.code) || false}
+                onDelete={(code: string, resources: any[]) => roleName && riskId && onDeleteAction?.(roleName, riskId, code, resources)}
+                onRestrict={(code: string, resources: any[]) => roleName && riskId && onRestrictAction?.(roleName, riskId, code, resources)}
+                onRestrictResource={(actionCode: string, resourceCode: string, externalResourceCode: string, values: string[]) =>
                   roleName && riskId && onRestrictResource?.(roleName, riskId, actionCode, resourceCode, externalResourceCode, values)
                 }
               />

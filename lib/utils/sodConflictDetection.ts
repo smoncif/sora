@@ -2,7 +2,13 @@
  * Utilitaires pour la détection de conflits dans l'analyse SoD
  */
 
-import { SodAction, SodSimpleRoleRiskItem, SodCompositeRoleRiskItem } from 'lib/types/sodAnalysis';
+import { 
+  SodAction, 
+  SodSimpleRoleRiskItem, 
+  SodCompositeRoleRiskItem,
+  SodSimpleRoleFunction,
+  SodCompositeRoleFunction 
+} from 'lib/types/sodAnalysis';
 
 /**
  * Extrait uniquement les données techniques d'une action (sans descriptions)
@@ -115,5 +121,57 @@ export function isActionDuplicatedInRisk(
   const entry = duplicates.get(key);
   
   return entry ? entry.isDuplicate && entry.functionIndices.includes(functionIndex) : false;
+}
+
+/**
+ * Détecte les actions qui n'ont QUE S_TCODE comme ressource dans une FONCTION
+ * Pour les rôles simples : agrège les ressources au sein de la fonction
+ * Pour les rôles composites : agrège les ressources à travers tous les rôles simples de la fonction
+ * 
+ * @param func La fonction à analyser (simple ou composite)
+ * @returns Map<actionCode, hasOnlyTCode> - true si l'action n'a que S_TCODE dans toute la fonction
+ */
+export function detectActionsWithOnlyTCodeInFunction(
+  func: SodSimpleRoleFunction | SodCompositeRoleFunction
+): Map<string, boolean> {
+  // Map: actionCode → Set de tous les codes ressource trouvés dans la fonction
+  const actionResourcesMap = new Map<string, Set<string>>();
+  
+  // Collecter toutes les actions de la fonction
+  let allActions: SodAction[] = [];
+  
+  // Pour les fonctions simples (rôles simples) : actions directes
+  if ('actions' in func) {
+    allActions = func.actions;
+  }
+  // Pour les fonctions composites : actions de tous les rôles simples
+  else if ('simpleRoles' in func) {
+    allActions = func.simpleRoles.flatMap(sr => sr.actions as SodAction[]);
+  }
+  
+  // Agréger les ressources par code action
+  allActions.forEach(action => {
+    const actionCode = action.code;
+    
+    if (!actionResourcesMap.has(actionCode)) {
+      actionResourcesMap.set(actionCode, new Set<string>());
+    }
+    
+    // Ajouter tous les codes ressource de cette action
+    action.resources.forEach(resource => {
+      actionResourcesMap.get(actionCode)!.add(resource.code);
+    });
+  });
+  
+  // Convertir en Map<actionCode, hasOnlyTCode>
+  const result = new Map<string, boolean>();
+  actionResourcesMap.forEach((resourceCodes, actionCode) => {
+    // True si la seule ressource est S_TCODE (ou si aucune ressource)
+    const hasOnlyTCode = resourceCodes.size === 0 || 
+      (resourceCodes.size === 1 && resourceCodes.has('S_TCODE'));
+    result.set(actionCode, hasOnlyTCode);
+  });
+  
+  return result;
 }
 

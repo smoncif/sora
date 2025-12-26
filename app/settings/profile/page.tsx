@@ -31,7 +31,7 @@ import { useAuth } from 'lib/hooks/auth/useAuth';
 
 export default function ProfilePage() {
   const theme = useTheme();
-  const { user, userMetadata } = useAuth();
+  const { user, userMetadata, changePassword } = useAuth();
 
   // États pour l'édition du profil
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -81,20 +81,41 @@ export default function ProfilePage() {
   };
 
   const handleSavePassword = async () => {
+    // Validation : vérifier que le mot de passe actuel est renseigné
+    if (!passwordData.currentPassword) {
+      setMessage({ type: 'error', text: 'Veuillez saisir votre mot de passe actuel' });
+      return;
+    }
+
+    // Validation : vérifier que les mots de passe correspondent
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setMessage({ type: 'error', text: 'Les mots de passe ne correspondent pas' });
       return;
     }
 
+    // Validation : longueur minimale
     if (passwordData.newPassword.length < 8) {
       setMessage({ type: 'error', text: 'Le mot de passe doit contenir au moins 8 caractères' });
       return;
     }
 
+    // Validation : complexité du mot de passe
+    if (!/[A-Z]/.test(passwordData.newPassword) || !/[0-9]/.test(passwordData.newPassword)) {
+      setMessage({ type: 'error', text: 'Le mot de passe doit contenir au moins une majuscule et un chiffre' });
+      return;
+    }
+
     setLoading(true);
+    setMessage(null);
+    
     try {
-      // Ici on appellerait l'API pour changer le mot de passe
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulation
+      const result = await changePassword(passwordData.currentPassword, passwordData.newPassword);
+      
+      if (!result.success) {
+        setMessage({ type: 'error', text: result.error || 'Erreur lors du changement de mot de passe' });
+        return;
+      }
+      
       setMessage({ type: 'success', text: 'Mot de passe mis à jour avec succès !' });
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
