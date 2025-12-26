@@ -353,7 +353,16 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
       
       // ✅ CRITIQUE : Mettre explicitement la session en cache (en plus de la mutation)
       queryClient.setQueryData(['sod', 'session', newSession.id], newSession);
-      // Cache update removed
+      
+      // ✅ CORRECTION : Invalider les queries de pagination pour qu'elles refetch avec la nouvelle session
+      queryClient.invalidateQueries({ 
+        queryKey: ['sod', newSession.id, 'roles'], 
+        exact: false 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['sod', newSession.id, 'users'], 
+        exact: false 
+      });
       
       setCurrentStep(1);
       

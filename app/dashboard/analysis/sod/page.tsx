@@ -724,9 +724,9 @@ export default function SodAnalysisPage() {
               ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {/* Rôles visibles (chargés) */}
-                    {visibleSimpleRoles.map((role) => (
+                    {visibleSimpleRoles.map((role, index) => (
                   <React.Suspense 
-                        key={role.roleName}
+                        key={role.roleName || `simple-role-${index}`}
                         fallback={<SodSimpleRoleCardSkeleton />}
                       >
                         <SodSimpleRoleCardSuspense
@@ -815,9 +815,9 @@ export default function SodAnalysisPage() {
               ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {/* Rôles visibles (chargés) */}
-                    {visibleCompositeRoles.map((role) => (
+                    {visibleCompositeRoles.map((role, index) => (
                     <React.Suspense 
-                        key={role.roleName}
+                        key={role.roleName || `composite-role-${index}`}
                         fallback={<SodCompositeRoleCardSkeleton />}
                       >
                         <SodCompositeRoleCardSuspense

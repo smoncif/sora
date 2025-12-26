@@ -72,9 +72,17 @@ export function useSodPagedUsers({
       // 1. Récupérer la session complète depuis le cache
       const session = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
       
+      // ✅ CORRECTION : Retourner un résultat vide au lieu de lancer une erreur
       if (!session) {
-        console.error('❌ [QUERY USERS] Session non trouvée dans cache:', sessionId);
-        throw new Error('Session non trouvée dans le cache TanStack Query');
+        console.warn('⚠️ [QUERY USERS] Session pas encore dans le cache:', sessionId);
+        return {
+          users: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+          cacheKey: `${sessionId}-users-${page}-${pageSize}`,
+        };
       }
 
       // 2. Extraire les utilisateurs depuis la session

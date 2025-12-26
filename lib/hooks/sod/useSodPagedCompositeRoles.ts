@@ -65,15 +65,21 @@ export function useSodPagedCompositeRoles({
   } = useQuery({
     queryKey: ['sod', sessionId, 'roles', 'composite', 'page', page, pageSize],
     queryFn: async () => {
-      const queryStart = performance.now();
-      // Query composite calculation removed
-      
       // 1. Récupérer la session complète depuis le cache
       const session = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
       
+      // ✅ CORRECTION : Retourner un résultat vide au lieu de lancer une erreur
+      // Cela évite de bloquer le rendu pendant que le cache se remplit
       if (!session) {
-        console.error('❌ [QUERY COMPOSITE] Session non trouvée dans cache:', sessionId);
-        throw new Error('Session non trouvée dans le cache TanStack Query');
+        console.warn('⚠️ [QUERY COMPOSITE] Session pas encore dans le cache:', sessionId);
+        return {
+          roles: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+          cacheKey: `${sessionId}-composite-${page}-${pageSize}`,
+        };
       }
 
       // 2. Extraire la page demandée
@@ -82,15 +88,7 @@ export function useSodPagedCompositeRoles({
       const end = start + pageSize;
       const pageRoles = allRoles.slice(start, end);
 
-      // Query composite extraction removed
-
-      // 3. ✅ NOUVELLE LOGIQUE : Retourner directement les données de la session
-      // La session TanStack Query contient déjà les bonnes valeurs isDeleted/isRestricted
-      // Plus besoin d'appliquer l'état depuis SodActionsContext
-      
-      const queryDuration = performance.now() - queryStart;
-      // Query composite completion removed
-
+      // 3. Retourner directement les données de la session
       return {
         roles: pageRoles,
         totalCount: allRoles.length,
