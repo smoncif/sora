@@ -1327,6 +1327,189 @@ export function extractRoleState(session: SodAnalysisSession, roleName: string) 
 }
 
 // ============================================
+// FONCTIONS DE CALCUL DE REMÉDIATION UTILISATEURS (STEP 3)
+// ============================================
+
+/**
+ * Vérifie l'état de remédiation d'une action utilisateur
+ * Lit depuis les Maps globales (synchronisé avec Step 1 et 2)
+ */
+export function getUserActionRemediationState(
+  roleName: string,
+  actionCode: string
+): {
+  isDeleted: boolean;
+  isRestricted: boolean;
+  restrictedByAction: boolean;
+} {
+  const actionKey = getActionKey(roleName, actionCode);
+  const isDeleted = deletedActionsMap.get(actionKey) || false;
+  const restriction = restrictedActionsMap.get(actionKey);
+  const isActionDirectlyRestricted = !!restriction;
+  
+  // Vérifier restriction indirecte via ressources
+  let hasRestrictedResource = false;
+  actionResourcesMap.forEach((resource, mapKey) => {
+    const [mapRoleName, mapActionCode] = mapKey.split('|');
+    if (mapRoleName === roleName && mapActionCode === actionCode) {
+      if (resource.code === 'S_TCODE') return;
+      
+      const hasResourceRestricted = resource.externalResources?.some((extRes: any) => {
+        const values = extractExternalResourceValues(extRes);
+        const resKey = getResourceKey(roleName, resource.code, extRes.code);
+        const restrictedValuesSet = restrictedResourcesMap.get(resKey);
+        
+        if (!restrictedValuesSet || restrictedValuesSet.size === 0) {
+          return false;
+        }
+        
+        const normalizedValues = values.map((v: string) => normalizeValue(v));
+        return normalizedValues.length > 0 && normalizedValues.every((v: string) => restrictedValuesSet.has(v));
+      });
+      
+      if (hasResourceRestricted) {
+        hasRestrictedResource = true;
+      }
+    }
+  });
+  
+  const isRestricted = isActionDirectlyRestricted || hasRestrictedResource;
+  
+  return {
+    isDeleted,
+    isRestricted: isDeleted ? false : isRestricted, // Exclusivité: si supprimée, pas restreinte visuellement
+    restrictedByAction: restriction?.restrictedByAction || false,
+  };
+}
+
+/**
+ * Calcule si une fonction utilisateur est remediée
+ * 
+ * RÈGLE MÉTIER (identique à Step 1) :
+ * - Fonction remediée si AU MOINS UNE condition est vraie :
+ *   1. Toutes les actions supprimables sont supprimées
+ *   OU
+ *   2. Toutes les actions restrainables sont restreintes
+ */
+export function calculateUserFunctionRemediation(
+  actions: { code: string; roleName: string; resources?: any[] }[]
+): {
+  isRemediated: boolean;
+  totalActions: number;
+  remediatedActions: number;
+} {
+  let suppressableCount = 0;
+  let suppressedCount = 0;
+  let restrainableCount = 0;
+  let restrictedCount = 0;
+  
+  for (const action of actions) {
+    const hasTCode = action.resources?.some((r: any) => r.code === 'S_TCODE') || false;
+    const hasOtherResources = action.resources?.some((r: any) => r.code !== 'S_TCODE') || false;
+    
+    if (!hasTCode && !hasOtherResources) continue;
+    
+    const state = getUserActionRemediationState(action.roleName, action.code);
+    
+    if (hasTCode) {
+      suppressableCount++;
+      if (state.isDeleted) {
+        suppressedCount++;
+      }
+    }
+    
+    if (hasOtherResources) {
+      restrainableCount++;
+      if (state.isRestricted) {
+        restrictedCount++;
+      }
+    }
+  }
+  
+  const allSuppressablesSuppressed = suppressableCount > 0 && suppressedCount === suppressableCount;
+  const allRestrainablesRestricted = restrainableCount > 0 && restrictedCount === restrainableCount;
+  const isRemediated = allSuppressablesSuppressed || allRestrainablesRestricted;
+  
+  const totalRemediable = Math.max(suppressableCount, restrainableCount);
+  const totalRemediated = Math.max(suppressedCount, restrictedCount);
+  
+  return {
+    isRemediated,
+    totalActions: totalRemediable,
+    remediatedActions: totalRemediated,
+  };
+}
+
+/**
+ * Calcule si un risque utilisateur est remedié
+ * 
+ * RÈGLE MÉTIER (identique à Step 1) :
+ * - Un risque est remedié si AU MOINS UNE de ses fonctions est remediée
+ */
+export function calculateUserRiskRemediation(
+  functions: { actions: { code: string; roleName: string; resources?: any[] }[] }[]
+): {
+  isRemediated: boolean;
+  totalFunctions: number;
+  remediatedFunctions: number;
+  remediationPercentage: number;
+} {
+  let remediatedFunctions = 0;
+  
+  for (const func of functions) {
+    const funcStatus = calculateUserFunctionRemediation(func.actions);
+    if (funcStatus.isRemediated) {
+      remediatedFunctions++;
+    }
+  }
+  
+  const totalFunctions = functions.length;
+  const isRemediated = remediatedFunctions > 0;
+  
+  return {
+    isRemediated,
+    totalFunctions,
+    remediatedFunctions,
+    remediationPercentage: totalFunctions > 0
+      ? Math.round((remediatedFunctions / totalFunctions) * 100)
+      : 0,
+  };
+}
+
+/**
+ * Calcule le statut de remédiation global d'un utilisateur
+ */
+export function calculateUserGlobalRemediation(
+  risks: { functions: { actions: { code: string; roleName: string; resources?: any[] }[] }[] }[]
+): {
+  isRemediated: boolean;
+  totalRisks: number;
+  remediatedRisks: number;
+  remediationPercentage: number;
+} {
+  let remediatedRisks = 0;
+  
+  for (const risk of risks) {
+    const riskStatus = calculateUserRiskRemediation(risk.functions);
+    if (riskStatus.isRemediated) {
+      remediatedRisks++;
+    }
+  }
+  
+  const totalRisks = risks.length;
+  const isRemediated = remediatedRisks === totalRisks && totalRisks > 0;
+  
+  return {
+    isRemediated,
+    totalRisks,
+    remediatedRisks,
+    remediationPercentage: totalRisks > 0
+      ? Math.round((remediatedRisks / totalRisks) * 100)
+      : 0,
+  };
+}
+
+// ============================================
 // FONCTIONS DE CALCUL DE REMÉDIATION
 // ============================================
 

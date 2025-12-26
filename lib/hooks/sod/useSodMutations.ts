@@ -102,6 +102,12 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
         queryKey: ['sod', 'session', sessionId, 'action-state'], 
         exact: false 
       });
+      
+      // ✅ SYNCHRONISATION STEP 3 : Invalider les queries utilisateurs
+      queryClient.invalidateQueries({ 
+        queryKey: ['sod', sessionId, 'users'], 
+        exact: false 
+      });
     }
   });
 
@@ -148,6 +154,12 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
       
       queryClient.invalidateQueries({ 
         queryKey: ['sod', 'session', sessionId, 'action-state'], 
+        exact: false 
+      });
+      
+      // ✅ SYNCHRONISATION STEP 3 : Invalider les queries utilisateurs
+      queryClient.invalidateQueries({ 
+        queryKey: ['sod', sessionId, 'users'], 
         exact: false 
       });
     }
@@ -201,6 +213,12 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
         queryKey: ['sod', 'session', sessionId, 'action-resources-state'], 
         exact: false 
       });
+      
+      // ✅ SYNCHRONISATION STEP 3 : Invalider les queries utilisateurs
+      queryClient.invalidateQueries({ 
+        queryKey: ['sod', sessionId, 'users'], 
+        exact: false 
+      });
     }
   });
 
@@ -239,6 +257,12 @@ export const useSodMutations = (config: UseSodMutationsConfig): UseSodMutationsR
             // ✅ OPTIMISÉ : Invalidation granulaire pour l'exclusion de rôle
       queryClient.invalidateQueries({ 
         queryKey: ['sod', sessionId, 'roles'], 
+        exact: false 
+      });
+      
+      // ✅ SYNCHRONISATION STEP 3 : Invalider les queries utilisateurs
+      queryClient.invalidateQueries({ 
+        queryKey: ['sod', sessionId, 'users'], 
         exact: false 
       });
     }

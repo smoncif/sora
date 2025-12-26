@@ -4,12 +4,14 @@
  * Détermine automatiquement si un fichier Excel est destiné à :
  * - Analyse des rôles (2 feuilles)
  * - Analyse des utilisateurs (3 feuilles)
- * - Analyse SoD (1 feuille avec colonnes spécifiques)
+ * - Analyse SoD Rôles (1 feuille avec colonne "Role Name" / "Nom du rôle")
+ * - Analyse SoD Utilisateurs (1 feuille avec colonne "User ID" / "ID util.")
  */
 
 import * as XLSX from 'xlsx';
+import type { SodFileTypeDetectionResult, SodExcelFileType } from 'lib/types/userSodAnalysis';
 
-export type ExcelFileType = 'roles' | 'users' | 'sod' | 'unknown';
+export type ExcelFileType = 'roles' | 'users' | 'sod' | 'sod-users' | 'unknown';
 
 export interface ExcelFileInfo {
   type: ExcelFileType;
@@ -311,5 +313,177 @@ export async function validateExcelFileForType(
     warnings, 
     errors 
   };
+}
+
+// ============================================
+// DÉTECTION SPÉCIFIQUE POUR ANALYSE SOD
+// ============================================
+
+/**
+ * Colonnes qui identifient un fichier d'analyse SoD RÔLES
+ */
+const SOD_ROLE_COLUMNS = [
+  'Role Name',
+  'Nom du rôle',
+  'role name',
+  'nom du role',
+];
+
+/**
+ * Colonnes qui identifient un fichier d'analyse SoD UTILISATEURS
+ */
+const SOD_USER_COLUMNS = [
+  'User ID',
+  'ID util.',
+  'ID utilisateur',
+  'user id',
+  'id util',
+  'id utilisateur',
+];
+
+/**
+ * Détecte si un fichier Excel SoD est pour l'analyse des RÔLES ou des UTILISATEURS
+ * 
+ * RÈGLE SIMPLE (selon demande utilisateur) :
+ * - Si colonne "User ID" / "ID util." présente → Analyse UTILISATEURS
+ * - Si colonne "Role Name" / "Nom du rôle" présente → Analyse RÔLES
+ * - Ces colonnes sont mutuellement exclusives
+ * 
+ * @param file - Fichier Excel à analyser
+ * @returns Résultat de la détection avec type et confiance
+ */
+export async function detectSodFileType(file: File): Promise<SodFileTypeDetectionResult> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    
+    if (workbook.SheetNames.length === 0) {
+      return {
+        type: 'UNKNOWN',
+        confidence: 'LOW',
+        detectedColumns: {
+          hasUserId: false,
+          hasRoleName: false,
+          hasExecutionCount: false,
+        },
+        message: 'Fichier Excel vide ou sans feuille',
+      };
+    }
+    
+    // Lire les en-têtes de la première feuille
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const headers = getSheetHeaders(firstSheet);
+    const headersLower = headers.map(h => h.toLowerCase().trim());
+    
+    // Détecter les colonnes clés
+    const hasUserId = SOD_USER_COLUMNS.some(col => 
+      headersLower.includes(col.toLowerCase())
+    );
+    
+    const hasRoleName = SOD_ROLE_COLUMNS.some(col => 
+      headersLower.includes(col.toLowerCase())
+    );
+    
+    // Détecter la colonne Execution Count (info supplémentaire, pas utilisée pour la décision)
+    const hasExecutionCount = headersLower.some(h => 
+      h.includes('execution count') || 
+      h.includes('comptage des exécutions') || 
+      h.includes('comptage des executions') ||
+      h.includes('nb exécutions')
+    );
+    
+    // Déterminer le type
+    let type: SodExcelFileType;
+    let confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+    let message: string;
+    
+    if (hasUserId && !hasRoleName) {
+      // ✅ Fichier UTILISATEURS (colonne User ID présente, pas de Role Name)
+      type = 'USER_ANALYSIS';
+      confidence = 'HIGH';
+      message = `Fichier d'analyse SoD UTILISATEURS détecté (colonne "User ID" / "ID util." trouvée)`;
+      
+    } else if (hasRoleName && !hasUserId) {
+      // ✅ Fichier RÔLES (colonne Role Name présente, pas de User ID)
+      type = 'ROLE_ANALYSIS';
+      confidence = 'HIGH';
+      message = `Fichier d'analyse SoD RÔLES détecté (colonne "Role Name" / "Nom du rôle" trouvée)`;
+      
+    } else if (hasUserId && hasRoleName) {
+      // ⚠️ Les deux colonnes présentes (cas inattendu)
+      type = 'UNKNOWN';
+      confidence = 'LOW';
+      message = `Les deux colonnes "User ID" et "Role Name" sont présentes. Format non reconnu.`;
+      
+    } else {
+      // ❌ Aucune colonne identifiante trouvée
+      type = 'UNKNOWN';
+      confidence = 'LOW';
+      message = `Aucune colonne "User ID" ou "Role Name" trouvée. Colonnes détectées: ${headers.slice(0, 5).join(', ')}...`;
+    }
+    
+    return {
+      type,
+      confidence,
+      detectedColumns: {
+        hasUserId,
+        hasRoleName,
+        hasExecutionCount,
+      },
+      message,
+    };
+    
+  } catch (error) {
+    return {
+      type: 'UNKNOWN',
+      confidence: 'LOW',
+      detectedColumns: {
+        hasUserId: false,
+        hasRoleName: false,
+        hasExecutionCount: false,
+      },
+      message: `Erreur lors de la lecture du fichier: ${error}`,
+    };
+  }
+}
+
+/**
+ * Valide qu'un fichier Excel est compatible avec l'analyse SoD
+ * et retourne son type détecté
+ */
+export async function validateSodFile(file: File): Promise<{
+  isValid: boolean;
+  type: SodExcelFileType;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  message: string;
+  headers: string[];
+}> {
+  try {
+    const detection = await detectSodFileType(file);
+    
+    // Récupérer les en-têtes pour le message
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const headers = workbook.SheetNames.length > 0 
+      ? getSheetHeaders(workbook.Sheets[workbook.SheetNames[0]])
+      : [];
+    
+    return {
+      isValid: detection.type !== 'UNKNOWN',
+      type: detection.type,
+      confidence: detection.confidence,
+      message: detection.message,
+      headers,
+    };
+    
+  } catch (error) {
+    return {
+      isValid: false,
+      type: 'UNKNOWN',
+      confidence: 'LOW',
+      message: `Erreur de validation: ${error}`,
+      headers: [],
+    };
+  }
 }
 
