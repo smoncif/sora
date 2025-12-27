@@ -4,6 +4,7 @@
  * Gains de performance : -70% par rapport à XLSX.js
  * 
  * Features:
+ * - Détection automatique du type de fichier (Rôles vs Utilisateurs)
  * - Streaming ultra-rapide avec ExcelJS
  * - Fallback automatique vers XLSX.js si erreur
  * - Monitoring de performance
@@ -12,6 +13,9 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { SodRawRecord } from 'lib/types/sodAnalysis';
+import { UserSodRawRecord, SodExcelFileType } from 'lib/types/userSodAnalysis';
+import { detectSodFileType } from 'lib/services/analysis/excelFileDetectionService';
+import { parseUserSodExcelFile } from 'lib/services/sod/userSodParsingService';
 
 export interface ParseProgress {
   progress: number; // 0-100
@@ -25,14 +29,19 @@ export interface ParseStats {
   finalCount: number;
   durationMs: number;
   avgTimePerRow?: number;
-  parserUsed: 'ExcelJS (Streaming)' | 'XLSX.js (Legacy)';
+  parserUsed: 'ExcelJS (Streaming)' | 'XLSX.js (Legacy)' | 'UserSod (Synchronous)';
 }
 
 export interface UseSodExcelParserOptimizedReturn {
   parsing: boolean;
   progress: ParseProgress | null;
   error: string | null;
+  /** Données parsées pour analyse RÔLES */
   parsedData: SodRawRecord[] | null;
+  /** Données parsées pour analyse UTILISATEURS */
+  parsedUserData: UserSodRawRecord[] | null;
+  /** Type de fichier détecté */
+  detectedFileType: SodExcelFileType | null;
   stats: ParseStats | null;
   parseFile: (file: File, forceParser?: 'exceljs' | 'xlsx') => Promise<void>;
   cancelParsing: () => void;
@@ -44,6 +53,8 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
   const [progress, setProgress] = useState<ParseProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [parsedData, setParsedData] = useState<SodRawRecord[] | null>(null);
+  const [parsedUserData, setParsedUserData] = useState<UserSodRawRecord[] | null>(null);
+  const [detectedFileType, setDetectedFileType] = useState<SodExcelFileType | null>(null);
   const [stats, setStats] = useState<ParseStats | null>(null);
   
   const workerRef = useRef<Worker | null>(null);
@@ -51,21 +62,69 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
 
   /**
    * Parse un fichier Excel avec le worker optimisé ExcelJS
+   * Détecte automatiquement le type de fichier (Rôles vs Utilisateurs)
    * @param file Fichier Excel à parser
    */
   const parseFile = useCallback(async (file: File) => {
     setParsing(true);
-    setProgress({ progress: 0, message: 'Initialisation...' });
+    setProgress({ progress: 0, message: 'Détection du type de fichier...' });
     setError(null);
     setParsedData(null);
+    setParsedUserData(null);
+    setDetectedFileType(null);
     setStats(null);
 
-    // Utiliser ExcelJS par défaut, fallback vers XLSX.js si erreur
-    const useFallback = false;
-    const disableFallback = false;
-    fallbackAttemptedRef.current = useFallback || disableFallback;
-
     try {
+      // 🔍 ÉTAPE 1 : Détecter le type de fichier (Rôles vs Utilisateurs)
+      const detection = await detectSodFileType(file);
+      console.log('🔍 [FILE DETECTION] Type détecté:', detection);
+      setDetectedFileType(detection.type);
+      
+      // 👤 Si c'est un fichier UTILISATEURS, utiliser le parser synchrone dédié
+      if (detection.type === 'USER_ANALYSIS') {
+        console.log('👤 [PARSER] Utilisation du parser Utilisateurs (synchrone)');
+        setProgress({ progress: 10, message: 'Parsing du fichier utilisateurs...' });
+        
+        const startTime = Date.now();
+        const result = await parseUserSodExcelFile(file);
+        const durationMs = Date.now() - startTime;
+        
+        if (result.errors.length > 0) {
+          throw new Error(`Erreurs de parsing:\n${result.errors.join('\n')}`);
+        }
+        
+        // Stocker les données utilisateurs
+        setParsedUserData(result.rawRecords);
+        setStats({
+          totalRows: result.filteringStats.originalRecordCount,
+          filteredCount: result.filteringStats.afterControlFilter,
+          duplicatesCount: result.filteringStats.removedDuplicates,
+          finalCount: result.filteringStats.afterDuplicateRemoval,
+          durationMs,
+          parserUsed: 'UserSod (Synchronous)',
+        });
+        
+        setProgress({ progress: 100, message: `Terminé ! ${result.rawRecords.length} enregistrements utilisateurs.` });
+        setParsing(false);
+        
+        console.log('✅ [PARSER USER] Parsing terminé:', {
+          records: result.rawRecords.length,
+          uniqueUsers: result.filteringStats.uniqueUserCount,
+          durationMs,
+        });
+        
+        return;
+      }
+      
+      // 🎭 Sinon, c'est un fichier RÔLES - utiliser le worker ExcelJS
+      console.log('🎭 [PARSER] Utilisation du parser Rôles (Worker ExcelJS)');
+      setProgress({ progress: 5, message: 'Initialisation du parser rôles...' });
+      
+      // Utiliser ExcelJS par défaut, fallback vers XLSX.js si erreur
+      const useFallback = false;
+      const disableFallback = false;
+      fallbackAttemptedRef.current = useFallback || disableFallback;
+
       // Lire le fichier en ArrayBuffer
       const arrayBuffer = await file.arrayBuffer();
 
@@ -205,6 +264,8 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
     cancelParsing();
     setError(null);
     setParsedData(null);
+    setParsedUserData(null);
+    setDetectedFileType(null);
     setProgress(null);
     setStats(null);
     fallbackAttemptedRef.current = false;
@@ -215,6 +276,8 @@ export function useSodExcelParserOptimized(): UseSodExcelParserOptimizedReturn {
     progress,
     error,
     parsedData,
+    parsedUserData,
+    detectedFileType,
     stats,
     parseFile,
     cancelParsing,

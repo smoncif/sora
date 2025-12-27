@@ -1,32 +1,15 @@
 /**
  * Composant pour afficher un risque SoD avec son badge et ses fonctions
+ * 
+ * ✅ UNIFIÉ : Utilise maintenant UnifiedRiskSection pour garantir la cohérence visuelle
  */
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import {
-  Box,
-  Typography,
-  Collapse,
-  IconButton,
-  alpha,
-  useTheme,
-  Paper,
-  Button,
-  Divider,
-  Chip,
-} from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-// import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'; // Supprimé
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import React from 'react';
 import { SodSimpleRoleRiskItem } from 'lib/types/sodAnalysis';
-import { SodRiskLevelBadge } from '../shared/SodRiskLevelBadge';
-import { SodFunctionGrid } from './SodFunctionGrid';
-import { calculateRiskRemediation } from 'lib/utils/sodRulesApplication';
+import { UnifiedRiskSection } from '../unified/UnifiedRiskSection';
+import { convertSimpleRoleRiskToUnified } from 'lib/types/unifiedSodTypes';
 
 export interface SodRiskSectionProps {
   /** Risque */
@@ -59,6 +42,7 @@ export interface SodRiskSectionProps {
 
 /**
  * Affiche un risque SoD avec badge, fonctions et actions
+ * ✅ UNIFIÉ : Délègue à UnifiedRiskSection pour garantir la cohérence visuelle
  */
 export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
   risk,
@@ -71,254 +55,29 @@ export const SodRiskSection: React.FC<SodRiskSectionProps> = ({
   onNextStep,
   showNextStepButton = false,
 }) => {
-  const theme = useTheme();
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  // Convertir le risque de rôle simple en risque unifié
+  const unifiedRisk = React.useMemo(() => {
+    return convertSimpleRoleRiskToUnified(risk, roleName || '');
+  }, [risk, roleName]);
   
-  const { riskId, riskLevel, riskDescription, functions } = risk;
-  
-  // ✅ NOUVELLE LOGIQUE : Calculer la remédiation avec les nouvelles fonctions
-  const remediationStatus = useMemo(() => {
-    if (!roleName) return { isRemediated: false, remediatedFunctions: 0, totalFunctions: 0, percentage: 0 };
-    
-    // Utiliser la nouvelle fonction de calcul
-    const remediation = calculateRiskRemediation(roleName, functions);
-    
-    return {
-      isRemediated: remediation.isRemediated,
-      remediatedFunctions: remediation.remediatedFunctions,
-      totalFunctions: remediation.totalFunctions,
-      percentage: remediation.totalFunctions > 0 ? Math.round((remediation.remediatedFunctions / remediation.totalFunctions) * 100) : 0
-    };
-  }, [roleName, riskId, functions]);
+  // Convertir allRisks en format unifié pour les statistiques
+  const unifiedAllRisks = React.useMemo(() => {
+    return allRisks?.map(r => convertSimpleRoleRiskToUnified(r, roleName || '')) || [];
+  }, [allRisks, roleName]);
   
   return (
-    <Paper
-      data-risk-code={riskId}
-      data-role-risk={`${roleName}-${riskId}`}
-      elevation={0}
-      sx={{
-        borderRadius: 2,
-        overflow: 'hidden',
-        // ✅ Bordure selon le niveau de risque uniquement
-        border: `1px solid ${(() => {
-          switch (riskLevel) {
-            case 'CRITICAL':
-              return alpha(theme.palette.error.dark, 0.2);
-            case 'HIGH':
-              return alpha(theme.palette.error.main, 0.15);
-            case 'MEDIUM':
-              return alpha(theme.palette.warning.main, 0.15);
-            case 'LOW':
-              return alpha(theme.palette.success.main, 0.15);
-            default:
-              return alpha(theme.palette.error.main, 0.15);
-          }
-        })()}`,
-        // ✅ Fond transparent (pas de changement selon remédiation)
-        backgroundColor: 'transparent',
-        mb: 3,
-        transition: 'all 0.2s ease',
-        '&:hover': {
-          border: `1px solid ${(() => {
-            switch (riskLevel) {
-              case 'CRITICAL':
-                return alpha(theme.palette.error.dark, 0.3);
-              case 'HIGH':
-                return alpha(theme.palette.error.main, 0.25);
-              case 'MEDIUM':
-                return alpha(theme.palette.warning.main, 0.25);
-              case 'LOW':
-                return alpha(theme.palette.success.main, 0.25);
-              default:
-                return alpha(theme.palette.error.main, 0.25);
-            }
-          })()}`,
-        },
-      }}
-    >
-      {/* En-tête du risque */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2.5,
-          p: 2.5,
-          // ✅ Fond simple selon le niveau de risque (sans gradient)
-          backgroundColor: (() => {
-            switch (riskLevel) {
-              case 'CRITICAL':
-                return alpha(theme.palette.error.dark, 0.12);
-              case 'HIGH':
-                return alpha(theme.palette.error.main, 0.08);
-              case 'MEDIUM':
-                return alpha(theme.palette.warning.main, 0.08);
-              case 'LOW':
-                return alpha(theme.palette.success.main, 0.08);
-              default:
-                return alpha(theme.palette.error.main, 0.08);
-            }
-          })(),
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.05)}`,
-        }}
-      >
-        {/* Icône expandable */}
-        <IconButton
-          size="small"
-          onClick={() => setExpanded(!expanded)}
-          sx={{
-            p: 0.5,
-            backgroundColor: theme.palette.background.paper,
-            '&:hover': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.1),
-            },
-          }}
-        >
-          {expanded ? (
-            <ExpandLessIcon fontSize="medium" />
-          ) : (
-            <ExpandMoreIcon fontSize="medium" />
-          )}
-        </IconButton>
-        
-        {/* Icône de warning */}
-        <WarningAmberIcon
-          sx={{
-            fontSize: 28,
-            color: theme.palette.error.main,
-          }}
-        />
-        
-        {/* ID du risque */}
-        <Box sx={{ flex: 1 }}>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 500,
-              letterSpacing: '-0.01em',
-              color: theme.palette.error.main,
-              fontSize: '0.9375rem',
-            }}
-          >
-            {riskId}
-          </Typography>
-          
-          {riskDescription && (
-            <Typography
-              variant="body2"
-              sx={{
-                color: theme.palette.text.secondary,
-                mt: 0.5,
-                fontSize: '0.875rem',
-              }}
-            >
-              {riskDescription}
-            </Typography>
-          )}
-        </Box>
-        
-        {/* ✅ Badges simplifiés (sans compteur de fonctions) */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {/* Badge de niveau */}
-          <SodRiskLevelBadge level={riskLevel} size="medium" variant="filled" />
-          
-          {/* ✅ Badge de remédiation sans pourcentage */}
-          {remediationStatus.isRemediated ? (
-            <Chip
-              icon={<CheckCircleIcon />}
-              label="Remedié"
-              size="medium"
-              sx={{
-                backgroundColor: alpha(theme.palette.success.main, 0.15),
-                color: theme.palette.success.dark,
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                '& .MuiChip-icon': {
-                  color: theme.palette.success.main,
-                },
-              }}
-            />
-          ) : null}
-        </Box>
-        
-        {/* Boutons d'action */}
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {showNextStepButton && onNextStep && (
-            <Button
-              variant="contained"
-              color="primary"
-              size="small"
-              endIcon={<ArrowForwardIcon />}
-              onClick={onNextStep}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                borderRadius: 1.5,
-              }}
-            >
-              Nouvelle Étape
-            </Button>
-          )}
-          
-          {/* Bouton Supprimer SUPPRIMÉ */}
-          {/* {onDelete && (
-            <Button
-              variant="contained"
-              color="error"
-              size="small"
-              startIcon={<DeleteOutlineIcon />}
-              onClick={() => onDelete(riskId)}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                borderRadius: 1.5,
-              }}
-            >
-              Supprimer
-            </Button>
-          )} */}
-        </Box>
-      </Box>
-      
-      {/* Contenu du risque (collapsible) */}
-      <Collapse in={expanded} timeout="auto">
-        <Box sx={{ p: 3 }}>
-          
-          {/* Grille des fonctions (2 colonnes face à face) */}
-          <SodFunctionGrid
-            functions={functions}
-            defaultExpanded={true}
-            roleName={roleName}
-            riskId={riskId}
-            risk={risk}
-            allRisks={allRisks}
-            onDeleteAction={onDeleteAction}
-            onRestrictAction={onRestrictAction}
-            onRestrictResource={onRestrictResource}
-          />
-        </Box>
-      </Collapse>
-      
-      {/* Footer avec statistiques (quand collapsed) */}
-      {!expanded && (
-        <Box
-          sx={{
-            p: 1.5,
-            backgroundColor: alpha(theme.palette.background.default, 0.5),
-            borderTop: `1px solid ${theme.palette.divider}`,
-            display: 'flex',
-            gap: 3,
-            justifyContent: 'center',
-          }}
-        >
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {functions.length} fonction{functions.length > 1 ? 's' : ''}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {risk.totalActionCount} action{risk.totalActionCount > 1 ? 's' : ''}
-          </Typography>
-        </Box>
-      )}
-    </Paper>
+    <UnifiedRiskSection
+      risk={unifiedRisk}
+      context="ROLE"
+      defaultExpanded={defaultExpanded}
+      parentName={roleName}
+      allRisks={unifiedAllRisks}
+      onDeleteAction={onDeleteAction}
+      onRestrictAction={onRestrictAction}
+      onRestrictResource={onRestrictResource}
+      showNextStepButton={showNextStepButton}
+      onNextStep={onNextStep}
+    />
   );
 };
 

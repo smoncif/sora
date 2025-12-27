@@ -13,7 +13,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useCallback } from 'react';
 import type { SodAnalysisSession } from 'lib/types/sodAnalysis';
-import type { UserSodEntry, UserSodAnalysisSession } from 'lib/types/userSodAnalysis';
+import type { UserSodEntry } from 'lib/types/userSodAnalysis';
 
 export interface UseSodPagedUsersParams {
   /** ID de la session SoD */
@@ -86,9 +86,8 @@ export function useSodPagedUsers({
       }
 
       // 2. Extraire les utilisateurs depuis la session
-      // Les utilisateurs sont stockés dans session.users.data
-      const userSession = session.users?.data as UserSodAnalysisSession | undefined;
-      const allUsers = userSession?.users || [];
+      // Les utilisateurs sont stockés directement dans session.users (tableau)
+      const allUsers = (session.users as UserSodEntry[] | undefined) || [];
       
       // 3. Extraire la page demandée
       const start = page * pageSize;
@@ -140,8 +139,7 @@ export function useSodPagedUsers({
           const session = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
           if (!session) return null;
 
-          const userSession = session.users?.data as UserSodAnalysisSession | undefined;
-          const allUsers = userSession?.users || [];
+          const allUsers = (session.users as UserSodEntry[] | undefined) || [];
           const start = (page + 1) * pageSize;
           const end = start + pageSize;
           const pageUsers = allUsers.slice(start, end);
@@ -169,8 +167,7 @@ export function useSodPagedUsers({
           const session = queryClient.getQueryData<SodAnalysisSession>(['sod', 'session', sessionId]);
           if (!session) return null;
 
-          const userSession = session.users?.data as UserSodAnalysisSession | undefined;
-          const allUsers = userSession?.users || [];
+          const allUsers = (session.users as UserSodEntry[] | undefined) || [];
           const start = (page - 1) * pageSize;
           const end = start + pageSize;
           const pageUsers = allUsers.slice(start, end);

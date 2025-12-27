@@ -373,15 +373,14 @@ export interface SodAnalysisSession {
     userActions?: any; // Actions utilisateur - À définir plus tard
   };
   
-  // ÉTAPE 3 : Utilisateurs (à définir plus tard)
-  users?: {
-    fileName?: string;
-    fileSize?: number;
-    uploadDate?: Date;
-    data?: any; // Structure à définir
-    metrics?: any;
-    userActions?: any;
-  };
+  // ÉTAPE 3 : Utilisateurs (depuis analyse SoD Utilisateurs)
+  users?: any[]; // UserSodEntry[] - importé dynamiquement pour éviter dépendance circulaire
+  
+  // Métriques utilisateurs
+  userMetrics?: any; // UserSodMetrics - importé dynamiquement
+  
+  // Rôles risqués identifiés (depuis analyse utilisateurs)
+  riskyRoles?: any[]; // UserSodRiskyRole[] - importé dynamiquement
   
   // ÉTAPE 4 : Rapport Final (à définir plus tard)
   report?: {
@@ -397,6 +396,8 @@ export interface SodAnalysisSession {
     lastModified: Date;
     processingTimeMs: number;
     version: string;
+    /** Type de fichier source (rôles ou utilisateurs) */
+    fileType?: 'ROLE_ANALYSIS' | 'USER_ANALYSIS' | 'UNKNOWN';
   };
 }
 

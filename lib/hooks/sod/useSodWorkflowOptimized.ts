@@ -10,7 +10,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSodSession } from './useSodAnalysisQuery';
 import { useSodExcelParserOptimized } from './useSodExcelParserOptimized';
 import { resetSodGlobalMaps } from 'lib/utils/sodRulesApplication';
+import { buildUserSodSession } from 'lib/services/sod/userSodAnalysisService';
 import type { SodAnalysisSession } from 'lib/types/sodAnalysis';
+import type { SodExcelFileType } from 'lib/types/userSodAnalysis';
 
 export interface SodWorkflowConfig {
   userId: string;
@@ -106,7 +108,14 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   
   // ✅ SOLUTION : Extraire les valeurs stables au lieu de mémoriser le hook entier
   // Le hook retourne toujours un nouvel objet, donc impossible à mémoriser efficacement
-  const { parsing: parsingState, parsedData, error: parserError, parseFile } = excelParser;
+  const { 
+    parsing: parsingState, 
+    parsedData,           // Données pour analyse RÔLES
+    parsedUserData,       // Données pour analyse UTILISATEURS
+    detectedFileType,     // Type de fichier détecté
+    error: parserError, 
+    parseFile 
+  } = excelParser;
   
   // 🔍 LOG : Hook re-render avec détection de cause
   const prevHookState = useRef({
@@ -142,33 +151,193 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
   // ✅ SIMPLIFIÉ : Le hook useSodSession gère toutes les mutations nécessaires
   
   // 🎯 OPTION B : Effet pour créer la session ET activer le sessionId
+  // Gère à la fois les fichiers RÔLES et UTILISATEURS
   useEffect(() => {
     // Créer la session seulement si :
-    // 1. Les données sont parsées
+    // 1. Les données sont parsées (rôles OU utilisateurs)
     // 2. Le parsing est terminé
     // 3. On a un fichier en attente
     // 4. Aucune session n'est active
-    if (parsedData && !parsingState && uploadedFileRef.current && !activeSessionId) {
+    const hasRoleData = parsedData && parsedData.length > 0;
+    const hasUserData = parsedUserData && parsedUserData.length > 0;
+    
+    if ((hasRoleData || hasUserData) && !parsingState && uploadedFileRef.current && !activeSessionId) {
       const file = uploadedFileRef.current;
-      const data = parsedData;
       
-      // Session creation effect removed
-      
-      // Appel direct de la fonction (stable depuis useSodSession)
-      createSessionFromParsedData(file, data)
-        .then((newSession) => {
-          if (newSession) {
-            // Session created effect removed
-            setActiveSessionId(newSession.id);  // 🎯 Active la session créée
+      // 👤 FICHIER UTILISATEURS : Créer une session avec données utilisateur
+      if (detectedFileType === 'USER_ANALYSIS' && hasUserData) {
+        console.log('👤 [SESSION] Création de session UTILISATEURS...');
+        
+        // Construire la session utilisateur avec le service dédié
+        const userSession = buildUserSodSession(
+          parsedUserData,
+          {
+            originalRecordCount: parsedUserData.length,
+            afterRuleIdRemoval: parsedUserData.length,
+            afterControlFilter: parsedUserData.length,
+            afterRiskIdFilter: parsedUserData.length,
+            afterDuplicateRemoval: parsedUserData.length,
+            removedDuplicates: 0,
+            removedByControlFilter: 0,
+            removedByRiskIdFilter: 0,
+            uniqueUserCount: new Set(parsedUserData.map(r => r.userId)).size,
+            riskyRolesIdentified: 0,
+          },
+          {
+            fileName: file.name,
+            fileSize: file.size,
+            uploadDate: new Date(),
           }
-        })
-        .catch((error) => {
-          console.error('❌ Erreur lors de la création de session:', error);
+        );
+        
+        // Créer la session SoD avec les données utilisateur intégrées
+        const sessionId = `sod-user-${Date.now()}`;
+        const newSession: SodAnalysisSession = {
+          id: sessionId,
+          name: `Analyse Utilisateurs - ${file.name}`,
+          timestamp: new Date(),
+          currentStep: 1, // Commencer à l'étape 1
+          
+          sourceFile: {
+            fileName: file.name,
+            fileSize: file.size,
+            uploadDate: new Date(),
+          },
+          
+          // Statistiques de filtrage adaptées
+          filteringStats: {
+            originalRecordCount: parsedUserData.length,
+            removedByRuleIdFilter: 0,
+            removedByControlFilter: 0,
+            removedDuplicates: 0,
+            finalRecordCount: parsedUserData.length,
+          },
+          
+          // 🎯 Rôles risqués identifiés depuis l'analyse utilisateur
+          // Distribués entre Step 1 (simples) et Step 2 (composites)
+          simpleRoles: {
+            roles: userSession.riskyRoles
+              .filter(r => r.roleType === 'SIMPLE')
+              .map((riskyRole, idx) => ({
+                id: idx + 1,
+                roleName: riskyRole.roleName,
+                roleDescription: riskyRole.roleDescription,
+                risks: riskyRole.riskyForRisks.map(rr => ({
+                  riskId: rr.riskId,
+                  riskLevel: rr.riskLevel,
+                  riskDescription: '',
+                  functions: rr.functions.map(funcCode => ({
+                    code: funcCode,
+                    description: '',
+                    system: '',
+                    actions: [], // Sera enrichi si besoin
+                  })),
+                  isRemediated: false,
+                  remediationPercentage: 0,
+                })),
+                isRemediated: false,
+                remediationPercentage: 0,
+              })),
+            metrics: {
+              totalRoles: userSession.riskyRoles.filter(r => r.roleType === 'SIMPLE').length,
+              totalRisks: 0,
+              totalFunctions: 0,
+              totalActions: 0,
+              totalResources: 0,
+              risksByLevel: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 },
+            },
+          },
+          
+          compositeRoles: {
+            roles: userSession.riskyRoles
+              .filter(r => r.roleType === 'COMPOSITE')
+              .map((riskyRole, idx) => ({
+                id: idx + 1,
+                roleName: riskyRole.parentCompositeRole || riskyRole.roleName,
+                roleDescription: riskyRole.roleDescription,
+                simpleRoles: [{
+                  roleName: riskyRole.roleName,
+                  roleDescription: riskyRole.roleDescription,
+                  risks: riskyRole.riskyForRisks.map(rr => ({
+                    riskId: rr.riskId,
+                    riskLevel: rr.riskLevel,
+                    riskDescription: '',
+                    functions: rr.functions.map(funcCode => ({
+                      code: funcCode,
+                      description: '',
+                      system: '',
+                      actions: [],
+                    })),
+                    isRemediated: false,
+                    remediationPercentage: 0,
+                  })),
+                  isExcluded: false,
+                  isRemediated: false,
+                  remediationPercentage: 0,
+                }],
+                isRemediated: false,
+                remediationPercentage: 0,
+              })),
+            metrics: {
+              totalRoles: userSession.riskyRoles.filter(r => r.roleType === 'COMPOSITE').length,
+              totalSimpleRoles: 0,
+              totalRisks: 0,
+              totalFunctions: 0,
+              totalActions: 0,
+              totalResources: 0,
+              risksByLevel: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 },
+            },
+          },
+          
+          // 🎯 NOUVEAU : Données utilisateurs pour Step 3
+          users: userSession.users,
+          userMetrics: userSession.metrics,
+          riskyRoles: userSession.riskyRoles,
+          
+          metadata: {
+            createdBy: config.userId,
+            createdAt: new Date(),
+            lastModified: new Date(),
+            processingTimeMs: 0,
+            version: '1.0.0',
+            fileType: 'USER_ANALYSIS' as SodExcelFileType,
+          },
+        };
+        
+        console.log('✅ [SESSION USER] Session créée:', {
+          id: newSession.id,
+          users: userSession.users.length,
+          riskyRoles: userSession.riskyRoles.length,
+          simpleRoles: newSession.simpleRoles.roles.length,
+          compositeRoles: newSession.compositeRoles.roles.length,
         });
+        
+        // Stocker dans le cache TanStack Query
+        queryClient.setQueryData(['sod', 'session', sessionId], newSession);
+        setActiveSessionId(sessionId);
+        uploadedFileRef.current = null;
+        
+        return;
+      }
       
-      uploadedFileRef.current = null; // Nettoyer la référence
+      // 🎭 FICHIER RÔLES : Utiliser le flux existant
+      if (hasRoleData) {
+        console.log('🎭 [SESSION] Création de session RÔLES...');
+        
+        createSessionFromParsedData(file, parsedData)
+          .then((newSession) => {
+            if (newSession) {
+              setActiveSessionId(newSession.id);
+            }
+          })
+          .catch((error) => {
+            console.error('❌ Erreur lors de la création de session:', error);
+          });
+        
+        uploadedFileRef.current = null;
+      }
     }
-  }, [parsedData, parsingState, activeSessionId, createSessionFromParsedData]);
+  }, [parsedData, parsedUserData, detectedFileType, parsingState, activeSessionId, createSessionFromParsedData, queryClient, config.userId]);
   
   // État dérivé optimisé
   const state: SodWorkflowState = useMemo(() => ({

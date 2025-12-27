@@ -60,6 +60,12 @@ export interface UserSodResultsProps {
   /** État de chargement */
   isLoading?: boolean;
   
+  /** Mode d'affichage contrôlé (optionnel - sinon état interne) */
+  displayMode?: UserDisplayMode;
+  
+  /** Callback pour changer le mode d'affichage (optionnel) */
+  onToggleDisplayMode?: () => void;
+  
   /** Callbacks pour actions de remédiation */
   onDeleteAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
   onRestrictAction?: (roleName: string, riskId: string, actionCode: string, resources: any[]) => void;
@@ -78,14 +84,30 @@ export const UserSodResults: React.FC<UserSodResultsProps> = ({
   totalPages,
   onPageChange,
   isLoading = false,
+  displayMode: externalDisplayMode,
+  onToggleDisplayMode,
   onDeleteAction,
   onRestrictAction,
   onRestrictResource,
 }) => {
   const theme = useTheme();
   
-  // État local pour le mode d'affichage
-  const [displayMode, setDisplayMode] = useState<UserDisplayMode>('BY_ROLE');
+  // État local pour le mode d'affichage (fallback si non contrôlé)
+  const [internalDisplayMode, setInternalDisplayMode] = useState<UserDisplayMode>('BY_ROLE');
+  
+  // Utiliser le mode externe si fourni, sinon l'état interne
+  const displayMode = externalDisplayMode || internalDisplayMode;
+  
+  // Handler pour le changement de mode
+  const handleDisplayModeChange = useCallback((newMode: UserDisplayMode) => {
+    if (onToggleDisplayMode) {
+      // Mode contrôlé : déléguer au parent
+      onToggleDisplayMode();
+    } else {
+      // Mode non contrôlé : gérer localement
+      setInternalDisplayMode(newMode);
+    }
+  }, [onToggleDisplayMode]);
   
   // Gestion du changement de page
   const handlePageChange = useCallback((_event: React.ChangeEvent<unknown>, newPage: number) => {
@@ -208,7 +230,7 @@ export const UserSodResults: React.FC<UserSodResultsProps> = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <UserSodDisplayModeSwitch
             value={displayMode}
-            onChange={setDisplayMode}
+            onChange={handleDisplayModeChange}
             disabled={isLoading}
           />
           
@@ -252,7 +274,7 @@ export const UserSodResults: React.FC<UserSodResultsProps> = ({
               key={`${user.userId}-${index}`}
               user={user}
               displayMode={displayMode}
-              defaultExpanded={index === 0}
+              defaultExpanded={true}
               onDeleteAction={onDeleteAction}
               onRestrictAction={onRestrictAction}
               onRestrictResource={onRestrictResource}

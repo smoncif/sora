@@ -317,7 +317,7 @@ export const UserSodCard: React.FC<UserSodCardProps> = React.memo(({
                   key={`${risk.riskId}-${index}`}
                   risk={risk}
                   displayMode={displayMode}
-                  defaultExpanded={index === 0}
+                  defaultExpanded={true}
                   onDeleteAction={onDeleteAction}
                   onRestrictAction={onRestrictAction}
                   onRestrictResource={onRestrictResource}

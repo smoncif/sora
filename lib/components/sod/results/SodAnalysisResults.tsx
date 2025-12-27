@@ -124,8 +124,8 @@ export const SodAnalysisResults: React.FC<SodAnalysisResultsProps> = ({
                   <Typography variant="caption" color="text.secondary">
                     Le fichier doit contenir une colonne "User ID" / "ID util." 
                     et suivre le même format que l'analyse des rôles.
-                  </Typography>
-                </Paper>
+                </Typography>
+              </Paper>
               )}
             </Box>
           )}

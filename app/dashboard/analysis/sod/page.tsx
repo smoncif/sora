@@ -29,10 +29,13 @@ import { useActionState, useRoleState } from 'lib/hooks/sod/useSodSelectors';
 // 🚀 NOUVEAUX HOOKS : Pagination avec cache TanStack Query
 import { useSodPagedRoles } from 'lib/hooks/sod/useSodPagedRoles';
 import { useSodPagedCompositeRoles } from 'lib/hooks/sod/useSodPagedCompositeRoles';
+import { useSodPagedUsers, useUserDisplayMode } from 'lib/hooks/sod/useSodPagedUsers';
 import { useLazyRoleRendering } from 'lib/hooks/sod/useLazyRoleRendering';
 import { useOptimisticPagination } from 'lib/hooks/sod/useOptimisticPagination';
 // 🎨 NOUVEAUX COMPOSANTS : Skeletons pour lazy loading
 import { SodSimpleRoleCardSkeleton, SodCompositeRoleCardSkeleton, SkeletonGrid } from 'lib/components/sod/skeleton';
+// 👤 COMPOSANTS UTILISATEURS : Affichage Step 3
+import { UserSodResults } from 'lib/components/sod/users';
 
 
 export default function SodAnalysisPage() {
@@ -115,6 +118,30 @@ export default function SodAnalysisPage() {
     page: compositePagination.currentPage,
     pageSize: compositePagination.pageSize,
   });
+
+  // 👤 PAGINATION UTILISATEURS : Pour Step 3
+  const userPagination = useOptimisticPagination({
+    pageSize: 5,
+    type: 'Users'
+  });
+
+  const {
+    users: paginatedUsers,
+    totalCount: usersTotalCount,
+    totalPages: usersTotalPages,
+    isLoading: isUserPaginationLoading,
+    isFetching: isUserPaginationFetching,
+    prefetchAdjacentPages: prefetchUserPages,
+  } = useSodPagedUsers({
+    sessionId: sodWorkflow.state.session?.id,
+    page: userPagination.currentPage,
+    pageSize: userPagination.pageSize,
+  });
+
+  // 👤 Mode d'affichage des utilisateurs (Par Rôle / Par Transaction)
+  const { displayMode: userDisplayMode, toggleDisplayMode: toggleUserDisplayMode } = useUserDisplayMode(
+    sodWorkflow.state.session?.id
+  );
 
   // 📊 Pour la compatibilité avec le code existant (allRestrictedActions, etc.)
   const simpleRoles = useMemo(() => {
@@ -870,6 +897,19 @@ export default function SodAnalysisPage() {
               </Box>
             )}
           </Box>
+          )}
+          renderUsers={() => (
+            <UserSodResults
+              users={paginatedUsers}
+              page={userPagination.currentPage}
+              pageSize={userPagination.pageSize}
+              totalCount={usersTotalCount}
+              totalPages={usersTotalPages}
+              onPageChange={(newPage) => userPagination.handlePageChange(null as any, newPage)}
+              isLoading={isUserPaginationLoading || userPagination.showSkeletons}
+              displayMode={userDisplayMode}
+              onToggleDisplayMode={toggleUserDisplayMode}
+            />
           )}
         />
       )}
