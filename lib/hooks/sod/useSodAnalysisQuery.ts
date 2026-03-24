@@ -114,20 +114,31 @@ export const useSodSession = (options: UseSodSessionOptions = {}): UseSodSession
   const [isParsing, setIsParsing] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   
-  // 🔄 QUERY : Récupérer la session actuelle
+  // 🔄 QUERY : Récupérer la session actuelle depuis le cache
   const sessionQuery = useQuery({
     queryKey: sessionId ? sodQueryKeys.session(sessionId) : ['sod', 'empty'],
-    queryFn: async () => {
-      if (!sessionId) return null;
+    queryFn: () => {
+      // Charger directement depuis le cache TanStack Query
+      const cached = queryClient.getQueryData<SodAnalysisSession>(sodQueryKeys.session(sessionId!));
       
-      // TODO: Remplacer par votre API réelle
-      const response = await fetch(`/api/sod/sessions/${sessionId}`);
-      if (!response.ok) throw new Error('Failed to fetch session');
-      return response.json() as Promise<SodAnalysisSession>;
+      console.log('📥 [SESSION QUERY] QueryFn appelé:', {
+        sessionId,
+        hasCachedData: !!cached,
+        cachedDataType: cached ? 'SodAnalysisSession' : 'null'
+      });
+      
+      if (!cached) {
+        throw new Error('Session not found in cache');
+      }
+      
+      return cached;
     },
     enabled: !!sessionId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: Infinity, // Ne jamais marquer comme stale (les données sont locales)
+    gcTime: 30 * 60 * 1000, // 30 minutes avant garbage collection
+    refetchOnMount: false, // Ne pas refetch au mount
+    refetchOnWindowFocus: false, // Ne pas refetch au focus
+    refetchOnReconnect: false, // Ne pas refetch à la reconnexion
   });
   
   // 🔄 MUTATION : Créer une nouvelle session

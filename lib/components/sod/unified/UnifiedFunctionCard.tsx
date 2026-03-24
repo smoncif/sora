@@ -22,6 +22,7 @@ import {
   useTheme,
   Paper,
   Chip,
+  Tooltip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -29,10 +30,13 @@ import FunctionsIcon from '@mui/icons-material/Functions';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import type { UnifiedFunction, UnifiedRiskContext, UnifiedDisplayMode, UnifiedRisk } from 'lib/types/unifiedSodTypes';
 import { SodActionItem } from '../display/SodActionItem';
 import { SodSimpleRoleInCompositeItem } from '../display/SodSimpleRoleInCompositeItem';
 import { detectActionsWithOnlyTCodeInFunction, extractActionSignature, detectDuplicateActionsInRisk } from 'lib/utils/sodConflictDetection';
+import { extractExternalResourceValues } from 'lib/utils/sodResourceUtils';
 import { useLazyActionRendering } from 'lib/hooks/sod/useLazyActionRendering';
 import { SodActionSkeleton } from '../skeleton/SodActionSkeleton';
 import type { SodAction } from 'lib/types/sodAnalysis';
@@ -470,6 +474,118 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
       });
     };
     
+    // Handler pour exclure/dé-exclure tout le rôle composite (tous ses rôles simples)
+    const handleExcludeCompositeRole = React.useCallback((compositeRole: typeof compositeRoles[0]) => {
+      if (!compositeRole.roleName) return;
+      
+      // Vérifier si tous les rôles simples sont déjà exclus
+      const allExcluded = compositeRole.simpleRoles.every(sr => (sr as any).isExcluded || false);
+      
+      // Mode toggle : si tous sont exclus, les dé-exclure tous, sinon les exclure tous
+      compositeRole.simpleRoles.forEach(simpleRole => {
+        const isCurrentlyExcluded = (simpleRole as any).isExcluded || false;
+        
+        // Appliquer l'action seulement si nécessaire (toggle)
+        if ((!allExcluded && !isCurrentlyExcluded) || (allExcluded && isCurrentlyExcluded)) {
+          onExcludeRole?.(compositeRole.roleName, simpleRole.roleName);
+        }
+      });
+    }, [onExcludeRole]);
+    
+    // Handlers pour les rôles simples (dans les composites et directs)
+    const handleExcludeSimpleRole = React.useCallback((compositeRoleName: string, simpleRoleName: string) => {
+      onExcludeRole?.(compositeRoleName, simpleRoleName);
+    }, [onExcludeRole]);
+    
+    const handleDeleteAllActionsInSimpleRole = React.useCallback((simpleRole: typeof compositeRoles[0]['simpleRoles'][0]) => {
+      if (!riskId) return;
+      
+      // Filtrer les actions avec S_TCODE
+      const tCodeActions = (simpleRole.actions || []).filter(action => 
+        action.resources?.some(r => r.code === 'S_TCODE')
+      );
+      
+      if (tCodeActions.length === 0) return;
+      
+      // Déterminer le mode global
+      const deletedActions = tCodeActions.filter(action => action.isDeleted);
+      const mode = deletedActions.length > 0 ? "DÉSUPPRIMER" : "SUPPRIMER";
+      
+      // Appliquer l'action globale
+      tCodeActions.forEach(action => {
+        const isCurrentlyDeleted = action.isDeleted;
+        
+        // Appliquer l'action seulement si nécessaire
+        if ((mode === "SUPPRIMER" && !isCurrentlyDeleted) || 
+            (mode === "DÉSUPPRIMER" && isCurrentlyDeleted)) {
+          onDeleteAction?.(simpleRole.roleName, riskId, action.code, action.resources || []);
+        }
+      });
+    }, [riskId, onDeleteAction]);
+    
+    const handleRestrictAllActionsInSimpleRole = React.useCallback((simpleRole: typeof compositeRoles[0]['simpleRoles'][0]) => {
+      if (!riskId || !simpleRole.actions) return;
+      
+      const allResourceValues = new Map<string, { resourceCode: string; externalResourceCode: string; values: string[] }>();
+      
+      simpleRole.actions.forEach(action => {
+        action.resources?.forEach((resource: any) => {
+          if (resource.code === 'S_TCODE') return;
+          
+          resource.externalResources?.forEach((extRes: any) => {
+            const key = `${resource.code}|${extRes.code}`;
+            const values = extractExternalResourceValues(extRes);
+            
+            if (!allResourceValues.has(key)) {
+              allResourceValues.set(key, {
+                resourceCode: resource.code,
+                externalResourceCode: extRes.code,
+                values: []
+              });
+            }
+            
+            const existingValues = allResourceValues.get(key)!.values;
+            values.forEach((v: string) => {
+              if (!existingValues.includes(v)) {
+                existingValues.push(v);
+              }
+            });
+          });
+        });
+      });
+
+      if (allResourceValues.size === 0) {
+        return;
+      }
+
+      const isCurrentlyRestricted = Array.from(allResourceValues.entries()).some(([key, data]) => {
+        return simpleRole.actions.some(action => 
+          action.resources.some(resource => 
+            resource.code === data.resourceCode && 
+            resource.externalResources?.some(extRes => 
+              extRes.code === data.externalResourceCode && 
+              extractExternalResourceValues(extRes).every(val => data.values.includes(val)) &&
+              resource.isRestricted
+            )
+          )
+        );
+      });
+
+      const shouldRestrict = !isCurrentlyRestricted;
+
+      allResourceValues.forEach((data) => {
+        onRestrictResource?.(
+          simpleRole.roleName, 
+          riskId, 
+          '', 
+          data.resourceCode, 
+          data.externalResourceCode, 
+          data.values,
+          shouldRestrict
+        );
+      });
+    }, [riskId, onRestrictResource]);
+    
     return (
       <>
         {/* ⚠️ ORDRE GARANTI : Rôles Composites en premier */}
@@ -502,6 +618,10 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
             );
             return permissionActions.length > 0 && permissionActions.every(action => action.isRestricted);
           })();
+          
+          // Calculer si tous les rôles simples sont exclus
+          const allSimpleRolesExcluded = cr.simpleRoles.length > 0 && 
+            cr.simpleRoles.every(sr => (sr as any).isExcluded || false);
           
           // Générer les badges
           const compositeBadges = [];
@@ -616,6 +736,44 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                     color: theme.palette.info.dark,
                   }}
                 />
+                
+                {/* Bouton Exclure pour le rôle composite */}
+                <Tooltip
+                  title={
+                    allSimpleRolesExcluded
+                      ? "Annuler l'exclusion du rôle composite"
+                      : cr.simpleRoles.length === 0
+                        ? "Aucun rôle simple à exclure"
+                        : "Exclure le rôle composite"
+                  }
+                  arrow
+                >
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        handleExcludeCompositeRole(cr);
+                      }}
+                      disabled={cr.simpleRoles.length === 0}
+                      sx={{
+                        p: 0.5,
+                        color: theme.palette.error.main,
+                        backgroundColor: allSimpleRolesExcluded 
+                          ? alpha(theme.palette.error.main, 0.15) 
+                          : 'transparent',
+                        '&:hover': {
+                          backgroundColor: alpha(theme.palette.error.main, 0.1),
+                        },
+                        '&:disabled': {
+                          color: theme.palette.grey[400],
+                        },
+                      }}
+                    >
+                      <RemoveCircleOutlineIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Box>
               
               {/* Contenu Rôle Composite (collapsible) */}
@@ -648,6 +806,69 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                         action.resources?.some(r => r.code !== 'S_TCODE')
                       );
                       return permissionActions.length > 0 && permissionActions.every(action => action.isRestricted);
+                    })();
+                    
+                    // Calculer si AU MOINS UNE action T-Code est supprimée (pour le mode toggle)
+                    const anyTCodeActionDeleted = (() => {
+                      const tCodeActions = (sr.actions || []).filter(action => 
+                        action.resources?.some(r => r.code === 'S_TCODE')
+                      );
+                      return tCodeActions.some(action => action.isDeleted);
+                    })();
+                    
+                    // Lire l'état d'exclusion depuis simpleRole
+                    // Note: UserSodSimpleRole n'a pas isExcluded directement, on utilise le composite parent
+                    const isRoleExcluded = (sr as any).isExcluded || false;
+                    
+                    // Calculer le mode du bouton "Restreindre Tous"
+                    const buttonMode = (() => {
+                      if (!sr.actions) return { mode: "RESTREINDRE", hasAnyRestricted: false };
+                      
+                      const allResourceValues = new Map<string, { resourceCode: string; externalResourceCode: string; values: string[] }>();
+                      
+                      sr.actions.forEach(action => {
+                        action.resources?.forEach((resource: any) => {
+                          if (resource.code === 'S_TCODE') return;
+                          
+                          resource.externalResources?.forEach((extRes: any) => {
+                            const key = `${resource.code}|${extRes.code}`;
+                            const values = extractExternalResourceValues(extRes);
+                            
+                            if (!allResourceValues.has(key)) {
+                              allResourceValues.set(key, {
+                                resourceCode: resource.code,
+                                externalResourceCode: extRes.code,
+                                values: []
+                              });
+                            }
+                            
+                            const existingValues = allResourceValues.get(key)!.values;
+                            values.forEach((v: string) => {
+                              if (!existingValues.includes(v)) {
+                                existingValues.push(v);
+                              }
+                            });
+                          });
+                        });
+                      });
+                      
+                      const hasAnyRestricted = Array.from(allResourceValues.entries()).some(([key, data]) => {
+                        return sr.actions.some(action => 
+                          action.resources.some(resource => 
+                            resource.code === data.resourceCode && 
+                            resource.externalResources?.some(extRes => 
+                              extRes.code === data.externalResourceCode && 
+                              extractExternalResourceValues(extRes).every(val => data.values.includes(val)) &&
+                              resource.isRestricted
+                            )
+                          )
+                        );
+                      });
+                      
+                      return {
+                        mode: hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE",
+                        hasAnyRestricted
+                      };
                     })();
                     
                     // Générer les badges pour le rôle simple
@@ -762,6 +983,131 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                               backgroundColor: alpha(theme.palette.grey[500], 0.1),
                             }}
                           />
+                          
+                          {/* Boutons d'action pour le rôle simple */}
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            {/* Bouton Exclure */}
+                            <Tooltip 
+                              title={
+                                simpleAllTCodeActionsDeleted 
+                                  ? "Toutes les actions sont déjà supprimées"
+                                  : simpleAllPermissionsRestricted
+                                    ? "Toutes les permissions sont déjà restreintes"
+                                    : isRoleExcluded 
+                                      ? "Annuler l'exclusion du rôle" 
+                                      : "Exclure le rôle de l'analyse"
+                              } 
+                              arrow
+                            >
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation();
+                                    handleExcludeSimpleRole(cr.roleName, sr.roleName);
+                                  }}
+                                  disabled={simpleAllTCodeActionsDeleted || simpleAllPermissionsRestricted}
+                                  sx={{
+                                    p: 0.5,
+                                    color: theme.palette.error.main,
+                                    backgroundColor: isRoleExcluded 
+                                      ? alpha(theme.palette.error.main, 0.15) 
+                                      : 'transparent',
+                                    '&:hover': {
+                                      backgroundColor: alpha(theme.palette.error.main, 0.1),
+                                    },
+                                    '&:disabled': {
+                                      color: theme.palette.grey[400],
+                                    },
+                                  }}
+                                >
+                                  <RemoveCircleOutlineIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            
+                            {/* Bouton Supprimer Tout */}
+                            <Tooltip 
+                              title={
+                                isRoleExcluded
+                                  ? "Rôle exclu de l'analyse"
+                                  : simpleAllPermissionsRestricted
+                                    ? "Toutes les permissions sont déjà restreintes"
+                                    : !simpleHasTCode 
+                                      ? "Aucune action à supprimer" 
+                                      : anyTCodeActionDeleted
+                                        ? "Désupprimer toutes les actions (T-Code)"
+                                        : "Supprimer toutes les actions (T-Code)"
+                              } 
+                              arrow
+                            >
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation();
+                                    handleDeleteAllActionsInSimpleRole(sr);
+                                  }}
+                                  disabled={!simpleHasTCode || isRoleExcluded || simpleAllPermissionsRestricted}
+                                  sx={{
+                                    p: 0.5,
+                                    color: theme.palette.error.main,
+                                    '&:hover': {
+                                      backgroundColor: alpha(theme.palette.error.main, 0.1),
+                                    },
+                                    '&:disabled': {
+                                      color: theme.palette.grey[400],
+                                    },
+                                  }}
+                                >
+                                  <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            
+                            {/* Bouton Restreindre Tous */}
+                            <Tooltip
+                              title={
+                                isRoleExcluded
+                                  ? "Rôle exclu de l'analyse"
+                                  : simpleAllTCodeActionsDeleted
+                                    ? "Toutes les actions sont déjà supprimées"
+                                    : !simpleHasPermissions 
+                                      ? "Aucune permission à restreindre" 
+                                      : buttonMode.hasAnyRestricted
+                                        ? "Dérestreindre toutes les actions (Permissions)"
+                                        : "Restreindre toutes les actions (Permissions)"
+                              } 
+                              arrow
+                            >
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation();
+                                    handleRestrictAllActionsInSimpleRole(sr);
+                                  }}
+                                  disabled={!simpleHasPermissions || isRoleExcluded || simpleAllTCodeActionsDeleted}
+                                  sx={{
+                                    p: 0.5,
+                                    color: theme.palette.warning.dark,
+                                    '&:hover': {
+                                      backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                                    },
+                                    '&:disabled': {
+                                      color: theme.palette.grey[400],
+                                    },
+                                  }}
+                                >
+                                  {buttonMode.hasAnyRestricted ? (
+                                    <LockOpenIcon sx={{ fontSize: 18 }} />
+                                  ) : (
+                                    <BlockIcon sx={{ fontSize: 18 }} />
+                                  )}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </Box>
                         </Box>
                         
                         {/* Actions (collapsible) */}
@@ -775,6 +1121,7 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                                 resources: action.resources,
                                 isDeleted: action.isDeleted,
                                 isRestricted: action.isRestricted,
+                                restrictedByAction: false,
                               };
                               
                               return (
@@ -831,6 +1178,68 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
               action.resources?.some(r => r.code !== 'S_TCODE')
             );
             return permissionActions.length > 0 && permissionActions.every(action => action.isRestricted);
+          })();
+          
+          // Calculer si AU MOINS UNE action T-Code est supprimée (pour le mode toggle)
+          const anyTCodeActionDeleted = (() => {
+            const tCodeActions = (sr.actions || []).filter(action => 
+              action.resources?.some(r => r.code === 'S_TCODE')
+            );
+            return tCodeActions.some(action => action.isDeleted);
+          })();
+          
+          // Lire l'état d'exclusion depuis simpleRole
+          const isRoleExcluded = (sr as any).isExcluded || false;
+          
+          // Calculer le mode du bouton "Restreindre Tous"
+          const buttonMode = (() => {
+            if (!sr.actions) return { mode: "RESTREINDRE", hasAnyRestricted: false };
+            
+            const allResourceValues = new Map<string, { resourceCode: string; externalResourceCode: string; values: string[] }>();
+            
+            sr.actions.forEach(action => {
+              action.resources?.forEach((resource: any) => {
+                if (resource.code === 'S_TCODE') return;
+                
+                resource.externalResources?.forEach((extRes: any) => {
+                  const key = `${resource.code}|${extRes.code}`;
+                  const values = extractExternalResourceValues(extRes);
+                  
+                  if (!allResourceValues.has(key)) {
+                    allResourceValues.set(key, {
+                      resourceCode: resource.code,
+                      externalResourceCode: extRes.code,
+                      values: []
+                    });
+                  }
+                  
+                  const existingValues = allResourceValues.get(key)!.values;
+                  values.forEach((v: string) => {
+                    if (!existingValues.includes(v)) {
+                      existingValues.push(v);
+                    }
+                  });
+                });
+              });
+            });
+            
+            const hasAnyRestricted = Array.from(allResourceValues.entries()).some(([key, data]) => {
+              return sr.actions.some(action => 
+                action.resources.some(resource => 
+                  resource.code === data.resourceCode && 
+                  resource.externalResources?.some(extRes => 
+                    extRes.code === data.externalResourceCode && 
+                    extractExternalResourceValues(extRes).every(val => data.values.includes(val)) &&
+                    resource.isRestricted
+                  )
+                )
+              );
+            });
+            
+            return {
+              mode: hasAnyRestricted ? "DÉRESTREINDRE" : "RESTREINDRE",
+              hasAnyRestricted
+            };
           })();
           
           // Générer les badges pour le rôle simple
@@ -945,6 +1354,132 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                     backgroundColor: alpha(theme.palette.grey[500], 0.1),
                   }}
                 />
+                
+                {/* Boutons d'action pour le rôle simple direct */}
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  {/* Bouton Exclure */}
+                  <Tooltip 
+                    title={
+                      simpleAllTCodeActionsDeleted 
+                        ? "Toutes les actions sont déjà supprimées"
+                        : simpleAllPermissionsRestricted
+                          ? "Toutes les permissions sont déjà restreintes"
+                          : (sr as any).isExcluded 
+                            ? "Annuler l'exclusion du rôle" 
+                            : "Exclure le rôle de l'analyse"
+                    } 
+                    arrow
+                  >
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          // Pour les rôles simples directs, utiliser '' comme compositeRoleName
+                          handleExcludeSimpleRole('', sr.roleName);
+                        }}
+                        disabled={simpleAllTCodeActionsDeleted || simpleAllPermissionsRestricted}
+                        sx={{
+                          p: 0.5,
+                          color: theme.palette.error.main,
+                          backgroundColor: (sr as any).isExcluded 
+                            ? alpha(theme.palette.error.main, 0.15) 
+                            : 'transparent',
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.error.main, 0.1),
+                          },
+                          '&:disabled': {
+                            color: theme.palette.grey[400],
+                          },
+                        }}
+                      >
+                        <RemoveCircleOutlineIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  
+                  {/* Bouton Supprimer Tout */}
+                  <Tooltip 
+                    title={
+                      isRoleExcluded
+                        ? "Rôle exclu de l'analyse"
+                        : simpleAllPermissionsRestricted
+                          ? "Toutes les permissions sont déjà restreintes"
+                          : !simpleHasTCode 
+                            ? "Aucune action à supprimer" 
+                            : anyTCodeActionDeleted
+                              ? "Désupprimer toutes les actions (T-Code)"
+                              : "Supprimer toutes les actions (T-Code)"
+                    } 
+                    arrow
+                  >
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          handleDeleteAllActionsInSimpleRole(sr);
+                        }}
+                        disabled={!simpleHasTCode || isRoleExcluded || simpleAllPermissionsRestricted}
+                        sx={{
+                          p: 0.5,
+                          color: theme.palette.error.main,
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.error.main, 0.1),
+                          },
+                          '&:disabled': {
+                            color: theme.palette.grey[400],
+                          },
+                        }}
+                      >
+                        <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  
+                  {/* Bouton Restreindre Tous */}
+                  <Tooltip
+                    title={
+                      isRoleExcluded
+                        ? "Rôle exclu de l'analyse"
+                        : simpleAllTCodeActionsDeleted
+                          ? "Toutes les actions sont déjà supprimées"
+                          : !simpleHasPermissions 
+                            ? "Aucune permission à restreindre" 
+                            : buttonMode.hasAnyRestricted
+                              ? "Dérestreindre toutes les actions (Permissions)"
+                              : "Restreindre toutes les actions (Permissions)"
+                    } 
+                    arrow
+                  >
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          handleRestrictAllActionsInSimpleRole(sr);
+                        }}
+                        disabled={!simpleHasPermissions || isRoleExcluded || simpleAllTCodeActionsDeleted}
+                        sx={{
+                          p: 0.5,
+                          color: theme.palette.warning.dark,
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                          },
+                          '&:disabled': {
+                            color: theme.palette.grey[400],
+                          },
+                        }}
+                      >
+                        {buttonMode.hasAnyRestricted ? (
+                          <LockOpenIcon sx={{ fontSize: 18 }} />
+                        ) : (
+                          <BlockIcon sx={{ fontSize: 18 }} />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
               </Box>
               
               {/* Actions (collapsible) */}
@@ -957,6 +1492,7 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                       resources: action.resources,
                       isDeleted: action.isDeleted,
                       isRestricted: action.isRestricted,
+                      restrictedByAction: false,
                     };
                     
                     return (
@@ -1030,7 +1566,7 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                   if (!existingResource) {
                     existingResource = {
                       code: resource.code,
-                      description: resource.description,
+                      description: resource.description || '',
                       externalResources: [],
                       isDeleted: resource.isDeleted || false,
                       isRestricted: resource.isRestricted || false,
@@ -1039,15 +1575,15 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                   }
                   
                   // Trouver ou créer l'external resource
-                  let existingExtRes = existingResource.externalResources.find(er => er.code === extRes.code);
+                  let existingExtRes = existingResource!.externalResources.find(er => er.code === extRes.code);
                   
                   if (!existingExtRes) {
                     existingExtRes = {
                       code: extRes.code,
-                      description: extRes.description,
+                      description: extRes.description || '',
                       values: [],
                     };
-                    existingResource.externalResources.push(existingExtRes);
+                    existingResource!.externalResources.push(existingExtRes);
                   }
                   
                   // Trouver ou créer la valeur
@@ -1123,7 +1659,7 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                     <IconButton
                       size="small"
                       sx={{ p: 0.25 }}
-                      onClick={(e) => {
+                      onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         setExpandedActions(prev => ({
                           ...prev,
@@ -1297,7 +1833,7 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                                       <IconButton
                                         size="small"
                                         sx={{ p: 0.25 }}
-                                        onClick={(e) => {
+                                        onClick={(e: React.MouseEvent) => {
                                           e.stopPropagation();
                                           setExpandedResources(prev => ({
                                             ...prev,
@@ -1387,7 +1923,7 @@ export const UnifiedFunctionCard: React.FC<UnifiedFunctionCardProps> = ({
                                                   <IconButton
                                                     size="small"
                                                     sx={{ p: 0.25 }}
-                                                    onClick={(e) => {
+                                                    onClick={(e: React.MouseEvent) => {
                                                       e.stopPropagation();
                                                       setExpandedSimpleRoles(prev => ({
                                                         ...prev,

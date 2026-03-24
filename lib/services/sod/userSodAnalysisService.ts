@@ -40,15 +40,63 @@ import { SOD_RISK_LEVEL_MAPPING } from 'lib/types/sodAnalysis';
 // ============================================
 
 /**
- * Structure interne pour le calcul des rôles risqués
+ * Structure interne pour l'analyse des rôles SIMPLES
+ * 
+ * Un rôle simple est identifié par la colonne "Rôle/Profil".
+ * Il peut être affecté :
+ * - Directement (colonne composite vide)
+ * - Via un ou plusieurs composites (colonne composite non vide)
+ * - Les deux (mixte) selon la fonction
  */
-interface RoleRiskAnalysis {
+interface SimpleRoleAnalysis {
   roleName: string;
   roleDescription?: string;
-  roleType: 'SIMPLE' | 'COMPOSITE';
-  parentCompositeRole?: string;
+  roleType: 'SIMPLE';
+  
+  /** Fonctions où le rôle est affecté directement (colonne composite vide) */
+  directFunctions: Set<string>;
+  
+  /** Map: Fonction → Set de composites parents pour cette fonction */
+  compositeFunctions: Map<string, Set<string>>;
+  
+  /** Set de TOUS les composites parents (union de toutes les fonctions) */
+  allParentComposites: Set<string>;
   
   /** Map: riskId → Set de fonctions où le rôle est présent */
+  riskFunctions: Map<string, Set<string>>;
+  
+  /** Map: riskId → niveau de risque */
+  riskLevels: Map<string, SodRiskLevel>;
+  
+  /** Map: riskId → Set de toutes les fonctions du risque */
+  allRiskFunctions: Map<string, Set<string>>;
+  
+  /** 
+   * ✅ NOUVEAU : Structure pour vérifier les actions complètes
+   * Map: riskId → Map: fonction → Map: action → Set de lignes (combinaisons)
+   * Chaque ligne est identifiée par: resource|resourceExtn|valueFrom|valueTo
+   */
+  riskFunctionActions: Map<string, Map<string, Map<string, Set<string>>>>;
+  
+  /** Utilisateurs qui ont ce rôle */
+  users: Map<string, number>; // userId → executionCount total
+}
+
+/**
+ * Structure interne pour l'analyse des rôles COMPOSITES
+ * 
+ * Un rôle composite est identifié par la valeur de la colonne "Rôle utilisateur/composite".
+ * Il est construit par agrégation de tous les rôles simples qui ont ce composite comme parent.
+ */
+interface CompositeRoleAnalysis {
+  roleName: string;
+  roleDescription?: string;
+  roleType: 'COMPOSITE';
+  
+  /** Map: simpleRoleName → Set de fonctions où ce simple est dans le composite */
+  simpleRoles: Map<string, Set<string>>;
+  
+  /** Map: riskId → Set de fonctions où le composite est présent */
   riskFunctions: Map<string, Set<string>>;
   
   /** Map: riskId → niveau de risque */
@@ -65,58 +113,98 @@ interface RoleRiskAnalysis {
  * Identifie les rôles risqués dans les données utilisateurs
  * 
  * RÈGLE : Un rôle est risqué s'il est présent dans TOUTES les fonctions d'un risque
+ * 
+ * ALGORITHME EN 2 PHASES :
+ * 1. Analyser tous les rôles SIMPLES (roleProfile)
+ *    - Tracker si direct (colonne composite vide) ou dans composite (colonne composite non vide)
+ *    - Un même rôle simple peut être direct pour certaines fonctions et dans composite pour d'autres
+ * 
+ * 2. Construire les rôles COMPOSITES par agrégation
+ *    - Regrouper tous les rôles simples qui ont le même parent composite
+ *    - Un composite est risqué si présent dans toutes les fonctions (via ses rôles simples)
  */
 export function identifyRiskyRoles(records: UserSodRawRecord[]): UserSodRiskyRole[] {
-  // Étape 1 : Construire la map des rôles avec leurs présences par risque/fonction
-  const roleAnalysis = new Map<string, RoleRiskAnalysis>();
+  console.log(`[DEBUG] identifyRiskyRoles() - Traitement de ${records.length} enregistrements`);
+  
+  // ============================================
+  // PHASE 1 : ANALYSER TOUS LES RÔLES SIMPLES
+  // ============================================
+  
+  const simpleRoleAnalysis = new Map<string, SimpleRoleAnalysis>();
   
   // Étape 1.1 : D'abord, collecter toutes les fonctions par risque
   const allFunctionsByRisk = new Map<string, Set<string>>();
   
+  // ✅ NOUVEAU : Collecter toutes les actions attendues par risque/fonction
+  // Map: riskId → Map: fonction → Map: action → Set de lignes (toutes les lignes du fichier)
+  const allActionsByRiskFunction = new Map<string, Map<string, Map<string, Set<string>>>>();
+  
   for (const record of records) {
     const riskId = record.accessRiskId;
     const funcCode = record.function;
+    const actionCode = record.action;
+    const lineKey = `${record.resource}|${record.resourceExtn}|${record.valueFrom}|${record.valueTo}`;
     
     if (!allFunctionsByRisk.has(riskId)) {
       allFunctionsByRisk.set(riskId, new Set());
     }
     allFunctionsByRisk.get(riskId)!.add(funcCode);
+    
+    // ✅ NOUVEAU : Stocker toutes les lignes d'action
+    if (!allActionsByRiskFunction.has(riskId)) {
+      allActionsByRiskFunction.set(riskId, new Map());
+    }
+    if (!allActionsByRiskFunction.get(riskId)!.has(funcCode)) {
+      allActionsByRiskFunction.get(riskId)!.set(funcCode, new Map());
+    }
+    if (!allActionsByRiskFunction.get(riskId)!.get(funcCode)!.has(actionCode)) {
+      allActionsByRiskFunction.get(riskId)!.get(funcCode)!.set(actionCode, new Set());
+    }
+    allActionsByRiskFunction.get(riskId)!.get(funcCode)!.get(actionCode)!.add(lineKey);
   }
   
-  // Étape 1.2 : Analyser chaque enregistrement
+  // Étape 1.2 : Analyser chaque enregistrement pour les rôles simples
   for (const record of records) {
-    const roleName = record.roleProfile;
+    const roleName = record.roleProfile; // ← Toujours un rôle SIMPLE
     const riskId = record.accessRiskId;
     const funcCode = record.function;
+    const actionCode = record.action;
     const riskLevel = normalizeRiskLevel(record.riskLevel);
+    const isDirect = isEmpty(record.compositeBusinessRole);
+    const lineKey = `${record.resource}|${record.resourceExtn}|${record.valueFrom}|${record.valueTo}`;
     
-    // Déterminer le type de rôle
-    const isComposite = !isEmpty(record.compositeBusinessRole);
-    const roleType: 'SIMPLE' | 'COMPOSITE' = isComposite ? 'COMPOSITE' : 'SIMPLE';
-    const parentComposite = isComposite ? record.compositeBusinessRole : undefined;
-    
-    // Clé unique pour le rôle (inclut le parent composite si applicable)
-    const roleKey = isComposite 
-      ? `${record.compositeBusinessRole}|${roleName}` 
-      : roleName;
-    
-    // Initialiser l'analyse du rôle si nécessaire
-    if (!roleAnalysis.has(roleKey)) {
-      roleAnalysis.set(roleKey, {
+    // Utiliser UNIQUEMENT le nom du rôle comme clé (pas de composite dans la clé)
+    if (!simpleRoleAnalysis.has(roleName)) {
+      simpleRoleAnalysis.set(roleName, {
         roleName,
         roleDescription: record.roleProfileDescription,
-        roleType,
-        parentCompositeRole: parentComposite,
+        roleType: 'SIMPLE', // ← Toujours SIMPLE pour roleProfile
+        directFunctions: new Set(),
+        compositeFunctions: new Map(),
+        allParentComposites: new Set(),
         riskFunctions: new Map(),
         riskLevels: new Map(),
         allRiskFunctions: new Map(),
+        riskFunctionActions: new Map(), // ✅ NOUVEAU
         users: new Map(),
       });
     }
     
-    const analysis = roleAnalysis.get(roleKey)!;
+    const analysis = simpleRoleAnalysis.get(roleName)!;
     
-    // Ajouter la fonction à ce risque
+    // ✅ NOUVEAU : Tracker si direct ou dans composite pour CETTE fonction
+    if (isDirect) {
+      analysis.directFunctions.add(funcCode);
+    } else {
+      // Dans un composite
+      if (!analysis.compositeFunctions.has(funcCode)) {
+        analysis.compositeFunctions.set(funcCode, new Set());
+      }
+      analysis.compositeFunctions.get(funcCode)!.add(record.compositeBusinessRole);
+      analysis.allParentComposites.add(record.compositeBusinessRole);
+    }
+    
+    // Tracker les fonctions par risque (pour vérifier la règle "risqué")
     if (!analysis.riskFunctions.has(riskId)) {
       analysis.riskFunctions.set(riskId, new Set());
       analysis.riskLevels.set(riskId, riskLevel);
@@ -124,22 +212,199 @@ export function identifyRiskyRoles(records: UserSodRawRecord[]): UserSodRiskyRol
     }
     analysis.riskFunctions.get(riskId)!.add(funcCode);
     
-    // Ajouter l'utilisateur
+    // ✅ NOUVEAU : Tracker les actions complètes pour ce rôle
+    if (!analysis.riskFunctionActions.has(riskId)) {
+      analysis.riskFunctionActions.set(riskId, new Map());
+    }
+    if (!analysis.riskFunctionActions.get(riskId)!.has(funcCode)) {
+      analysis.riskFunctionActions.get(riskId)!.set(funcCode, new Map());
+    }
+    if (!analysis.riskFunctionActions.get(riskId)!.get(funcCode)!.has(actionCode)) {
+      analysis.riskFunctionActions.get(riskId)!.get(funcCode)!.set(actionCode, new Set());
+    }
+    analysis.riskFunctionActions.get(riskId)!.get(funcCode)!.get(actionCode)!.add(lineKey);
+    
+    // Tracker les utilisateurs
     const currentCount = analysis.users.get(record.userId) || 0;
     analysis.users.set(record.userId, currentCount + record.executionCount);
   }
   
-  // Étape 2 : Identifier les rôles qui sont présents dans TOUTES les fonctions d'un risque
+  // ============================================
+  // PHASE 2 : CONSTRUIRE LES RÔLES COMPOSITES
+  // ============================================
+  
+  const compositeRoleAnalysis = new Map<string, CompositeRoleAnalysis>();
+  
+  for (const [roleName, simpleAnalysis] of simpleRoleAnalysis) {
+    // Pour chaque parent composite, créer/enrichir l'analyse du composite
+    for (const compositeName of simpleAnalysis.allParentComposites) {
+      if (!compositeRoleAnalysis.has(compositeName)) {
+        compositeRoleAnalysis.set(compositeName, {
+          roleName: compositeName,
+          roleDescription: undefined, // Sera enrichi si disponible
+          roleType: 'COMPOSITE',
+          simpleRoles: new Map(),
+          riskFunctions: new Map(),
+          riskLevels: new Map(),
+          allRiskFunctions: new Map(),
+          users: new Map(),
+        });
+      }
+      
+      const compositeAnalysis = compositeRoleAnalysis.get(compositeName)!;
+      
+      // Ajouter le rôle simple à ce composite avec ses fonctions
+      const functionsInComposite = new Set<string>();
+      for (const [funcCode, composites] of simpleAnalysis.compositeFunctions) {
+        if (composites.has(compositeName)) {
+          functionsInComposite.add(funcCode);
+        }
+      }
+      compositeAnalysis.simpleRoles.set(roleName, functionsInComposite);
+      
+      // Fusionner les riskFunctions du simple dans le composite
+      for (const [riskId, functions] of simpleAnalysis.riskFunctions) {
+        if (!compositeAnalysis.riskFunctions.has(riskId)) {
+          compositeAnalysis.riskFunctions.set(riskId, new Set());
+          compositeAnalysis.riskLevels.set(riskId, simpleAnalysis.riskLevels.get(riskId)!);
+          compositeAnalysis.allRiskFunctions.set(riskId, simpleAnalysis.allRiskFunctions.get(riskId)!);
+        }
+        functions.forEach(func => compositeAnalysis.riskFunctions.get(riskId)!.add(func));
+      }
+      
+      // Fusionner les utilisateurs
+      for (const [userId, count] of simpleAnalysis.users) {
+        const currentCount = compositeAnalysis.users.get(userId) || 0;
+        compositeAnalysis.users.set(userId, currentCount + count);
+      }
+    }
+  }
+  
+  // ============================================
+  // PHASE 3 : IDENTIFIER LES RÔLES RISQUÉS
+  // ============================================
+  
   const riskyRoles: UserSodRiskyRole[] = [];
   
-  for (const [roleKey, analysis] of roleAnalysis) {
+  // 3.1 : Rôles simples risqués
+  for (const [roleName, analysis] of simpleRoleAnalysis) {
     const riskyForRisks: UserSodRiskyRole['riskyForRisks'] = [];
     
-    // Pour chaque risque, vérifier si le rôle couvre TOUTES les fonctions
+    // ✅ NOUVELLE RÈGLE : Pour chaque risque, vérifier si le rôle est risqué
+    // RÈGLE : 
+    // 1. Le rôle doit être présent dans TOUTES les fonctions du risque
+    // 2. Pour CHAQUE fonction, le rôle doit avoir AU MOINS UNE action complète
     for (const [riskId, presentFunctions] of analysis.riskFunctions) {
       const allFunctions = analysis.allRiskFunctions.get(riskId)!;
       
-      // Vérifier si le rôle est présent dans TOUTES les fonctions
+      // CONDITION 1 : Vérifier que le rôle couvre TOUTES les fonctions
+      const coversAllFunctions = allFunctions.size > 0 && 
+        Array.from(allFunctions).every(func => presentFunctions.has(func));
+      
+      if (!coversAllFunctions) {
+        continue; // Pas risqué si ne couvre pas toutes les fonctions
+      }
+      
+      // CONDITION 2 : Vérifier que pour CHAQUE fonction, le rôle a AU MOINS UNE action complète
+      let hasCompleteActionInAllFunctions = true;
+      
+      for (const funcCode of allFunctions) {
+        // Actions du rôle pour cette fonction
+        const roleActions = analysis.riskFunctionActions.get(riskId)?.get(funcCode);
+        
+        // Actions attendues (toutes les lignes du fichier) pour cette fonction
+        const expectedActions = allActionsByRiskFunction.get(riskId)?.get(funcCode);
+        
+        if (!roleActions || !expectedActions) {
+          hasCompleteActionInAllFunctions = false;
+          break;
+        }
+        
+        // Vérifier si AU MOINS UNE action est complète pour cette fonction
+        let hasCompleteAction = false;
+        
+        for (const [actionCode, roleLines] of roleActions) {
+          const expectedLines = expectedActions.get(actionCode);
+          
+          if (!expectedLines) continue;
+          
+          // Une action est complète si le rôle a TOUTES les lignes attendues pour cette action
+          const isActionComplete = Array.from(expectedLines).every(line => roleLines.has(line));
+          
+          if (isActionComplete) {
+            hasCompleteAction = true;
+            break; // On a trouvé au moins une action complète, on peut passer à la fonction suivante
+          }
+        }
+        
+        if (!hasCompleteAction) {
+          hasCompleteActionInAllFunctions = false;
+          break; // Cette fonction n'a aucune action complète, le rôle n'est pas risqué
+        }
+      }
+      
+      // Si toutes les conditions sont remplies, le rôle est risqué pour ce risque
+      if (hasCompleteActionInAllFunctions) {
+        riskyForRisks.push({
+          riskId,
+          riskLevel: analysis.riskLevels.get(riskId)!,
+          functions: Array.from(presentFunctions),
+        });
+      }
+    }
+    
+    // ✅ DEBUG : Logger les rôles qui ne sont pas risqués
+    if (riskyForRisks.length === 0) {
+      console.log(`[DEBUG] Rôle simple "${roleName}" n'est PAS risqué (aucun risque ne satisfait les conditions)`);
+    }
+    
+    // Si le rôle est risqué, l'ajouter avec son statut d'affectation
+    if (riskyForRisks.length > 0) {
+      console.log(`[DEBUG] ✅ Rôle simple "${roleName}" est RISQUÉ pour ${riskyForRisks.length} risque(s)`);
+      const affectedUsers = Array.from(analysis.users.entries()).map(([userId, executionCount]) => ({
+        userId,
+        executionCount,
+      }));
+      
+      // Calculer le statut d'affectation
+      const hasDirectFunctions = analysis.directFunctions.size > 0;
+      const hasCompositeFunctions = analysis.compositeFunctions.size > 0;
+      const isDirectOnly = hasDirectFunctions && !hasCompositeFunctions;
+      const isCompositeOnly = !hasDirectFunctions && hasCompositeFunctions;
+      const isMixed = hasDirectFunctions && hasCompositeFunctions;
+      
+      // Convertir compositeFunctions (Map<string, Set<string>>) en Record<string, string[]>
+      const compositeFunctionsRecord: Record<string, string[]> = {};
+      for (const [funcCode, composites] of analysis.compositeFunctions) {
+        compositeFunctionsRecord[funcCode] = Array.from(composites);
+      }
+      
+      riskyRoles.push({
+        roleName: analysis.roleName,
+        roleDescription: analysis.roleDescription,
+        roleType: 'SIMPLE',
+        isDirectOnly,
+        isCompositeOnly,
+        isMixed,
+        directFunctions: Array.from(analysis.directFunctions),
+        compositeFunctions: compositeFunctionsRecord,
+        parentComposites: Array.from(analysis.allParentComposites),
+        riskyForRisks,
+        affectedUsers,
+        affectedUserCount: affectedUsers.length,
+        totalExecutionCount: affectedUsers.reduce((sum, u) => sum + u.executionCount, 0),
+      });
+    }
+  }
+  
+  // 3.2 : Rôles composites risqués
+  for (const [compositeName, analysis] of compositeRoleAnalysis) {
+    const riskyForRisks: UserSodRiskyRole['riskyForRisks'] = [];
+    
+    // Pour chaque risque, vérifier si le composite couvre TOUTES les fonctions
+    for (const [riskId, presentFunctions] of analysis.riskFunctions) {
+      const allFunctions = analysis.allRiskFunctions.get(riskId)!;
+      
       const coversAllFunctions = allFunctions.size > 0 && 
         Array.from(allFunctions).every(func => presentFunctions.has(func));
       
@@ -152,18 +417,23 @@ export function identifyRiskyRoles(records: UserSodRawRecord[]): UserSodRiskyRol
       }
     }
     
-    // Si le rôle est risqué pour au moins un risque, l'ajouter
+    // Si le composite est risqué, l'ajouter avec ses rôles simples
     if (riskyForRisks.length > 0) {
       const affectedUsers = Array.from(analysis.users.entries()).map(([userId, executionCount]) => ({
         userId,
         executionCount,
       }));
       
+      const simpleRolesArray = Array.from(analysis.simpleRoles.entries()).map(([roleName, functions]) => ({
+        roleName,
+        functions: Array.from(functions),
+      }));
+      
       riskyRoles.push({
-        roleName: analysis.roleName,
+        roleName: compositeName,
         roleDescription: analysis.roleDescription,
-        roleType: analysis.roleType,
-        parentCompositeRole: analysis.parentCompositeRole,
+        roleType: 'COMPOSITE',
+        simpleRoles: simpleRolesArray,
         riskyForRisks,
         affectedUsers,
         affectedUserCount: affectedUsers.length,
@@ -174,6 +444,10 @@ export function identifyRiskyRoles(records: UserSodRawRecord[]): UserSodRiskyRol
   
   // Trier par nombre d'utilisateurs affectés (décroissant)
   riskyRoles.sort((a, b) => b.affectedUserCount - a.affectedUserCount);
+  
+  console.log(`[DEBUG] identifyRiskyRoles() - Résultat: ${riskyRoles.length} rôles risqués identifiés`);
+  console.log(`[DEBUG] - Simples: ${riskyRoles.filter(r => r.roleType === 'SIMPLE').length}`);
+  console.log(`[DEBUG] - Composites: ${riskyRoles.filter(r => r.roleType === 'COMPOSITE').length}`);
   
   return riskyRoles;
 }

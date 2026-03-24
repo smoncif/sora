@@ -58,33 +58,61 @@ export const SodNavigationSlider: React.FC<SodNavigationSliderProps> = ({
     let mediumRisks = 0;
     let lowRisks = 0;
 
-    const roles = mode === 'simple' 
-      ? session.simpleRoles?.roles || []
-      : session.compositeRoles?.roles || [];
-
-    roles.forEach(role => {
-      role.risks?.forEach(risk => {
-        totalRisks++;
-        
-        // Compter selon le niveau de criticité
-        switch (risk.riskLevel) {
-          case 'CRITICAL':
-            criticalRisks++;
-            break;
-          case 'HIGH':
-            highRisks++;
-            break;
-          case 'MEDIUM':
-            mediumRisks++;
-            break;
-          case 'LOW':
-            lowRisks++;
-            break;
-          default:
-            highRisks++; // Par défaut, considérer comme élevé
-        }
+    if (mode === 'users') {
+      // Mode utilisateurs : utiliser risksByRole
+      const users = session.users || [];
+      users.forEach((user: any) => {
+        user.risksByRole?.forEach((risk: any) => {
+          totalRisks++;
+          
+          switch (risk.riskLevel) {
+            case 'CRITICAL':
+              criticalRisks++;
+              break;
+            case 'HIGH':
+              highRisks++;
+              break;
+            case 'MEDIUM':
+              mediumRisks++;
+              break;
+            case 'LOW':
+              lowRisks++;
+              break;
+            default:
+              highRisks++;
+          }
+        });
       });
-    });
+    } else {
+      // Mode simple ou composite
+      const roles = mode === 'simple' 
+        ? session.simpleRoles?.roles || []
+        : session.compositeRoles?.roles || [];
+
+      roles.forEach(role => {
+        role.risks?.forEach(risk => {
+          totalRisks++;
+          
+          // Compter selon le niveau de criticité
+          switch (risk.riskLevel) {
+            case 'CRITICAL':
+              criticalRisks++;
+              break;
+            case 'HIGH':
+              highRisks++;
+              break;
+            case 'MEDIUM':
+              mediumRisks++;
+              break;
+            case 'LOW':
+              lowRisks++;
+              break;
+            default:
+              highRisks++; // Par défaut, considérer comme élevé
+          }
+        });
+      });
+    }
 
     return {
       total: totalRisks,
@@ -205,7 +233,7 @@ export const SodNavigationSlider: React.FC<SodNavigationSliderProps> = ({
             </Typography>
             
             <Typography variant="caption" color="text.secondary">
-              {mode === 'simple' ? 'Étape 1' : 'Étape 2'}
+              {mode === 'simple' ? 'Étape 1' : mode === 'composite' ? 'Étape 2' : 'Étape 3'}
             </Typography>
           </Box>
         </Paper>

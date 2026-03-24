@@ -228,19 +228,20 @@ export function useLazyRoleRendering<T>({
           entriesCount: entries.length,
           isIntersecting: entries[0]?.isIntersecting,
           visibleCount,
+          reorganizedRolesLength: reorganizedRoles.length,
           allRolesLength: allRoles.length,
-          hasMore: visibleCount < allRoles.length,
-          shouldLoad: entries[0]?.isIntersecting && visibleCount < allRoles.length
+          hasMore: visibleCount < reorganizedRoles.length,
+          shouldLoad: entries[0]?.isIntersecting && visibleCount < reorganizedRoles.length
         });
 
-        if (entries[0].isIntersecting && visibleCount < allRoles.length) {
-          const toLoad = Math.min(scrollBatchSize, allRoles.length - visibleCount);
+        if (entries[0].isIntersecting && visibleCount < reorganizedRoles.length) {
+          const toLoad = Math.min(scrollBatchSize, reorganizedRoles.length - visibleCount);
           
           console.log('📥 [LAZY LOAD] Chargement batch suivant:', {
             currentVisible: visibleCount,
             toLoad,
             scrollBatchSize,
-            remaining: allRoles.length - visibleCount,
+            remaining: reorganizedRoles.length - visibleCount,
             newVisibleCount: Math.min(visibleCount + scrollBatchSize, reorganizedRoles.length)
           });
           
@@ -306,7 +307,7 @@ export function useLazyRoleRendering<T>({
       console.log('🧹 [LAZY LOAD] Nettoyage de l\'Observer');
       observer.disconnect();
     };
-  }, [visibleCount, allRoles.length, scrollBatchSize, isLazyActive]);
+  }, [visibleCount, reorganizedRoles.length, scrollBatchSize, isLazyActive]);
 
   // ⚡ Fonction pour forcer le chargement du prochain batch
   const loadNext = useCallback(() => {

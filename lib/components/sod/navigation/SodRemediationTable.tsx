@@ -97,10 +97,51 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
           risks: roleRisks,
         });
       });
-    } else if (mode === 'users') {
-      // Mode utilisateurs : Pour le moment, pas encore implémenté
-      // TODO: Implémenter la logique utilisateurs
-      // Retourner un tableau vide pour le moment
+    } else if (mode === 'users' && session.users) {
+      // Mode utilisateurs : Afficher les risques par utilisateur
+      console.log('🔍 [REMEDIATION TABLE] Mode utilisateurs:', {
+        usersCount: session.users.length,
+        firstUser: session.users[0],
+        hasRisksByRole: session.users[0]?.risksByRole?.length > 0,
+      });
+      
+      session.users.forEach((user: any) => {
+        const userRisks: RiskState[] = [];
+        
+        console.log('👤 [USER]:', {
+          userId: user.userId,
+          risksByRoleCount: user.risksByRole?.length || 0,
+          risksByRole: user.risksByRole,
+        });
+        
+        // Parcourir tous les risques de l'utilisateur (MODE "Par Rôle")
+        user.risksByRole?.forEach((risk: any) => {
+          // Le statut de remédiation est déjà calculé dans la structure
+          userRisks.push({
+            code: risk.riskId || `RISK_${user.userId}_${userRisks.length}`,
+            name: risk.riskDescription || risk.riskId || 'Risque sans nom',
+            level: risk.riskLevel as SodRiskLevel,
+            isRemediated: risk.isRemediated || false,
+          });
+        });
+        
+        console.log('📊 [USER RISKS]:', {
+          userId: user.userId,
+          userRisksCount: userRisks.length,
+          userRisks,
+        });
+        
+        // Utiliser userId comme identifiant
+        roles.push({
+          name: user.userId || `User_${roles.length + 1}`,
+          risks: userRisks,
+        });
+      });
+      
+      console.log('✅ [REMEDIATION TABLE] Résultat final pour users:', {
+        rolesCount: roles.length,
+        roles,
+      });
     }
     
     return roles;
@@ -148,7 +189,7 @@ export const SodRemediationTable: React.FC<SodRemediationTableProps> = React.mem
     <Box sx={{ p: 2 }}>
       {/* Lignes des rôles - Structure dynamique */}
       {rolesData.map((role, roleIndex) => (
-        <Box key={role.name} sx={{ display: 'flex', mb: 1, alignItems: 'center' }}>
+        <Box key={`${mode}-${role.name}-${roleIndex}`} sx={{ display: 'flex', mb: 1, alignItems: 'center' }}>
           {/* Numéro de ligne */}
           <Box
             sx={{

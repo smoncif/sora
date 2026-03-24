@@ -145,11 +145,27 @@ export default function SodAnalysisPage() {
 
   // 📊 Pour la compatibilité avec le code existant (allRestrictedActions, etc.)
   const simpleRoles = useMemo(() => {
-    return (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
+    const roles = (sodWorkflow.state.session?.simpleRoles?.roles || []) as SodSimpleRole[];
+    console.log('🔄 [SIMPLE ROLES] useMemo triggered:', {
+      sessionId: sodWorkflow.state.session?.id,
+      rolesCount: roles.length,
+      hasSession: !!sodWorkflow.state.session,
+      hasSimpleRoles: !!sodWorkflow.state.session?.simpleRoles,
+      timestamp: new Date().toISOString()
+    });
+    return roles;
   }, [sodWorkflow.state.session?.simpleRoles?.roles]);
   
   const compositeRoles = useMemo(() => {
-    return (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
+    const roles = (sodWorkflow.state.session?.compositeRoles?.roles || []) as SodCompositeRole[];
+    console.log('🔄 [COMPOSITE ROLES] useMemo triggered:', {
+      sessionId: sodWorkflow.state.session?.id,
+      rolesCount: roles.length,
+      hasSession: !!sodWorkflow.state.session,
+      hasCompositeRoles: !!sodWorkflow.state.session?.compositeRoles,
+      timestamp: new Date().toISOString()
+    });
+    return roles;
   }, [sodWorkflow.state.session?.compositeRoles?.roles]);
 
   // 🔄 FONCTION DE RÉINITIALISATION COMPLÈTE
@@ -376,13 +392,20 @@ export default function SodAnalysisPage() {
     if (sodWorkflow.state.session.compositeRoles?.roles) {
       sodWorkflow.state.session.compositeRoles.roles.forEach((role: any) => {
         role.risks?.forEach((risk: any) => {
-          const remediation = calculateCompositeRiskRemediation(role.roleName, risk.functions);
+          const remediation = calculateCompositeRiskRemediation(role.compositeRoleName || role.roleName, risk.functions);
           if (!remediation.isRemediated) {
             count++;
           }
         });
       });
     }
+
+    console.log('🧭 [NAVIGATION] Risques non remédiés:', {
+      count,
+      simpleRolesCount: sodWorkflow.state.session.simpleRoles?.roles?.length || 0,
+      compositeRolesCount: sodWorkflow.state.session.compositeRoles?.roles?.length || 0,
+      hasSession: !!sodWorkflow.state.session,
+    });
 
     return count;
   }, [sodWorkflow.state.session, sodWorkflow.state.parsing]);
@@ -844,7 +867,7 @@ export default function SodAnalysisPage() {
                     {/* Rôles visibles (chargés) */}
                     {visibleCompositeRoles.map((role, index) => (
                     <React.Suspense 
-                        key={role.roleName || `composite-role-${index}`}
+                        key={`${role.compositeRoleName}-${role.roleName}-${index}` || `composite-role-${index}`}
                         fallback={<SodCompositeRoleCardSkeleton />}
                       >
                         <SodCompositeRoleCardSuspense

@@ -6,73 +6,13 @@
 'use client';
 
 import React, { Suspense, lazy } from 'react';
-import { Box, Skeleton, Typography, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { SodSimpleRoleCardSkeleton, SodCompositeRoleCardSkeleton } from '../skeleton/SodRoleCardSkeleton';
 
 // Lazy loading des composants lourds
 const SodSimpleRoleCard = lazy(() => import('../display/SodSimpleRoleCard').then(module => ({ default: module.SodSimpleRoleCard })));
 const SodCompositeRoleCard = lazy(() => import('../display/SodCompositeRoleCard').then(module => ({ default: module.SodCompositeRoleCard })));
-
-// Composants de fallback optimisés
-const SimpleRoleCardSkeleton = () => {
-  const theme = useTheme();
-  
-  return (
-    <Box sx={{ 
-      p: 3, 
-      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, 
-      borderRadius: 3,
-      mb: 3,
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
-        <Box sx={{ flex: 1 }}>
-          <Skeleton variant="text" width="60%" height={24} />
-          <Skeleton variant="text" width="40%" height={20} />
-        </Box>
-      </Box>
-      
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Skeleton variant="rounded" width={80} height={32} />
-        <Skeleton variant="rounded" width={100} height={32} />
-        <Skeleton variant="rounded" width={90} height={32} />
-      </Box>
-      
-      <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 2 }} />
-    </Box>
-  );
-};
-
-const CompositeRoleCardSkeleton = () => {
-  const theme = useTheme();
-  
-  return (
-    <Box sx={{ 
-      p: 3, 
-      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, 
-      borderRadius: 3,
-      mb: 3,
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
-        <Box sx={{ flex: 1 }}>
-          <Skeleton variant="text" width="70%" height={24} />
-          <Skeleton variant="text" width="50%" height={20} />
-        </Box>
-      </Box>
-      
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Skeleton variant="rounded" width={80} height={32} />
-        <Skeleton variant="rounded" width={100} height={32} />
-      </Box>
-      
-      <Box sx={{ mb: 2 }}>
-        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 2, mb: 1 }} />
-        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 2 }} />
-      </Box>
-    </Box>
-  );
-};
 
 // Composant de fallback pour les erreurs
 const ErrorFallback = ({ error, retry }: { error: Error; retry: () => void }) => {
@@ -143,7 +83,7 @@ class SodErrorBoundary extends React.Component<
 export const SodSimpleRoleCardSuspense: React.FC<any> = (props) => {
   return (
     <SodErrorBoundary fallback={ErrorFallback}>
-      <Suspense fallback={<SimpleRoleCardSkeleton />}>
+      <Suspense fallback={<SodSimpleRoleCardSkeleton />}>
         <SodSimpleRoleCard {...props} />
       </Suspense>
     </SodErrorBoundary>
@@ -153,7 +93,7 @@ export const SodSimpleRoleCardSuspense: React.FC<any> = (props) => {
 export const SodCompositeRoleCardSuspense: React.FC<any> = (props) => {
   return (
     <SodErrorBoundary fallback={ErrorFallback}>
-      <Suspense fallback={<CompositeRoleCardSkeleton />}>
+      <Suspense fallback={<SodCompositeRoleCardSkeleton />}>
         <SodCompositeRoleCard {...props} />
       </Suspense>
     </SodErrorBoundary>

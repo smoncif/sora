@@ -186,7 +186,7 @@ export const UnifiedRiskSection: React.FC<UnifiedRiskSectionProps> = ({
         mb: 3,
         transition: 'all 0.2s ease',
         '&:hover': {
-          border: `1px solid ${alpha(getBorderColor(), 1.5)}`,
+          border: `1px solid ${alpha(getBorderColor(), 0.5)}`,
         },
       }}
     >

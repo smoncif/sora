@@ -232,9 +232,14 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
                     system: '',
                     actions: [], // Sera enrichi si besoin
                   })),
+                  functionCount: rr.functions.length,
+                  totalActionCount: 0,
                   isRemediated: false,
                   remediationPercentage: 0,
                 })),
+                // Métadonnées conformes au type SodSimpleRole
+                riskCount: riskyRole.riskyForRisks.length,
+                highestRiskLevel: riskyRole.riskyForRisks[0]?.riskLevel || 'LOW',
                 isRemediated: false,
                 remediationPercentage: 0,
               })),
@@ -249,38 +254,62 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
           },
           
           compositeRoles: {
+            // ✅ APLATIR : Créer une entrée par simple role dans chaque composite
             roles: userSession.riskyRoles
               .filter(r => r.roleType === 'COMPOSITE')
-              .map((riskyRole, idx) => ({
-                id: idx + 1,
-                roleName: riskyRole.parentCompositeRole || riskyRole.roleName,
-                roleDescription: riskyRole.roleDescription,
-                simpleRoles: [{
-                  roleName: riskyRole.roleName,
-                  roleDescription: riskyRole.roleDescription,
-                  risks: riskyRole.riskyForRisks.map(rr => ({
-                    riskId: rr.riskId,
-                    riskLevel: rr.riskLevel,
-                    riskDescription: '',
-                    functions: rr.functions.map(funcCode => ({
-                      code: funcCode,
-                      description: '',
-                      system: '',
-                      actions: [],
-                    })),
-                    isRemediated: false,
-                    remediationPercentage: 0,
-                  })),
-                  isExcluded: false,
-                  isRemediated: false,
-                  remediationPercentage: 0,
-                }],
-                isRemediated: false,
-                remediationPercentage: 0,
-              })),
+              .flatMap((compositeRole) => 
+                (compositeRole.simpleRoles || []).map((simpleRole) => ({
+                  // Structure attendue par SodCompositeRole:
+                  // - roleName = le rôle simple
+                  // - compositeRoleName = le composite parent
+                  roleName: simpleRole.roleName,
+                  roleDescription: undefined, // Description du simple (non disponible)
+                  compositeRoleName: compositeRole.roleName, // ← Le composite parent
+                  compositeRoleDescription: compositeRole.roleDescription,
+                  
+                  // Filtrer les risques pour ce rôle simple spécifique
+                  risks: compositeRole.riskyForRisks
+                    .map(rr => {
+                      // Filtrer les fonctions: garder seulement celles où ce simple est présent
+                      const functionsForThisSimple = (simpleRole.functions || [])
+                        .filter(funcCode => (rr.functions || []).includes(funcCode));
+                      
+                      if (functionsForThisSimple.length === 0) return null;
+                      
+                      return {
+                        riskId: rr.riskId,
+                        riskLevel: rr.riskLevel,
+                        riskDescription: '',
+                        functions: functionsForThisSimple.map(funcCode => ({
+                          code: funcCode,
+                          description: '',
+                          system: '',
+                          simpleRoles: [{
+                            roleName: simpleRole.roleName,
+                            roleDescription: undefined,
+                            actions: [], // Sera enrichi si disponible
+                          }],
+                          actionCount: 0,
+                          simpleRoleCount: 1,
+                        })),
+                        functionCount: functionsForThisSimple.length,
+                        totalSimpleRoleCount: 1,
+                        totalActionCount: 0,
+                      };
+                    })
+                    .filter((risk): risk is NonNullable<typeof risk> => risk !== null),
+                  
+                  // Métadonnées
+                  riskCount: compositeRole.riskyForRisks.length,
+                  highestRiskLevel: compositeRole.riskyForRisks[0]?.riskLevel || 'LOW',
+                  involvedSimpleRoleCount: 1, // Une entrée = un simple role
+                }))
+              ),
             metrics: {
               totalRoles: userSession.riskyRoles.filter(r => r.roleType === 'COMPOSITE').length,
-              totalSimpleRoles: 0,
+              totalSimpleRoles: userSession.riskyRoles
+                .filter(r => r.roleType === 'COMPOSITE')
+                .reduce((sum, r) => sum + (r.simpleRoles?.length || 0), 0),
               totalRisks: 0,
               totalFunctions: 0,
               totalActions: 0,
@@ -312,8 +341,34 @@ export const useSodWorkflowOptimized = (config: SodWorkflowConfig): SodWorkflow 
           compositeRoles: newSession.compositeRoles.roles.length,
         });
         
+        console.log('📊 [SESSION USER] Détails composites:', {
+          compositeRolesArray: newSession.compositeRoles.roles,
+          firstComposite: newSession.compositeRoles.roles[0],
+        });
+        
         // Stocker dans le cache TanStack Query
         queryClient.setQueryData(['sod', 'session', sessionId], newSession);
+        
+        console.log('💾 [TANSTACK] Session stockée dans le cache avec clé:', ['sod', 'session', sessionId]);
+        
+        // ✅ SOLUTION : Invalider les requêtes pour forcer la notification des composants
+        queryClient.invalidateQueries({ 
+          queryKey: ['sod', 'session', sessionId],
+          refetchType: 'none' // Ne pas refetch, juste notifier
+        });
+        
+        // ✅ NOUVEAU : Invalider les queries de pagination composite pour forcer le reload
+        queryClient.invalidateQueries({
+          queryKey: ['sod', sessionId, 'roles', 'composite'],
+          refetchType: 'active' // Refetch les queries actives
+        });
+        
+        // ✅ NOUVEAU : Invalider les queries de pagination simple aussi
+        queryClient.invalidateQueries({
+          queryKey: ['sod', sessionId, 'roles', 'simple'],
+          refetchType: 'active' // Refetch les queries actives
+        });
+        
         setActiveSessionId(sessionId);
         uploadedFileRef.current = null;
         

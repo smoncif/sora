@@ -18,7 +18,6 @@ import {
   alpha,
   useTheme,
   Pagination,
-  Skeleton,
   Chip,
   Divider,
 } from '@mui/material';
@@ -34,6 +33,7 @@ import {
   type UserDisplayMode,
 } from './UserSodDisplayModeSwitch';
 import type { UserSodEntry, UserSodMetrics } from 'lib/types/userSodAnalysis';
+import { UserCardSkeleton } from '../skeleton/SodRoleCardSkeleton';
 
 export interface UserSodResultsProps {
   /** Liste des utilisateurs */
@@ -241,15 +241,12 @@ export const UserSodResults: React.FC<UserSodResultsProps> = ({
       {/* Liste des utilisateurs */}
       <Box>
         {isLoading ? (
-          // Skeletons de chargement
-          Array.from({ length: pageSize }).map((_, index) => (
-            <Skeleton
-              key={`skeleton-${index}`}
-              variant="rounded"
-              height={120}
-              sx={{ mb: 2, borderRadius: 3 }}
-            />
-          ))
+          // ✅ Skeletons uniformisés avec le même style que les rôles simples/composites
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {Array.from({ length: pageSize }).map((_, index) => (
+              <UserCardSkeleton key={`skeleton-user-${index}`} />
+            ))}
+          </Box>
         ) : users.length === 0 ? (
           // État vide
           <Paper

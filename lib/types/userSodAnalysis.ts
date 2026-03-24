@@ -344,16 +344,88 @@ export interface UserSodEntry {
  * 
  * RÈGLE : Un rôle est risqué s'il est présent dans TOUTES les fonctions
  * d'un même risque (quelque soit l'utilisateur)
+ * 
+ * @example Rôle simple direct uniquement
+ * ```typescript
+ * {
+ *   roleName: "ZS-DISPLAY-ONLY",
+ *   roleType: 'SIMPLE',
+ *   isDirectOnly: true,
+ *   directFunctions: ['FUNC1', 'FUNC2'],
+ *   parentComposites: []
+ * }
+ * ```
+ * 
+ * @example Rôle simple dans composites uniquement
+ * ```typescript
+ * {
+ *   roleName: "ZD-USER-DEFAULT",
+ *   roleType: 'SIMPLE',
+ *   isCompositeOnly: true,
+ *   compositeFunctions: {
+ *     'FUNC1': ['COMPOSITE_A', 'COMPOSITE_B'],
+ *     'FUNC2': ['COMPOSITE_A', 'COMPOSITE_B']
+ *   },
+ *   parentComposites: ['COMPOSITE_A', 'COMPOSITE_B']
+ * }
+ * ```
+ * 
+ * @example Rôle simple mixte (direct ET dans composite)
+ * ```typescript
+ * {
+ *   roleName: "ZS-GLOBAL-SUPPORT",
+ *   roleType: 'SIMPLE',
+ *   isMixed: true,
+ *   directFunctions: ['FUNC2'],
+ *   compositeFunctions: {
+ *     'FUNC1': ['COMPOSITE_A']
+ *   },
+ *   parentComposites: ['COMPOSITE_A']
+ * }
+ * ```
  */
 export interface UserSodRiskyRole {
   roleName: string;
   roleDescription?: string;
   
-  /** Type de rôle (déterminé par la colonne Composite/Business Role) */
+  /** Type de rôle (SIMPLE = roleProfile, COMPOSITE = agrégation) */
   roleType: 'SIMPLE' | 'COMPOSITE';
   
-  /** Rôle composite parent (si rôle simple dans un composite) */
-  parentCompositeRole?: string;
+  // ============================================
+  // POUR RÔLES SIMPLES : Statut d'affectation
+  // ============================================
+  
+  /** True si le rôle est TOUJOURS affecté directement (colonne composite toujours vide) */
+  isDirectOnly?: boolean;
+  
+  /** True si le rôle est TOUJOURS dans un composite (colonne composite toujours non vide) */
+  isCompositeOnly?: boolean;
+  
+  /** True si le rôle est affecté directement pour certaines fonctions ET dans un composite pour d'autres */
+  isMixed?: boolean;
+  
+  /** Liste des fonctions où le rôle est affecté directement (colonne composite vide) */
+  directFunctions?: string[];
+  
+  /** Map: Fonction → Liste des composites parents pour cette fonction */
+  compositeFunctions?: Record<string, string[]>;
+  
+  /** Liste de TOUS les composites parents (union de toutes les fonctions) */
+  parentComposites?: string[];
+  
+  // ============================================
+  // POUR RÔLES COMPOSITES : Liste des simples
+  // ============================================
+  
+  /** Pour rôles composites : liste des rôles simples contenus avec leurs fonctions */
+  simpleRoles?: Array<{
+    roleName: string;
+    functions: string[]; // Fonctions où ce simple est dans le composite
+  }>;
+  
+  // ============================================
+  // COMMUN : Risques et Utilisateurs
+  // ============================================
   
   /** Risques pour lesquels ce rôle est risqué */
   riskyForRisks: {
@@ -372,6 +444,11 @@ export interface UserSodRiskyRole {
   affectedUserCount: number;
   totalExecutionCount: number;
 }
+
+/**
+ * Statut d'affectation d'un rôle simple
+ */
+export type SimpleRoleAssignmentStatus = 'DIRECT_ONLY' | 'COMPOSITE_ONLY' | 'MIXED';
 
 // ============================================
 // MÉTRIQUES ET SESSION
