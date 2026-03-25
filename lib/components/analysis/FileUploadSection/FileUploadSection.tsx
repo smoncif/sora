@@ -156,12 +156,22 @@ export function FileUploadSection({
                 />
                 
                 <Box sx={{ mt: 3, textAlign: 'center' }}>
-                  <Tooltip title="Téléchargez le modèle Excel à remplir pour l'analyse des rôles métier">
+                  <Tooltip
+                    title={
+                      mode === 'users'
+                        ? "Téléchargez le modèle Excel à remplir pour l'analyse des utilisateurs"
+                        : "Téléchargez le modèle Excel à remplir pour l'analyse des rôles métier"
+                    }
+                  >
                     <Button
                       variant="outlined"
                       color="secondary"
                       startIcon={<DownloadIcon />}
-                      href="/templates/template_role_analysis.xlsx"
+                      href={
+                        mode === 'users'
+                          ? '/templates/template_user_analysis.xlsx'
+                          : '/templates/template_role_analysis.xlsx'
+                      }
                       download
                       sx={{ 
                         borderRadius: 1.5,

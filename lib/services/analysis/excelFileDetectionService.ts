@@ -251,6 +251,7 @@ export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
  */
 function getSheetHeaders(worksheet: XLSX.WorkSheet): string[] {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
     if (jsonData.length === 0) return [];
     
@@ -286,6 +287,24 @@ export async function validateExcelFileForType(
     return { isValid: false, confidence: 0, warnings, errors };
   }
   
+  // Validation stricte sur le nombre de feuilles (critère structurel fiable)
+  const expectedSheetCount =
+    expectedType === 'roles' ? 2 :
+    expectedType === 'users' ? 3 :
+    null; // sod : pas de contrainte fixe ici
+
+  if (expectedSheetCount !== null && detection.sheetCount !== expectedSheetCount) {
+    const expectedSheets = expectedSheetCount === 2 ? '2 feuilles' : '3 feuilles';
+    errors.push(`Format de fichier incompatible avec l'analyse ${expectedType}`);
+    errors.push(`Attendu : ${expectedSheets} — Trouvé : ${detection.sheetCount} feuille(s) (${detection.sheetsFound.join(', ')})`);
+    if (expectedType === 'users' && detection.sheetCount === 2) {
+      errors.push('Ce fichier semble être un template d\'analyse des rôles (2 feuilles). Veuillez utiliser le template utilisateurs (3 feuilles).');
+    } else if (expectedType === 'roles' && detection.sheetCount === 3) {
+      errors.push('Ce fichier semble être un template d\'analyse des utilisateurs (3 feuilles). Veuillez utiliser le template rôles (2 feuilles).');
+    }
+    return { isValid: false, confidence: detection.confidence, warnings, errors };
+  }
+
   if (detection.type !== expectedType) {
     const expectedSheets = 
       expectedType === 'sod' ? '1 feuille' :
