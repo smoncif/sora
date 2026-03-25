@@ -22,6 +22,10 @@ export interface UserTransactionDisplayProps {
   executionMap: Map<string, number>;
   // Mode d'affichage
   mode?: 'compact' | 'detailed';
+  /** Clic sur une pastille : filtre les rôles simples (AnalysisCard) */
+  onTransactionChipClick?: (transaction: string) => void;
+  /** Transaction actuellement sélectionnée pour le filtre (style actif) */
+  activeTransactionFilter?: string | null;
 }
 
 export const UserTransactionDisplay = React.memo(function UserTransactionDisplay({
@@ -30,7 +34,9 @@ export const UserTransactionDisplay = React.memo(function UserTransactionDisplay
   orphanTransactions,
   unusedTransactions,
   executionMap,
-  mode = 'detailed'
+  mode = 'detailed',
+  onTransactionChipClick,
+  activeTransactionFilter = null,
 }: UserTransactionDisplayProps) {
   const theme = useTheme();
 
@@ -74,9 +80,15 @@ export const UserTransactionDisplay = React.memo(function UserTransactionDisplay
     });
 
     // Tri par couleur puis par usage (plus utilisées en premier)
-    const sortByCategoryAndUsage = (a: any, b: any) => {
-      // Ordre des catégories: selected (vert) -> unselected (gris) -> orphan (rouge)
-      const categoryOrder = { selected: 0, unselected: 1, orphan: 2, unused: 3 };
+    const categoryOrder: Record<
+      'selected' | 'unselected' | 'orphan' | 'unused',
+      number
+    > = { selected: 0, unselected: 1, orphan: 2, unused: 3 };
+
+    const sortByCategoryAndUsage = (
+      a: (typeof line1Transactions)[number] | (typeof line2Transactions)[number],
+      b: (typeof line1Transactions)[number] | (typeof line2Transactions)[number]
+    ) => {
       const categoryDiff = categoryOrder[a.category] - categoryOrder[b.category];
       
       if (categoryDiff !== 0) return categoryDiff;
@@ -156,32 +168,78 @@ export const UserTransactionDisplay = React.memo(function UserTransactionDisplay
     }
   };
 
-  // Composant pour afficher une transaction
-  const TransactionChip = ({ transaction, category, usage }: {
+  const handleChipKeyDown = React.useCallback(
+    (e: React.KeyboardEvent, transaction: string) => {
+      if (!onTransactionChipClick) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onTransactionChipClick(transaction);
+      }
+    },
+    [onTransactionChipClick]
+  );
+
+  const TransactionChip = ({
+    transaction,
+    category,
+    usage,
+  }: {
     transaction: string;
     category: string;
     usage: number;
-  }) => (
-    <Box sx={getCategoryStyle(category)}>
-      <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-        {transaction}
-      </Typography>
-      <Typography 
-        variant="caption" 
-        sx={{ 
-          fontSize: '0.65rem', 
-          opacity: 0.8,
-          ml: 0.5,
-          px: 0.5,
-          py: 0.25,
-          borderRadius: 0.5,
-          bgcolor: alpha(getCategoryColor(category), 0.1),
+  }) => {
+    const isActive = activeTransactionFilter === transaction;
+    const base = getCategoryStyle(category);
+    const clickable = Boolean(onTransactionChipClick);
+
+    return (
+      <Box
+        role={clickable ? 'button' : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        onClick={clickable ? () => onTransactionChipClick!(transaction) : undefined}
+        onKeyDown={
+          clickable
+            ? (e: React.KeyboardEvent<HTMLDivElement>) =>
+                handleChipKeyDown(e, transaction)
+            : undefined
+        }
+        sx={{
+          ...base,
+          cursor: clickable ? 'pointer' : 'default',
+          ...(isActive && {
+            borderWidth: 2,
+            borderStyle: 'solid',
+            borderColor: theme.palette.primary.main,
+            boxShadow: `0 0 0 1px ${alpha(theme.palette.primary.main, 0.35)}`,
+          }),
+          ...(clickable && {
+            '&:hover': {
+              opacity: 0.92,
+              filter: 'brightness(1.03)',
+            },
+          }),
         }}
       >
-        {usage}
-      </Typography>
-    </Box>
-  );
+        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
+          {transaction}
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: '0.65rem',
+            opacity: 0.8,
+            ml: 0.5,
+            px: 0.5,
+            py: 0.25,
+            borderRadius: 0.5,
+            bgcolor: alpha(getCategoryColor(category), 0.1),
+          }}
+        >
+          {usage}
+        </Typography>
+      </Box>
+    );
+  };
 
   return (
     <Box sx={{ width: '100%' }}>

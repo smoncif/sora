@@ -410,6 +410,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [expandedRole, setExpandedRole] = React.useState<string | null>(null);
+  const [transactionFilter, setTransactionFilter] = React.useState<string | null>(null);
   
   // Nom de l'élément selon le mode
   const itemId = analysis.businessRole;
@@ -856,6 +857,19 @@ export const AnalysisCard = React.memo(function AnalysisCard({
     return sorted;
   }, [enrichedRoles, stableFilterSort]);
 
+  const handleTransactionChipClick = React.useCallback((tx: string) => {
+    setTransactionFilter((prev) => (prev === tx ? null : tx));
+    setPage(0);
+  }, []);
+
+  const rolesAfterTransactionFilter = React.useMemo(() => {
+    if (!transactionFilter) return sortedEnrichedRoles;
+    return sortedEnrichedRoles.filter((role) => {
+      const txs = staticData.transactionsByRole.get(role.roleName) ?? [];
+      return txs.includes(transactionFilter);
+    });
+  }, [sortedEnrichedRoles, transactionFilter, staticData.transactionsByRole]);
+
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -904,8 +918,11 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   // 🚀 OPTIMISÉ : Pagination memoizée pour éviter recalculs
   const paginatedRoles = React.useMemo(() => {
-    return sortedEnrichedRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [sortedEnrichedRoles, page, rowsPerPage]);
+    return rolesAfterTransactionFilter.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    );
+  }, [rolesAfterTransactionFilter, page, rowsPerPage]);
 
   // Composant de tableau pour les tooltips avec tri - VERSION CORRIGÉE
   const TransactionTooltipTable = React.useCallback(({ 
@@ -1256,6 +1273,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               unusedTransactions={dynamicData.unusedTransactions}
               executionMap={staticData.txExecutionMap}
               mode="detailed"
+              onTransactionChipClick={handleTransactionChipClick}
+              activeTransactionFilter={transactionFilter}
             />
           ) : (
             /* Mode utilisateur - Nouveau composant d'affichage unifié des transactions */
@@ -1275,6 +1294,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 unusedTransactions={dynamicData.unusedTransactions}
                 executionMap={staticData.txExecutionMap}
                 mode="detailed"
+                onTransactionChipClick={handleTransactionChipClick}
+                activeTransactionFilter={transactionFilter}
               />
             </Box>
           )}
@@ -1483,7 +1504,9 @@ export const AnalysisCard = React.memo(function AnalysisCard({
           />
           
           <Typography variant="caption" color="text.secondary">
-            {sortedEnrichedRoles.length} rôle(s) affiché(s) sur {analysis.simpleRoles.length}
+            {rolesAfterTransactionFilter.length} rôle(s) affiché(s) sur{' '}
+            {analysis.simpleRoles.length}
+            {transactionFilter ? ` — filtre transaction : ${transactionFilter}` : ''}
           </Typography>
         </Box>
 
