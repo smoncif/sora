@@ -6,6 +6,12 @@
 2. **Projet Supabase**: Ton projet Supabase doit être configuré et fonctionnel
 3. **Repository GitHub**: Le code doit être sur GitHub
 
+## Branche de production (pourquoi Vercel affiche un SHA « ancien »)
+
+- Vercel ne déploie la **production** que pour **une** branche Git, réglée dans **Projet → Settings → Git → Production Branch** (souvent `main` ; ce dépôt utilise aussi `optimize/focus-buttons-performance` comme branche par défaut sur GitHub).
+- Les branches automatiques `vercel/*` (ex. correctifs CVE) peuvent contenir un commit affiché sur le dashboard (ex. `4b5e66b`) **sans** inclure les derniers commits de ta branche de travail : il faut **fusionner** ces flux ou pointer la Production Branch vers la branche qui doit être la vérité.
+- **À faire dans le dashboard** : vérifier **Production Branch**, comparer avec les branches GitHub, puis **Deployments → Redeploy** si besoin après un merge.
+
 ## Variables d'Environnement Requises
 
 ### Sur Vercel Dashboard
