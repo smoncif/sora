@@ -53,12 +53,38 @@ export const useScoreCalculation = (
 
   // Calcul mémorisé des données dynamiques
   const dynamicData = useMemo(() => {
-    return calculateDynamicData(analysis.businessRole, selectedRoles, config);
+    const tStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const result = calculateDynamicData(analysis.businessRole, selectedRoles, config);
+    const tEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    const tMs = Math.round(tEnd - tStart);
+    // Log uniquement si ça dépasse un seuil pour éviter de spammer la console
+    if (tMs > 10) {
+      console.log('⏱️ [useScoreCalculation] calculateDynamicData', {
+        businessRole: analysis.businessRole,
+        tMs,
+      });
+    }
+
+    return result;
   }, [analysis.businessRole, selectedRoles, config.businessRoleTransactions, config.simpleRoleTransactions]);
 
   // Calcul mémorisé des rôles enrichis
   const enrichedRoles = useMemo(() => {
-    return calculateEnrichedRoles(analysis, selectedRoles, config);
+    const tStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const result = calculateEnrichedRoles(analysis, selectedRoles, config);
+    const tEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    const tMs = Math.round(tEnd - tStart);
+    if (tMs > 10) {
+      console.log('⏱️ [useScoreCalculation] calculateEnrichedRoles', {
+        businessRole: analysis.businessRole,
+        tMs,
+        enrichedRoles: result.length,
+      });
+    }
+
+    return result;
   }, [
     analysis,
     selectedRoles,

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { CoverageAnalysis, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 
 /**
@@ -241,8 +243,18 @@ export function calculateEnrichedRoles(
   selectedRoles: Set<string>,
   config: ScoreCalculationConfig
 ): EnrichedRole[] {
+  const debugStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
   // Nettoyer les caches périodiquement
   cleanupCaches();
+
+  const totalSimpleRoles = analysis.simpleRoles.length;
+  let chunkCount = 0;
+  let detailsCacheHits = 0;
+  let detailsCacheMisses = 0;
+  let firstChunkMs: number | null = null;
+  const firstChunkRoleDetailsMs: number[] = [];
+  let firstChunkRoleDebugCount = 0;
 
   // Calculer les données dynamiques
   const dynamicData = calculateDynamicData(analysis.businessRole, selectedRoles, config);
@@ -256,14 +268,32 @@ export function calculateEnrichedRoles(
   // Processing en chunks pour éviter les blocages UI (comme dans l'original)
   const CHUNK_SIZE = 50;
   const processChunk = (startIdx: number, endIdx: number) => {
-    return analysis.simpleRoles.slice(startIdx, endIdx).map(role => {
+    const chunkRoles = analysis.simpleRoles.slice(startIdx, endIdx);
+    const tChunkStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    const mapped = chunkRoles.map(role => {
       // 🚀 CACHE GLOBAL : Vérifier le cache des détails (EXACT depuis AnalysisCard)
       const globalCacheKey = `${analysis.businessRole}:${role.roleName}:${selectionHash}`;
       let details = detailsGlobalCache.get(globalCacheKey);
       
       if (!details) {
+        const tGetDetailsStart =
+          firstChunkRoleDebugCount < 3 && chunkCount === 0
+            ? typeof performance !== 'undefined' ? performance.now() : Date.now()
+            : null;
+
         details = getDetails(role.roleName);
         detailsGlobalCache.set(globalCacheKey, details);
+
+        if (tGetDetailsStart != null) {
+          const tGetDetailsEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          firstChunkRoleDebugCount += 1;
+          firstChunkRoleDetailsMs.push(Math.round(tGetDetailsEnd - tGetDetailsStart));
+        }
+
+        detailsCacheMisses += 1;
+      } else {
+        detailsCacheHits += 1;
       }
 
       // 🚀 CALCUL OPTIMISÉ : Couverture dynamique avec cache (EXACT depuis AnalysisCard)
@@ -347,6 +377,15 @@ export function calculateEnrichedRoles(
         })
       };
     });
+
+    const tChunkEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const chunkMs = Math.round(tChunkEnd - tChunkStart);
+    if (chunkCount === 0) {
+      firstChunkMs = chunkMs;
+    }
+    chunkCount += 1;
+
+    return mapped;
   };
 
   // Traitement par chunks (EXACT depuis AnalysisCard)
@@ -365,6 +404,25 @@ export function calculateEnrichedRoles(
     : allProcessedRoles.filter(role => 
         config.shouldShowZeroCoverage || role.coveragePercentage > 0
       );
+
+  const debugEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const totalMs = Math.round(debugEnd - debugStart);
+
+  // Log de diagnostic seulement si le calcul est significatif
+  if (totalMs > 50) {
+    console.log('⏱️ [scoreCalculation] calculateEnrichedRoles summary', {
+      businessRole: analysis.businessRole,
+      totalSimpleRoles,
+      chunkSize: CHUNK_SIZE,
+      chunkCount,
+      totalMs,
+      filteredRoles: filteredRoles.length,
+      detailsCacheHits,
+      detailsCacheMisses,
+      firstChunkMs,
+      firstChunkRoleDetailsMs,
+    });
+  }
 
   return filteredRoles;
 }

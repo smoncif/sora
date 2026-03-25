@@ -23,7 +23,7 @@ export interface FileUploadSectionProps {
   importType: 'new' | 'saved' | 'resume';
   loading: boolean;
   error: string | null;
-  user: any;
+  user: { id?: string } | null;
   mode?: 'roles' | 'users'; // Ajout de la prop mode pour compatibilité TypeScript
 
   // Handlers
@@ -146,7 +146,7 @@ export function FileUploadSection({
               <Box>
                 <FileUpload
                   accept=".xlsx,.xls"
-                  maxSize={100}
+                  maxSize={50}
                   onFileSelect={onFileUpload}
                   loading={loading}
                   error={error}
@@ -206,7 +206,7 @@ export function FileUploadSection({
                 
                 <FileUpload
                   accept=".xlsx,.xls"
-                  maxSize={100}
+                  maxSize={50}
                   onFileSelect={handleResumeFromFileWithLog}
                   loading={loading}
                   error={error}

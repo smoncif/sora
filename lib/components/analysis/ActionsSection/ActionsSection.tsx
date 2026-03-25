@@ -4,13 +4,8 @@ import React from 'react';
 import { 
   Box,
   Button,
-  Typography,
   Divider,
   Slide,
-  Fade,
-  Paper,
-  CircularProgress,
-  LinearProgress,
   useTheme,
   alpha,
 } from '@mui/material';
@@ -21,10 +16,12 @@ import {
   TableChart as TableChartIcon,
   Share as ShareIcon,
 } from '@mui/icons-material';
+import { AnalysisParsingProgress } from 'lib/components/analysis/ParsingProgress/AnalysisParsingProgress';
+import type { SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
 
 export interface ActionsSectionProps {
   // États
-  analysisResult: any;
+  analysisResult: SimplifiedAnalysisResult | null;
   loading: boolean;
   processingStep?: string;
   progress?: number;
@@ -251,46 +248,11 @@ export function ActionsSection({
         </Slide>
       )}
 
-      {/* Indicateur de progression - Design moderne */}
-      {loading && (
-        <Fade in timeout={300}>
-          <Paper 
-            elevation={1}
-            sx={{ 
-              p: 3, 
-              mb: 4,
-              border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.secondary.main, 0.02),
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <CircularProgress size={20} sx={{ color: theme.palette.primary.main }} />
-              <Typography variant="body1" sx={{ 
-                fontWeight: 500,
-                color: theme.palette.text.primary,
-              }}>
-                {processingStep || 'Traitement en cours...'}
-              </Typography>
-            </Box>
-            {progress && progress > 0 && (
-              <LinearProgress 
-                variant="determinate" 
-                value={progress} 
-                sx={{ 
-                  height: 6,
-                  borderRadius: 3,
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  '& .MuiLinearProgress-bar': {
-                    background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                    borderRadius: 3,
-                  }
-                }}
-              />
-            )}
-          </Paper>
-        </Fade>
-      )}
+      <AnalysisParsingProgress
+        loading={loading}
+        progress={progress}
+        message={processingStep || 'Traitement en cours...'}
+      />
     </>
   );
 } 

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import {
@@ -590,15 +590,18 @@ export const AnalysisCard = React.memo(function AnalysisCard({
     }
     
     // Calcul direct et simple des données pour ce rôle métier
+    const tStaticStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const currentBusinessRoleTransactions = businessRoleTransactions.filter(tx => 
       tx.businessRole === analysis.businessRole
     );
+    const tAfterFilter = typeof performance !== 'undefined' ? performance.now() : Date.now();
     
     const businessRoleTxSet = new Set(currentBusinessRoleTransactions.map(tx => tx.transaction));
     const txExecutionMap = new Map<string, number>();
     currentBusinessRoleTransactions.forEach((tx: any) => {
       txExecutionMap.set(tx.transaction, tx.executionCount || 0);
     });
+    const tAfterMap = typeof performance !== 'undefined' ? performance.now() : Date.now();
     
     const transactionsByRole = new Map<string, string[]>();
     if (simpleRoleTransactions && Array.isArray(simpleRoleTransactions)) {
@@ -609,6 +612,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
         transactionsByRole.get(t.simpleRole)!.push(t.transaction);
       });
     }
+    const tAfterSimpleRoleMap = typeof performance !== 'undefined' ? performance.now() : Date.now();
     
     const allCoverableTransactions = new Set<string>();
     analysis.simpleRoles.forEach(role => {
@@ -616,9 +620,25 @@ export const AnalysisCard = React.memo(function AnalysisCard({
         allCoverableTransactions.add(tx);
       });
     });
+    const tAfterCoverable = typeof performance !== 'undefined' ? performance.now() : Date.now();
     
     const orphanTransactions = analysis.uniqueTransactions.filter(tx => !allCoverableTransactions.has(tx));
     const maxAchievableTransactions = analysis.uniqueTransactions.length - orphanTransactions.length;
+
+    const tStaticEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (currentBusinessRoleTransactions.length > 0 || businessRoleTransactions.length > 0) {
+      console.log('⏱️ [AnalysisCard] staticData', {
+        businessRole: analysis.businessRole,
+        businessRoleTransactions: businessRoleTransactions.length,
+        simpleRoleTransactions: simpleRoleTransactions?.length ?? 0,
+        currentBusinessRoleTransactions: currentBusinessRoleTransactions.length,
+        filterMs: Math.round(tAfterFilter - tStaticStart),
+        mapMs: Math.round(tAfterMap - tAfterFilter),
+        simpleRoleMapMs: Math.round(tAfterSimpleRoleMap - tAfterMap),
+        coverableMs: Math.round(tAfterCoverable - tAfterSimpleRoleMap),
+        totalMs: Math.round(tStaticEnd - tStaticStart),
+      });
+    }
 
     return {
       businessRoleTxSet,
@@ -810,7 +830,8 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
   // 🚀 TRI OPTIMISÉ : Application du tri sur les rôles enrichis (sans mutation)
   const sortedEnrichedRoles = React.useMemo(() => {
-    return [...enrichedRoles].sort((a, b) => {
+    const tSortStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const sorted = [...enrichedRoles].sort((a, b) => {
       if (stableFilterSort.sortField === 'roleName') {
         const comparison = a.roleName.localeCompare(b.roleName);
         return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
@@ -822,6 +843,17 @@ export const AnalysisCard = React.memo(function AnalysisCard({
       
       return stableFilterSort.sortDirection === 'asc' ? comparison : -comparison;
     });
+    const tSortEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    if (enrichedRoles.length > 0) {
+      console.log('⏱️ [AnalysisCard] sortedEnrichedRoles', {
+        businessRole: analysis.businessRole,
+        enrichedRoles: enrichedRoles.length,
+        sortField: stableFilterSort.sortField,
+        sortMs: Math.round(tSortEnd - tSortStart),
+      });
+    }
+    return sorted;
   }, [enrichedRoles, stableFilterSort]);
 
   const handleChangePage = (event: unknown, newPage: number) => {

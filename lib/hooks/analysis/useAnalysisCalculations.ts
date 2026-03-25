@@ -2,6 +2,12 @@ import { useMemo } from 'react';
 import { SimplifiedAnalysisResult, CoverageAnalysis } from 'lib/types/roleAnalysis';
 import { AnalysisMode } from 'lib/types/analysis';
 
+declare global {
+  interface Window {
+    __analysisPrecomputeEndAt?: number;
+  }
+}
+
 export interface AnalysisCalculationsConfig {
   analysisResult: SimplifiedAnalysisResult | null;
   primaryFilter: string;
@@ -73,7 +79,7 @@ export const useAnalysisCalculations = (
     }
     
     return filtered;
-  }, [analysisResult, primaryFilter, focusedItem, mode]);
+  }, [analysisResult, primaryFilter, focusedItem]);
   
   // 📄 CALCUL : Éléments à afficher (avec pagination)
   const itemsToShow = useMemo(() => {
@@ -90,6 +96,19 @@ export const useAnalysisCalculations = (
   
   // 📈 CALCUL : Données des transactions non couvertes (format compatible OverviewStatsSection)
   const uncoveredTransactionsData = useMemo(() => {
+    const precomputeEndAt =
+      typeof window !== 'undefined' ? window.__analysisPrecomputeEndAt : undefined;
+    const nowAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const delaySincePrecompute =
+      precomputeEndAt != null ? Math.round(nowAt - precomputeEndAt) : null;
+
+    if (delaySincePrecompute != null) {
+      console.log('⏱️ [analysis] uncoveredTransactionsData start', {
+        mode,
+        delaySincePrecomputeMs: delaySincePrecompute,
+      });
+    }
+
     if (!analysisResult) {
       return {
         count: 0,
@@ -184,10 +203,12 @@ export const useAnalysisCalculations = (
       };
     } else {
       // Mode rôles (existant)
+      const tUncoveredStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const allBusinessTransactions = new Map<string, { transaction: string; executionCount: number; item: string }>();
       const coveredTransactions = new Set<string>();
       
       // Indexer toutes les transactions métier
+      const tIndexStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
       analysisResult.businessRoleTransactions.forEach(tx => {
         const key = `${tx.transaction}_${tx.businessRole}`;
         allBusinessTransactions.set(key, {
@@ -196,16 +217,20 @@ export const useAnalysisCalculations = (
           item: tx.businessRole
         });
       });
+      const tIndexEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
       
       // Identifier les transactions couvertes par les rôles simples
+      const tCoveredStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
       analysisResult.simpleRoleTransactions.forEach(tx => {
         coveredTransactions.add(tx.transaction);
       });
+      const tCoveredEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
       
       // Filtrer les transactions non couvertes
       const uncoveredList: Array<{ transaction: string; executionCount: number; businessRole: string }> = [];
       let totalExecutions = 0;
       
+      const tUncoveredFilterStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
       allBusinessTransactions.forEach(txData => {
         if (!coveredTransactions.has(txData.transaction)) {
           uncoveredList.push({
@@ -215,6 +240,18 @@ export const useAnalysisCalculations = (
           });
           totalExecutions += txData.executionCount;
         }
+      });
+      const tUncoveredFilterEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+      const tUncoveredEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      console.log('⏱️ [analysis] uncoveredTransactionsData(roles) done', {
+        tTotalMs: Math.round(tUncoveredEnd - tUncoveredStart),
+        tIndexMs: Math.round(tIndexEnd - tIndexStart),
+        tCoveredMs: Math.round(tCoveredEnd - tCoveredStart),
+        tFilterMs: Math.round(tUncoveredFilterEnd - tUncoveredFilterStart),
+        businessRoleTransactions: analysisResult.businessRoleTransactions.length,
+        simpleRoleTransactions: analysisResult.simpleRoleTransactions.length,
+        uncoveredItems: uncoveredList.length,
       });
       
       return {

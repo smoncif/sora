@@ -1,12 +1,12 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { SimplifiedAnalysisResult, BusinessRoleTransaction, SimpleRoleTransaction } from 'lib/types/roleAnalysis';
 import { 
-  parseExcelFile, 
-  calculateCoverageAnalysis, 
-  createSimplifiedAnalysisResult 
+  calculateCoverageAnalysis
 } from 'lib/services/role/simplifiedAnalysisService';
 import { parseResumeFile, validateResumeFile } from 'lib/services/analysis/resumeAnalysisService';
 import { getSavedAnalysisById } from 'lib/services/analysis/savedAnalysisService';
+import { useAnalysisExcelParserWorker } from './useAnalysisExcelParserWorker';
 import * as XLSX from 'xlsx';
 
 // Types pour la gestion des fichiers
@@ -47,6 +47,10 @@ export interface AnalysisFileManager {
   actions: FileManagerActions;
 }
 
+interface AnalysisCacheLike {
+  precomputeCoverageAnalysis?: (analysis: SimplifiedAnalysisResult) => void;
+}
+
 // Callbacks optionnels pour les événements
 export interface FileManagerCallbacks {
   onAnalysisResult?: (result: SimplifiedAnalysisResult | null) => void;
@@ -69,10 +73,20 @@ const initialState: FileManagerState = {
 
 export const useAnalysisFileManager = (
   callbacks?: FileManagerCallbacks,
-  cache?: any, // 🚀 OPTIMISATION : Ajouter le cache comme paramètre
+  cache?: AnalysisCacheLike, // 🚀 OPTIMISATION : Ajouter le cache comme paramètre
   mode?: 'roles' | 'users' // Mode d'analyse pour déterminer le parser
 ): AnalysisFileManager => {
   const [state, setState] = useState<FileManagerState>(initialState);
+  const analysisParser = useAnalysisExcelParserWorker();
+  const parseAnalysisFileMutation = useMutation({
+    mutationFn: async ({
+      file,
+      fileType,
+    }: {
+      file: File;
+      fileType: 'roles' | 'users';
+    }) => analysisParser.parseFile(file, fileType),
+  });
   
   // 🔒 STABILISÉ : Mémoriser les callbacks avec clé stable
   const memoizedCallbacks = useMemo(() => callbacks, [callbacks]);
@@ -112,15 +126,34 @@ export const useAnalysisFileManager = (
     setState(prev => ({ ...prev, processingStep: step }));
     memoizedCallbacks?.onProcessingStep?.(step);
   }, [memoizedCallbacks]);
+
+  // Synchronise la progression du worker avec l'UI globale
+  useEffect(() => {
+    if (!analysisParser.parsing || !analysisParser.progress) {
+      return;
+    }
+
+    setProgress(analysisParser.progress.progress);
+    setProcessingStep(analysisParser.progress.message);
+  }, [analysisParser.parsing, analysisParser.progress, setProgress, setProcessingStep]);
   
   // Action principale : Upload et traitement de fichier
   const handleFileUpload = useCallback(async (file: File) => {
+    const tHandleStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
     setLoading(true);
     setError(null);
     setProgress(0);
     setProcessingStep('Début de l\'analyse...');
     
     try {
+      // Limite produit stricte définie pour éviter les crashes navigateur
+      const maxFileSize = 50 * 1024 * 1024;
+      if (file.size > maxFileSize) {
+        throw new Error(
+          `Le fichier est trop volumineux (${Math.round(file.size / 1024 / 1024)}MB). Limite stricte: 50MB`
+        );
+      }
+
       setProgress(5);
       setProcessingStep('Détection du type de fichier...');
       
@@ -150,58 +183,83 @@ export const useAnalysisFileManager = (
         if (detection.type === 'unknown' || detection.confidence < 60) {
           throw new Error(`Impossible de déterminer le type de fichier Excel.\nRaisons: ${detection.reasoning.join(', ')}\nFeuilles trouvées: ${detection.sheetsFound.join(', ')}`);
         }
+
+        if (detection.type !== 'roles' && detection.type !== 'users') {
+          throw new Error(
+            `Type de fichier détecté non supporté pour ce module: ${detection.type}. ` +
+            'Utilisez un fichier dédié à l’analyse des rôles métier ou des utilisateurs.'
+          );
+        }
         
         detectedType = detection.type;
         setProcessingStep(`Type détecté: analyse ${detectedType} (confiance: ${detection.confidence}%)`);
       }
       
       setProgress(15);
-      setProcessingStep('Lecture du fichier Excel...');
+      setProcessingStep('Préparation du parsing en worker...');
       
-      // 🚀 PARSING ADAPTATIF : Router vers le bon parser selon le type détecté
-      let businessRoleTransactions, simpleRoleTransactions, userAnalysisData = null;
-      
-      if (detectedType === 'users') {
-        // Parser pour utilisateurs (3 feuilles) - Import direct pour éviter les problèmes d'import dynamique
-        try {
-          const userParsingModule = require('../../services/analysis/userAnalysisParsingService');
-          const userParsingResult = await userParsingModule.parseUserExcelFile(file);
-          
-          // Transformer les données utilisateurs au format d'analyse standard
-          const transformedData = userParsingModule.transformUserDataToAnalysisFormat(userParsingResult);
-          businessRoleTransactions = transformedData.businessRoleTransactions;
-          simpleRoleTransactions = transformedData.simpleRoleTransactions;
-          userAnalysisData = transformedData.userAnalysisData;
-          
-          setProcessingStep('Données utilisateurs parsées avec succès...');
-        } catch (error) {
-          console.error('Erreur lors de l\'import du parser utilisateurs:', error);
-          throw new Error(`Impossible de charger le parser utilisateurs: ${error}`);
-        }
-      } else {
-        // Parser pour rôles (2 feuilles) - logique existante
-        const { parseExcelFile } = await import('lib/services/role/simplifiedAnalysisService');
-        const roleParsingResult = await parseExcelFile(file);
-        businessRoleTransactions = roleParsingResult.businessRoleTransactions;
-        simpleRoleTransactions = roleParsingResult.simpleRoleTransactions;
-        
-        setProcessingStep('Données rôles parsées avec succès...');
+      // 🚀 PARSING DÉPORTÉ : exécution dans un Web Worker pour éviter de bloquer l'UI
+      const parsedDataWithData = await parseAnalysisFileMutation.mutateAsync({
+        file,
+        fileType: detectedType,
+      });
+      const tAfterWorkerParse = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const businessRoleTransactions: BusinessRoleTransaction[] = parsedDataWithData.businessRoleTransactions;
+      const simpleRoleTransactions: SimpleRoleTransaction[] = parsedDataWithData.simpleRoleTransactions;
+      const finalUserAnalysisData = parsedDataWithData.userAnalysisData;
+
+      if (parsedDataWithData.warnings.length > 0) {
+        console.warn('Avertissements lors du parsing:', parsedDataWithData.warnings);
       }
+
+      console.log('⏱️ [analysis upload] after worker COMPLETE', {
+        fileType: detectedType,
+        tSinceStartMs: Math.round(tAfterWorkerParse - tHandleStart),
+        businessRoleTransactions: businessRoleTransactions.length,
+        simpleRoleTransactions: simpleRoleTransactions.length,
+        warnings: parsedDataWithData.warnings.length,
+      });
+
+      setProcessingStep(
+        detectedType === 'users'
+          ? 'Données utilisateurs parsées avec succès...'
+          : 'Données rôles parsées avec succès...'
+      );
       
       setProgress(35);
       setProcessingStep('Traitement des données...');
+
+      // Mesurer quand le navigateur reprend pour un repaint
+      // Si ce log est retardé, alors le thread UI est bloqué (et l'utilisateur
+      // voit "Parsing terminé" visuellement plus longtemps que prévu).
+      if (typeof window !== 'undefined' && typeof requestAnimationFrame !== 'undefined') {
+        const tRafStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        requestAnimationFrame(() => {
+          const tRafEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          console.log('⏱️ [analysis upload] rAF after step35 repaint', {
+            delayMs: Math.round(tRafEnd - tRafStart),
+          });
+        });
+      }
       
       // Calcul de l'analyse de couverture (même logique pour les 2 types)
+      const tCoverageStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const { calculateCoverageAnalysis } = await import('lib/services/role/simplifiedAnalysisService');
       const analysis = calculateCoverageAnalysis(
         businessRoleTransactions,
         simpleRoleTransactions,
         0 // minCoverageThreshold
       );
+      const tCoverageEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      console.log('⏱️ [analysis upload] calculateCoverageAnalysis done', {
+        tMs: Math.round(tCoverageEnd - tCoverageStart),
+        coverageAnalyses: analysis.length,
+      });
       setProgress(60);
       setProcessingStep('Génération des résultats...');
       
       // Création du résultat simplifié
+      const tCreateStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const { createSimplifiedAnalysisResult } = await import('lib/services/role/simplifiedAnalysisService');
       const baseResult = createSimplifiedAnalysisResult(
         {
@@ -223,22 +281,31 @@ export const useAnalysisFileManager = (
         file.name,
         `Analyse ${detectedType} importée`
       );
+      const tCreateEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      console.log('⏱️ [analysis upload] createSimplifiedAnalysisResult done', {
+        tMs: Math.round(tCreateEnd - tCreateStart),
+        coverageAnalyses: baseResult.coverageAnalyses?.length ?? null,
+      });
       
       // 🔧 ENRICHIR avec les données spécifiques utilisateurs si nécessaire
-      console.log('🔍 DEBUG userAnalysisData:', userAnalysisData);
-      console.log('🔍 DEBUG detectedType:', detectedType);
-      console.log('🔍 DEBUG baseResult before:', baseResult);
+      // NOTE: logs “massifs” supprimés (baseResult contient de gros tableaux)
       
-      if (detectedType === 'users' && userAnalysisData) {
-        (baseResult as any).userAnalysisData = userAnalysisData;
-        (baseResult as any).analysisMode = 'users';
-        console.log('🔍 DEBUG userAnalysisData assigned successfully');
+      type ExtendedSimplifiedAnalysisResult = SimplifiedAnalysisResult & {
+        userAnalysisData?: {
+          users: { id: string; transactions: string[]; executionCount: number }[];
+          businessRoleMappings: { businessRole: string; simpleRole: string }[];
+        };
+        analysisMode?: 'roles' | 'users';
+      };
+
+      const enrichedBaseResult = baseResult as ExtendedSimplifiedAnalysisResult;
+
+      if (detectedType === 'users' && finalUserAnalysisData) {
+        enrichedBaseResult.userAnalysisData = finalUserAnalysisData;
+        enrichedBaseResult.analysisMode = 'users';
       } else {
-        (baseResult as any).analysisMode = 'roles';
-        console.log('🔍 DEBUG using roles mode');
+        enrichedBaseResult.analysisMode = 'roles';
       }
-      
-      console.log('🔍 DEBUG baseResult after:', baseResult);
       
       setProgress(80);
       
@@ -246,8 +313,14 @@ export const useAnalysisFileManager = (
       let result = baseResult;
       if (mode === 'roles') {
         setProcessingStep('Enrichissement avec les licences...');
+        const tEnrichStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const { enrichAnalysisWithLicenses } = await import('lib/services/license/licenseService');
         result = await enrichAnalysisWithLicenses(baseResult);
+        const tEnrichEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        console.log('⏱️ [analysis upload] enrichAnalysisWithLicenses done', {
+          tMs: Math.round(tEnrichEnd - tEnrichStart),
+          coverageAnalyses: result.coverageAnalyses?.length ?? null,
+        });
       } else {
         setProcessingStep('Finalisation...');
       }
@@ -265,7 +338,20 @@ export const useAnalysisFileManager = (
         setProgress(95);
         setProcessingStep('Optimisation des performances...');
         try {
+          const tPrecomputeStart =
+            typeof performance !== 'undefined' ? performance.now() : Date.now();
           cache.precomputeCoverageAnalysis(result);
+          const tPrecomputeEnd =
+            typeof performance !== 'undefined' ? performance.now() : Date.now();
+          console.log('⏱️ [analysis upload] precomputeCoverageAnalysis done', {
+            tMs: Math.round(tPrecomputeEnd - tPrecomputeStart),
+          });
+
+          // Marqueur debug: utile pour mesurer le délai réel avant l'exécution
+          // du calcul uncoveredTransactionsData dans useAnalysisCalculations.
+          if (typeof window !== 'undefined') {
+            window.__analysisPrecomputeEndAt = tPrecomputeEnd;
+          }
         } catch (cacheError) {
           console.warn('Erreur lors du pré-calcul du cache (non critique):', cacheError);
         }
@@ -288,7 +374,7 @@ export const useAnalysisFileManager = (
       setProgress(0);
       setProcessingStep('');
     }
-  }, [setLoading, setError, setProgress, setProcessingStep, setAnalysisResult, setImportType, setLoadedAnalysisId, cache]);
+  }, [cache, mode, parseAnalysisFileMutation, setAnalysisResult, setError, setImportType, setLoadedAnalysisId, setLoading, setProcessingStep, setProgress]);
   
   // Action : Charger une analyse sauvegardée
   const handleLoadSavedAnalysis = useCallback(async (analysisId: string, userId?: string) => {
@@ -411,10 +497,10 @@ export const useAnalysisFileManager = (
             const arrayBuffer = await file.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             
-            // Vérifier les feuilles attendues
-            const expectedSheets = ['Metadata', 'BusinessRoleTransactions', 'SimpleRoleTransactions', 'UserSelections', 'ProgressInfo'];
-            const missingSheets = expectedSheets.filter(sheet => !workbook.SheetNames.includes(sheet));
-            const extraSheets = workbook.SheetNames.filter(sheet => !expectedSheets.includes(sheet));
+            // Vérifier que le fichier est lisible et contient des feuilles
+            if (workbook.SheetNames.length === 0) {
+              console.warn('📋 DEBUG: aucune feuille trouvée dans le fichier de reprise');
+            }
           } catch (debugError) {
             console.error('📋 DEBUG: Erreur lors de l\'inspection du fichier:', debugError);
           }

@@ -110,7 +110,9 @@ export interface SharedBusinessRoleProps {
     orphelines: string[];
     total: number;
   }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   businessRoleTransactions: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   simpleRoleTransactions: any[];
   onGlobalSelectionChange: (businessRole: string, selectedRoles: Set<string>) => void;
 }
@@ -262,9 +264,33 @@ export const useAnalysisWorkflow = (
   }, selectionsCallbacks);
   
   const localState = useWorkflowLocalState(localStateCallbacks);
-  
-  // 🚀 HOOK POUR DONNÉES STATIQUES (calculées une seule fois au chargement du fichier)
-  const staticData = useStaticAnalysisData(fileManager.state.analysisResult);
+
+  // 🚀 LAZY VISIBLE : Calcul des business roles visibles sur la page courante
+  // (duplique la logique de filtrage de useAnalysisCalculations pour éviter la dépendance circulaire)
+  const visibleBusinessRoles = useMemo(() => {
+    const ar = fileManager.state.analysisResult;
+    if (!ar?.coverageAnalyses) return [];
+    const { primaryFilter, focusedItem, currentPage, itemsPerPage } = localState.state;
+    let filtered = ar.coverageAnalyses;
+    if (primaryFilter?.trim()) {
+      const f = primaryFilter.toLowerCase();
+      filtered = filtered.filter(a => a.businessRole.toLowerCase().includes(f));
+    }
+    if (focusedItem) {
+      filtered = filtered.filter(a => a.businessRole === focusedItem);
+    }
+    const start = currentPage * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage).map(a => a.businessRole);
+  }, [
+    fileManager.state.analysisResult?.id,
+    localState.state.primaryFilter,
+    localState.state.focusedItem,
+    localState.state.currentPage,
+    localState.state.itemsPerPage,
+  ]);
+
+  // 🚀 HOOK POUR DONNÉES STATIQUES (calcul prioritaire pour items visibles, différé pour le reste)
+  const staticData = useStaticAnalysisData(fileManager.state.analysisResult, visibleBusinessRoles);
 
   // 🔒 STABILISATION : Références stables pour les handlers de sélection
   const stableHandlersRef = useRef({
@@ -450,7 +476,7 @@ export const useAnalysisWorkflow = (
     sizeWeight,
     usageWeight,
     includeFrequency,
-    showLicenses, // Added showLicenses to dependencies
+    showLicenses,
     targetRoleFilter,
     showZeroCoverageRoles,
     // 🔒 OBJETS COMPLEXES : Mémoriser séparément pour éviter les re-créations
@@ -458,7 +484,9 @@ export const useAnalysisWorkflow = (
     memoizedTransactionDetailsCache,
     // 🔒 TRANSACTIONS MÉMORISÉES : Utiliser les transactions mémorisées
     memoizedBusinessRoleTransactions,
-    memoizedSimpleRoleTransactions
+    memoizedSimpleRoleTransactions,
+    // 🚀 LAZY VISIBLE : Forcer un re-render des cartes quand le cache complet est disponible
+    staticData.isFullyComputed,
   ]);
 
   // ⚡ Getter stable qui retourne toujours le même objet mémorisé
@@ -559,6 +587,7 @@ export const useAnalysisWorkflow = (
   ]); // ✅ CORRIGÉ : Inclure les dépendances nécessaires pour la détection de mise à jour
   
   // Action de haut niveau : Exporter l'analyse actuelle
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const exportCurrentAnalysis = useCallback(async (format: 'excel' = 'excel') => {
     const analysisResult = fileManager.state.analysisResult;
     if (!analysisResult) {

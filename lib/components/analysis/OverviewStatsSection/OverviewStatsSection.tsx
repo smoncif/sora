@@ -1,6 +1,9 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react/no-unescaped-entities */
+
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Box,
   Typography,
@@ -11,7 +14,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Alert,
   Table,
   TableHead,
   TableRow,
@@ -55,6 +57,15 @@ export function OverviewStatsSection({
   const theme = useTheme();
   const labels = getLabels(mode);
 
+  // Log timing: s'exécute après le commit React pour corréler avec le "stagnage"
+  useEffect(() => {
+    if (!analysisResult?.id) return;
+    console.log('⏱️ [analysis] OverviewStatsSection committed', {
+      analysisId: analysisResult.id,
+      totalItems,
+    });
+  }, [analysisResult?.id]);
+
   // Fonction pour obtenir les transactions uniques (sans doublon par nom de transaction)
   const getUniqueTransactionsCount = useCallback((rawTransactions: Array<{ transaction: string; executionCount: number; businessRole: string }>) => {
     const uniqueTransactions = new Set<string>();
@@ -89,22 +100,43 @@ export function OverviewStatsSection({
   }, []);
 
   // Compter les transactions uniques (pour l'affichage du nombre)
-  const uniqueTransactionsCount = React.useMemo(() => 
-    getUniqueTransactionsCount(uncoveredTransactionsData.transactions),
-    [uncoveredTransactionsData.transactions, getUniqueTransactionsCount]
-  );
+  const uniqueTransactionsCount = React.useMemo(() => {
+    const tStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const result = getUniqueTransactionsCount(uncoveredTransactionsData.transactions);
+    const tEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    console.log('⏱️ [analysis] uniqueTransactionsCount done', {
+      tMs: Math.round(tEnd - tStart),
+      transactions: uncoveredTransactionsData.transactions.length,
+      uniqueCount: result,
+    });
+    return result;
+  }, [uncoveredTransactionsData.transactions, getUniqueTransactionsCount]);
 
   // Déduplicquer les transactions par combinaison transaction+rôle pour l'affichage détaillé
-  const deduplicatedTransactionsForDisplay = React.useMemo(() => 
-    deduplicateTransactionsForDisplay(uncoveredTransactionsData.transactions),
-    [uncoveredTransactionsData.transactions, deduplicateTransactionsForDisplay]
-  );
+  const deduplicatedTransactionsForDisplay = React.useMemo(() => {
+    const tStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const result = deduplicateTransactionsForDisplay(uncoveredTransactionsData.transactions);
+    const tEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    console.log('⏱️ [analysis] deduplicatedTransactionsForDisplay done', {
+      tMs: Math.round(tEnd - tStart),
+      transactions: uncoveredTransactionsData.transactions.length,
+      dedupedCount: result.length,
+    });
+    return result;
+  }, [uncoveredTransactionsData.transactions, deduplicateTransactionsForDisplay]);
 
   // Recalculer le total des exécutions avec les données déduplicées pour l'affichage
-  const deduplicatedTotalExecutions = React.useMemo(() => 
-    deduplicatedTransactionsForDisplay.reduce((sum, tx) => sum + tx.executionCount, 0),
-    [deduplicatedTransactionsForDisplay]
-  );
+  const deduplicatedTotalExecutions = React.useMemo(() => {
+    const tStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const result = deduplicatedTransactionsForDisplay.reduce((sum, tx) => sum + tx.executionCount, 0);
+    const tEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    console.log('⏱️ [analysis] deduplicatedTotalExecutions done', {
+      tMs: Math.round(tEnd - tStart),
+      dedupedCount: deduplicatedTransactionsForDisplay.length,
+      totalExecutions: result,
+    });
+    return result;
+  }, [deduplicatedTransactionsForDisplay]);
 
   // État local pour le dialog des transactions non couvertes
   const [uncoveredTransactionsDialog, setUncoveredTransactionsDialog] = useState<{

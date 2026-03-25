@@ -15,3 +15,4 @@ export { ComparisonIcon } from './ComparisonIcon';
 export { ComparisonSlider } from './ComparisonSlider';
 export { ComparisonModal } from './ComparisonModal';
 export { ComparisonIndicator } from './ComparisonIndicator';
+export { AnalysisParsingProgress } from './ParsingProgress';

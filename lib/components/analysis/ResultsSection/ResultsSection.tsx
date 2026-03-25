@@ -26,11 +26,18 @@ import {
 import { useFocus } from '../../../contexts/FocusContext';
 import { ComparisonProvider } from '../../../contexts';
 import { AnalysisMode, getLabels } from 'lib/types/analysis';
+import type { CoverageAnalysis, SimplifiedAnalysisResult } from 'lib/types/roleAnalysis';
+
+interface SharedBusinessRolePropsLike {
+  getSelectedRoles?: (itemId: string) => Set<string>;
+  onGlobalSelectionChange?: (itemId: string, selectedRoles: Set<string>) => void;
+  [key: string]: unknown;
+}
 
 export interface ResultsSectionProps {
   // États des données
-  analysisResult: any;
-  itemsToShow: any[];
+  analysisResult: SimplifiedAnalysisResult | null;
+  itemsToShow: CoverageAnalysis[];
   totalPages: number;
   currentPage: number;
   
@@ -40,7 +47,7 @@ export interface ResultsSectionProps {
   showFilters: boolean;
   
   // Props partagées pour AnalysisCard
-  sharedBusinessRoleProps: any;
+  sharedBusinessRoleProps: SharedBusinessRolePropsLike;
   
   // Handlers
   onPrimaryFilterChange: (filter: string) => void;
@@ -50,7 +57,7 @@ export interface ResultsSectionProps {
   onPageChange: (page: number) => void;
   
   // Composant AnalysisCard
-  AnalysisCardComponent: React.ComponentType<any>;
+  AnalysisCardComponent: React.ComponentType<Record<string, unknown>>;
   
   // Mode d'analyse
   mode?: AnalysisMode;
@@ -75,6 +82,16 @@ export function ResultsSection({
 }: ResultsSectionProps) {
   
   const theme = useTheme();
+
+  // Log léger pour comprendre si on rend trop d'éléments (pagination)
+  if (itemsToShow?.length > 3) {
+    console.log('⏱️ [analysis] ResultsSection render', {
+      itemsToShow: itemsToShow.length,
+      totalPages,
+      currentPage,
+      mode,
+    });
+  }
   
   // Labels selon le mode
   const labels = getLabels(mode);
@@ -260,7 +277,7 @@ export function ResultsSection({
                         onGlobalSelectionChange={(itemId: string, selectedRoles: Set<string>) => {
                           
                           // Appeler la fonction passée en props
-                          sharedBusinessRoleProps?.onGlobalSelectionChange(itemId, selectedRoles);
+                          sharedBusinessRoleProps.onGlobalSelectionChange?.(itemId, selectedRoles);
                         }}
                       />
                     </Box>
@@ -296,8 +313,8 @@ export function ResultsSection({
             <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
               <Pagination
                 count={totalPages}
-                page={currentPage}
-                onChange={(_: unknown, page: number) => onPageChange(page)}
+                page={currentPage + 1}
+                onChange={(_: unknown, page: number) => onPageChange(page - 1)}
                 color="primary"
                 size="large"
                 sx={{

@@ -135,7 +135,9 @@ export default function RoleAnalysisPage() {
     targetRoleFilter,
     showZeroCoverageRoles,
     // 🔒 ANALYSE : Seulement l'ID pour éviter les re-créations inutiles
-    analysisResultId
+    analysisResultId,
+    // 🚀 LAZY VISIBLE : Re-rendre les cartes quand le cache complet est disponible
+    workflow.staticData.isFullyComputed,
   ]);
 
   // Fonction d'export des résultats via le nouveau workflow
@@ -342,7 +344,12 @@ export default function RoleAnalysisPage() {
               <AutoSelectionSection
                 mode="roles"
                 autoSelection={workflow.autoSelection}
-                disabled={!workflow.fileManager.state.analysisResult}
+                disabled={!workflow.fileManager.state.analysisResult || !workflow.staticData.isFullyComputed}
+                isPreparingData={!!workflow.fileManager.state.analysisResult && !workflow.staticData.isFullyComputed}
+                computingProgress={{
+                  computed: workflow.staticData.computedCount,
+                  total: workflow.staticData.totalCount,
+                }}
                 show={true}
               />
             </Grid>

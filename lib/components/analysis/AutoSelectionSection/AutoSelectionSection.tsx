@@ -6,9 +6,13 @@ import {
   Paper,
   Typography,
   useTheme,
+  Chip,
+  LinearProgress,
+  Tooltip,
 } from '@mui/material';
 import {
   AutoMode as AutoIcon,
+  HourglassEmpty as HourglassIcon,
 } from '@mui/icons-material';
 import { AutoSelectionControl } from '../AutoSelectionControl';
 import { UseAutoSelectionReturn } from 'lib/hooks/analysis/useAutoSelection';
@@ -26,6 +30,10 @@ export interface AutoSelectionSectionProps {
   show?: boolean;
   /** Mode d'analyse */
   mode?: AnalysisMode;
+  /** true si les données de scoring sont encore en cours de préparation */
+  isPreparingData?: boolean;
+  /** Progression du calcul en arrière-plan */
+  computingProgress?: { computed: number; total: number };
 }
 
 /**
@@ -39,9 +47,17 @@ export function AutoSelectionSection({
   disabled = false,
   show = true,
   mode = 'roles',
+  isPreparingData = false,
+  computingProgress,
 }: AutoSelectionSectionProps) {
   const theme = useTheme();
   const labels = getLabels(mode);
+
+  const isDisabled = disabled || isPreparingData;
+  const progressPercent =
+    computingProgress && computingProgress.total > 0
+      ? Math.round((computingProgress.computed / computingProgress.total) * 100)
+      : 0;
 
   // Ne pas afficher si show est false
   if (!show) {
@@ -67,7 +83,7 @@ export function AutoSelectionSection({
         alignItems: 'flex-start', 
         mb: 4 
       }}>
-        <Box>
+        <Box sx={{ flex: 1 }}>
           <Typography variant="h6" sx={{ 
             fontWeight: 600,
             color: theme.palette.text.primary,
@@ -111,13 +127,41 @@ export function AutoSelectionSection({
             }
           </Typography>
         </Box>
+
+        {/* Indicateur de préparation des données */}
+        {isPreparingData && computingProgress && (
+          <Tooltip title={`Calcul des scores : ${computingProgress.computed} / ${computingProgress.total} rôles`}>
+            <Chip
+              icon={<HourglassIcon fontSize="small" />}
+              label={`${progressPercent}%`}
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ alignSelf: 'flex-start' }}
+            />
+          </Tooltip>
+        )}
       </Box>
+
+      {/* Barre de progression pendant le calcul différé */}
+      {isPreparingData && (
+        <Box sx={{ mb: 2 }}>
+          <LinearProgress
+            variant={computingProgress && computingProgress.total > 0 ? 'determinate' : 'indeterminate'}
+            value={progressPercent}
+            sx={{ borderRadius: 1, height: 4 }}
+          />
+          <Typography variant="caption" sx={{ color: theme.palette.text.secondary, mt: 0.5, display: 'block' }}>
+            Préparation des scores en arrière-plan…
+          </Typography>
+        </Box>
+      )}
 
       {/* Contenu : AutoSelectionControl */}
       <Box sx={{ mt: -2 }}> {/* Réduire l'espacement puisqu'on a déjà un titre */}
         <AutoSelectionControl
           autoSelection={autoSelection}
-          disabled={disabled}
+          disabled={isDisabled}
           mode={mode}
         />
       </Box>
