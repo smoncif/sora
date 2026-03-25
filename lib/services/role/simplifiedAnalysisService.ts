@@ -8,6 +8,7 @@
 
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
+import { findSheetForRoleAnalysisTemplate } from 'lib/services/analysis/analysisExcelSheetFinders';
 import { 
   BusinessRoleTransaction,
   SimpleRoleTransaction,
@@ -45,9 +46,9 @@ export interface ExcelParsingConfig {
 }
 
 /**
- * Configuration par défaut
+ * Configuration par défaut (exportée pour validation pré-parser)
  */
-const DEFAULT_CONFIG: ExcelParsingConfig = {
+export const DEFAULT_CONFIG: ExcelParsingConfig = {
   maxFileSize: 100 * 1024 * 1024, // 100MB
   timeoutMs: 5 * 60 * 1000,       // 5 minutes
   sheetNames: {
@@ -117,8 +118,14 @@ export async function parseExcelFile(
     const sheetsFound = workbook.SheetNames;
     
     // Vérifier que les feuilles requises existent
-    const businessRoleSheet = findSheet(workbook, finalConfig.sheetNames.businessRoles, sheetsFound);
-    const simpleRoleSheet = findSheet(workbook, finalConfig.sheetNames.simpleRoles, sheetsFound);
+    const businessRoleSheet = findSheetForRoleAnalysisTemplate(
+      finalConfig.sheetNames.businessRoles,
+      sheetsFound
+    );
+    const simpleRoleSheet = findSheetForRoleAnalysisTemplate(
+      finalConfig.sheetNames.simpleRoles,
+      sheetsFound
+    );
     
     if (!businessRoleSheet) {
       throw new Error(`Feuille des rôles métier non trouvée. Feuilles disponibles : ${sheetsFound.join(', ')}`);
@@ -172,31 +179,6 @@ export async function parseExcelFile(
   } catch (error: any) {
     throw new Error(`Erreur lors du parsing Excel : ${error.message}`);
   }
-}
-
-/**
- * Trouve une feuille par nom (avec variations possibles)
- */
-function findSheet(workbook: XLSX.WorkBook, targetName: string, availableSheets: string[]): string | null {
-  // Recherche exacte
-  if (availableSheets.includes(targetName)) {
-    return targetName;
-  }
-  
-  // Recherche insensible à la casse
-  const lowerTarget = targetName.toLowerCase();
-  const found = availableSheets.find(sheet => sheet.toLowerCase() === lowerTarget);
-  if (found) return found;
-  
-  // Recherche par index si nom générique
-  if (targetName === 'Feuille1' && availableSheets.length > 0) {
-    return availableSheets[0];
-  }
-  if (targetName === 'Feuille2' && availableSheets.length > 1) {
-    return availableSheets[1];
-  }
-  
-  return null;
 }
 
 /**

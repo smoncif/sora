@@ -9,6 +9,7 @@
 
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
+import { findSheetForUserAnalysisTemplate } from 'lib/services/analysis/analysisExcelSheetFinders';
 import { 
   BusinessRoleTransaction,
   SimpleRoleTransaction,
@@ -63,9 +64,9 @@ export interface UserExcelParsingConfig {
 }
 
 /**
- * Configuration par défaut pour utilisateurs
+ * Configuration par défaut pour utilisateurs (exportée pour validation pré-parser)
  */
-const DEFAULT_USER_CONFIG: UserExcelParsingConfig = {
+export const DEFAULT_USER_CONFIG: UserExcelParsingConfig = {
   maxFileSize: 100 * 1024 * 1024, // 100MB
   timeoutMs: 5 * 60 * 1000,       // 5 minutes
   sheetNames: {
@@ -144,9 +145,18 @@ export async function parseUserExcelFile(
     }
     
     // Vérifier que les feuilles requises existent
-    const userTransactionSheet = findSheet(workbook, finalConfig.sheetNames.userTransactions, sheetsFound);
-    const businessRoleMappingSheet = findSheet(workbook, finalConfig.sheetNames.businessRoleMappings, sheetsFound);
-    const simpleRoleSheet = findSheet(workbook, finalConfig.sheetNames.simpleRoleTransactions, sheetsFound);
+    const userTransactionSheet = findSheetForUserAnalysisTemplate(
+      finalConfig.sheetNames.userTransactions,
+      sheetsFound
+    );
+    const businessRoleMappingSheet = findSheetForUserAnalysisTemplate(
+      finalConfig.sheetNames.businessRoleMappings,
+      sheetsFound
+    );
+    const simpleRoleSheet = findSheetForUserAnalysisTemplate(
+      finalConfig.sheetNames.simpleRoleTransactions,
+      sheetsFound
+    );
     
     if (!userTransactionSheet) {
       throw new Error(`Feuille des transactions utilisateurs non trouvée. Feuilles disponibles : ${sheetsFound.join(', ')}`);
@@ -220,33 +230,6 @@ export async function parseUserExcelFile(
     const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
     throw new Error(`Impossible de parser le fichier Excel : ${errorMessage}`);
   }
-}
-
-/**
- * Trouve une feuille dans le workbook (support noms flexibles)
- */
-function findSheet(workbook: XLSX.WorkBook, expectedName: string, availableSheets: string[]): string | null {
-  // Chercher le nom exact d'abord
-  if (availableSheets.includes(expectedName)) {
-    return expectedName;
-  }
-  
-  // Chercher par index si c'est FeuillX
-  if (expectedName.startsWith('Feuille')) {
-    const index = parseInt(expectedName.replace('Feuille', '')) - 1;
-    if (index >= 0 && index < availableSheets.length) {
-      return availableSheets[index];
-    }
-  }
-  
-  // Chercher par correspondance partielle (insensible à la casse)
-  const lowerExpected = expectedName.toLowerCase();
-  const match = availableSheets.find(sheet => 
-    sheet.toLowerCase().includes(lowerExpected) || 
-    lowerExpected.includes(sheet.toLowerCase())
-  );
-  
-  return match || null;
 }
 
 /**

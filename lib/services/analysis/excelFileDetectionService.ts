@@ -10,6 +10,10 @@
 
 import * as XLSX from 'xlsx';
 import type { SodFileTypeDetectionResult, SodExcelFileType } from 'lib/types/userSodAnalysis';
+import {
+  validateRolesAnalysisStructure,
+  validateUsersAnalysisStructure,
+} from 'lib/services/analysis/analysisExcelStructureValidation';
 
 export type ExcelFileType = 'roles' | 'users' | 'sod' | 'sod-users' | 'unknown';
 
@@ -279,6 +283,28 @@ export async function validateExcelFileForType(
   warnings: string[];
   errors: string[];
 }> {
+  if (expectedType === 'roles' || expectedType === 'users') {
+    const arrayBuffer = await toArrayBuffer(fileOrBuffer);
+    const structural =
+      expectedType === 'roles'
+        ? validateRolesAnalysisStructure(arrayBuffer)
+        : validateUsersAnalysisStructure(arrayBuffer);
+    if (!structural.ok) {
+      return {
+        isValid: false,
+        confidence: 0,
+        warnings: [],
+        errors: structural.errors,
+      };
+    }
+    return {
+      isValid: true,
+      confidence: 100,
+      warnings: [],
+      errors: [],
+    };
+  }
+
   const detection = await detectExcelFileType(fileOrBuffer);
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -288,54 +314,24 @@ export async function validateExcelFileForType(
     errors.push(...detection.reasoning);
     return { isValid: false, confidence: 0, warnings, errors };
   }
-  
-  // Validation stricte sur le nombre de feuilles (critère structurel fiable)
-  const expectedSheetCount =
-    expectedType === 'roles' ? 2 :
-    expectedType === 'users' ? 3 :
-    null; // sod : pas de contrainte fixe ici
 
-  if (expectedSheetCount !== null && detection.sheetCount !== expectedSheetCount) {
-    const expectedSheets = expectedSheetCount === 2 ? '2 feuilles' : '3 feuilles';
-    errors.push(`Format de fichier incompatible avec l'analyse ${expectedType}`);
-    errors.push(`Attendu : ${expectedSheets} — Trouvé : ${detection.sheetCount} feuille(s) (${detection.sheetsFound.join(', ')})`);
-    if (expectedType === 'users' && detection.sheetCount === 2) {
-      errors.push('Ce fichier semble être un template d\'analyse des rôles (2 feuilles). Veuillez utiliser le template utilisateurs (3 feuilles).');
-    } else if (expectedType === 'roles' && detection.sheetCount === 3) {
-      errors.push('Ce fichier semble être un template d\'analyse des utilisateurs (3 feuilles). Veuillez utiliser le template rôles (2 feuilles).');
-    }
-    return { isValid: false, confidence: detection.confidence, warnings, errors };
-  }
-
+  // Branche suivante : expectedType ∈ { sod, sod-users, unknown } (rôles/utilisateurs traités plus haut)
   if (detection.type !== expectedType) {
-    const expectedSheets = 
-      expectedType === 'sod' ? '1 feuille' :
-      expectedType === 'roles' ? '2 feuilles' : 
-      '3 feuilles';
+    const expectedSheets =
+      expectedType === 'sod' || expectedType === 'sod-users'
+        ? '1 feuille'
+        : 'format attendu';
     const detectedSheets = `${detection.sheetCount} feuille(s)`;
-    
+
     errors.push(`Type de fichier non compatible`);
     errors.push(`Attendu: Analyse ${expectedType} (${expectedSheets})`);
     errors.push(`Détecté: Analyse ${detection.type} (${detectedSheets})`);
     errors.push(`Feuilles trouvées: ${detection.sheetsFound.join(', ')}`);
-    
+
     return { isValid: false, confidence: detection.confidence, warnings, errors };
   }
-  
+
   if (detection.confidence < 70) {
-    const strictSheetCountMode =
-      expectedType === 'roles' || expectedType === 'users';
-    if (strictSheetCountMode) {
-      errors.push(`Confiance de détection insuffisante (${detection.confidence}%, minimum 70%)`);
-      errors.push('Le fichier ne correspond pas clairement au format attendu pour cette analyse');
-      errors.push(...detection.reasoning);
-      return {
-        isValid: false,
-        confidence: detection.confidence,
-        warnings,
-        errors,
-      };
-    }
     warnings.push(`Confiance de détection faible (${detection.confidence}%)`);
     warnings.push('Le fichier pourrait ne pas être dans le format attendu');
     warnings.push(...detection.reasoning);
