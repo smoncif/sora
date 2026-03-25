@@ -76,9 +76,9 @@ const initialState: FileManagerState = {
 };
 
 export const useAnalysisFileManager = (
+  mode: 'roles' | 'users',
   callbacks?: FileManagerCallbacks,
-  cache?: AnalysisCacheLike, // 🚀 OPTIMISATION : Ajouter le cache comme paramètre
-  mode?: 'roles' | 'users' // Mode d'analyse pour déterminer le parser
+  cache?: AnalysisCacheLike
 ): AnalysisFileManager => {
   const [state, setState] = useState<FileManagerState>(initialState);
   const analysisParser: UseAnalysisExcelParserWorkerReturn =
@@ -170,49 +170,28 @@ export const useAnalysisFileManager = (
       const arrayBuffer = await file.arrayBuffer();
 
       setProgress(5);
-      setProcessingStep('Détection du type de fichier...');
-      
-      // 🔍 NOUVELLE LOGIQUE : Détection automatique du type de fichier
-      const { detectExcelFileType, validateExcelFileForType } = await import('lib/services/analysis/excelFileDetectionService');
-      
-      let detectedType: 'roles' | 'users' = 'roles';
-      
-      if (mode) {
-        // Mode explicite fourni - valider que le fichier est compatible
-        setProcessingStep(`Validation du fichier pour analyse ${mode}...`);
-        const validation = await validateExcelFileForType(arrayBuffer, mode);
-        
-        if (!validation.isValid) {
-          throw new Error(`Fichier incompatible avec l'analyse ${mode}:\n${validation.errors.join('\n')}`);
-        }
-        
-        if (validation.warnings.length > 0) {
-          console.warn('Avertissements lors de la validation:', validation.warnings);
-        }
-        
-        detectedType = mode;
-      } else {
-        // Mode automatique - détecter le type
-        const detection = await detectExcelFileType(arrayBuffer);
-        
-        if (detection.type === 'unknown' || detection.confidence < 60) {
-          throw new Error(`Impossible de déterminer le type de fichier Excel.\nRaisons: ${detection.reasoning.join(', ')}\nFeuilles trouvées: ${detection.sheetsFound.join(', ')}`);
-        }
+      setProcessingStep(`Validation du fichier pour analyse ${mode}...`);
 
-        if (detection.type !== 'roles' && detection.type !== 'users') {
-          throw new Error(
-            `Type de fichier détecté non supporté pour ce module: ${detection.type}. ` +
-            'Utilisez un fichier dédié à l’analyse des rôles métier ou des utilisateurs.'
-          );
-        }
-        
-        detectedType = detection.type;
-        setProcessingStep(`Type détecté: analyse ${detectedType} (confiance: ${detection.confidence}%)`);
+      const { validateExcelFileForType } = await import(
+        'lib/services/analysis/excelFileDetectionService'
+      );
+      const validation = await validateExcelFileForType(arrayBuffer, mode);
+
+      if (!validation.isValid) {
+        throw new Error(
+          `Fichier incompatible avec l'analyse ${mode}:\n${validation.errors.join('\n')}`
+        );
       }
-      
+
+      if (validation.warnings.length > 0) {
+        console.warn('Avertissements lors de la validation:', validation.warnings);
+      }
+
+      const detectedType = mode;
+
       setProgress(15);
       setProcessingStep('Préparation du parsing en worker...');
-      
+
       // 🚀 PARSING DÉPORTÉ : exécution dans un Web Worker pour éviter de bloquer l'UI
       const parsedDataWithData = await parseAnalysisFileMutation.mutateAsync({
         arrayBuffer,

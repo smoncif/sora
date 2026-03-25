@@ -30,7 +30,10 @@ function toArrayBuffer(input: File | ArrayBuffer): Promise<ArrayBuffer> {
 }
 
 /**
- * Détecte automatiquement le type de fichier Excel
+ * Détecte automatiquement le type de fichier Excel (heuristique SoD / rôles / utilisateurs).
+ * Non utilisé par l’UI actuelle : le dashboard impose le mode et passe par {@link validateExcelFileForType}.
+ * Conservé pour réutilisation ou outils externes.
+ *
  * @param fileOrBuffer Fichier ou buffer déjà lu (évite une double lecture côté appelant)
  */
 export async function detectExcelFileType(
@@ -272,76 +275,36 @@ function getSheetHeaders(worksheet: XLSX.WorkSheet): string[] {
 }
 
 /**
- * Valide qu'un fichier est compatible avec un type d'analyse spécifique
+ * Valide la structure du template Excel pour l’analyse rôles ou utilisateurs (avant worker).
+ * Le flux dashboard n’utilise que ce chemin ; SoD s’appuie sur {@link validateSodFile} / {@link detectSodFileType}.
  */
 export async function validateExcelFileForType(
   fileOrBuffer: File | ArrayBuffer,
-  expectedType: ExcelFileType
+  expectedType: 'roles' | 'users'
 ): Promise<{
   isValid: boolean;
   confidence: number;
   warnings: string[];
   errors: string[];
 }> {
-  if (expectedType === 'roles' || expectedType === 'users') {
-    const arrayBuffer = await toArrayBuffer(fileOrBuffer);
-    const structural =
-      expectedType === 'roles'
-        ? validateRolesAnalysisStructure(arrayBuffer)
-        : validateUsersAnalysisStructure(arrayBuffer);
-    if (!structural.ok) {
-      return {
-        isValid: false,
-        confidence: 0,
-        warnings: [],
-        errors: structural.errors,
-      };
-    }
+  const arrayBuffer = await toArrayBuffer(fileOrBuffer);
+  const structural =
+    expectedType === 'roles'
+      ? validateRolesAnalysisStructure(arrayBuffer)
+      : validateUsersAnalysisStructure(arrayBuffer);
+  if (!structural.ok) {
     return {
-      isValid: true,
-      confidence: 100,
+      isValid: false,
+      confidence: 0,
       warnings: [],
-      errors: [],
+      errors: structural.errors,
     };
   }
-
-  const detection = await detectExcelFileType(fileOrBuffer);
-  const warnings: string[] = [];
-  const errors: string[] = [];
-  
-  if (detection.type === 'unknown') {
-    errors.push('Impossible de déterminer le type de fichier Excel');
-    errors.push(...detection.reasoning);
-    return { isValid: false, confidence: 0, warnings, errors };
-  }
-
-  // Branche suivante : expectedType ∈ { sod, sod-users, unknown } (rôles/utilisateurs traités plus haut)
-  if (detection.type !== expectedType) {
-    const expectedSheets =
-      expectedType === 'sod' || expectedType === 'sod-users'
-        ? '1 feuille'
-        : 'format attendu';
-    const detectedSheets = `${detection.sheetCount} feuille(s)`;
-
-    errors.push(`Type de fichier non compatible`);
-    errors.push(`Attendu: Analyse ${expectedType} (${expectedSheets})`);
-    errors.push(`Détecté: Analyse ${detection.type} (${detectedSheets})`);
-    errors.push(`Feuilles trouvées: ${detection.sheetsFound.join(', ')}`);
-
-    return { isValid: false, confidence: detection.confidence, warnings, errors };
-  }
-
-  if (detection.confidence < 70) {
-    warnings.push(`Confiance de détection faible (${detection.confidence}%)`);
-    warnings.push('Le fichier pourrait ne pas être dans le format attendu');
-    warnings.push(...detection.reasoning);
-  }
-
   return {
     isValid: true,
-    confidence: detection.confidence,
-    warnings,
-    errors,
+    confidence: 100,
+    warnings: [],
+    errors: [],
   };
 }
 

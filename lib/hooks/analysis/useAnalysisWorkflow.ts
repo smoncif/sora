@@ -249,7 +249,7 @@ export const useAnalysisWorkflow = (
   
   // 🔍 DIAGNOSTIC DES SOUS-HOOKS : Tracer les initialisations
   // Initialisation des sous-hooks de données (avec cache intégré)
-  const fileManager = useAnalysisFileManager(fileManagerCallbacks, cache, mode); // 🚀 OPTIMISATION avec mode
+  const fileManager = useAnalysisFileManager(mode, fileManagerCallbacks, cache);
   
   const configuration = useAnalysisConfiguration(
     configurationCallbacks, 
