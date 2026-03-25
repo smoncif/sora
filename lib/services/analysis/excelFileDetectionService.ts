@@ -21,13 +21,20 @@ export interface ExcelFileInfo {
   reasoning: string[];  // Explications sur les critères de détection
 }
 
+function toArrayBuffer(input: File | ArrayBuffer): Promise<ArrayBuffer> {
+  return input instanceof File ? input.arrayBuffer() : Promise.resolve(input);
+}
+
 /**
  * Détecte automatiquement le type de fichier Excel
+ * @param fileOrBuffer Fichier ou buffer déjà lu (évite une double lecture côté appelant)
  */
-export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
+export async function detectExcelFileType(
+  fileOrBuffer: File | ArrayBuffer
+): Promise<ExcelFileInfo> {
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const arrayBuffer = await toArrayBuffer(fileOrBuffer);
+    const workbook = XLSX.read(arrayBuffer, { type: 'array', sheetRows: 1 });
     
     const sheetsFound = workbook.SheetNames;
     const sheetCount = sheetsFound.length;
@@ -250,34 +257,29 @@ export async function detectExcelFileType(file: File): Promise<ExcelFileInfo> {
  * Extrait les en-têtes d'une feuille Excel
  */
 function getSheetHeaders(worksheet: XLSX.WorkSheet): string[] {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-    if (jsonData.length === 0) return [];
-    
-    // Première ligne = headers
-    const headers = jsonData[0] || [];
-    return headers
-      .filter(header => header && typeof header === 'string')
-      .map(header => String(header).trim());
-  } catch {
-    return [];
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+  if (jsonData.length === 0) return [];
+
+  const headers = jsonData[0] || [];
+  return headers
+    .filter((header: unknown) => header && typeof header === 'string')
+    .map((header: string) => String(header).trim());
 }
 
 /**
  * Valide qu'un fichier est compatible avec un type d'analyse spécifique
  */
 export async function validateExcelFileForType(
-  file: File, 
+  fileOrBuffer: File | ArrayBuffer,
   expectedType: ExcelFileType
-): Promise<{ 
-  isValid: boolean; 
-  confidence: number; 
-  warnings: string[]; 
-  errors: string[]; 
+): Promise<{
+  isValid: boolean;
+  confidence: number;
+  warnings: string[];
+  errors: string[];
 }> {
-  const detection = await detectExcelFileType(file);
+  const detection = await detectExcelFileType(fileOrBuffer);
   const warnings: string[] = [];
   const errors: string[] = [];
   
@@ -321,16 +323,29 @@ export async function validateExcelFileForType(
   }
   
   if (detection.confidence < 70) {
+    const strictSheetCountMode =
+      expectedType === 'roles' || expectedType === 'users';
+    if (strictSheetCountMode) {
+      errors.push(`Confiance de détection insuffisante (${detection.confidence}%, minimum 70%)`);
+      errors.push('Le fichier ne correspond pas clairement au format attendu pour cette analyse');
+      errors.push(...detection.reasoning);
+      return {
+        isValid: false,
+        confidence: detection.confidence,
+        warnings,
+        errors,
+      };
+    }
     warnings.push(`Confiance de détection faible (${detection.confidence}%)`);
     warnings.push('Le fichier pourrait ne pas être dans le format attendu');
     warnings.push(...detection.reasoning);
   }
-  
-  return { 
-    isValid: true, 
-    confidence: detection.confidence, 
-    warnings, 
-    errors 
+
+  return {
+    isValid: true,
+    confidence: detection.confidence,
+    warnings,
+    errors,
   };
 }
 

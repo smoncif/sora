@@ -3,6 +3,11 @@ import type { BusinessRoleTransaction, SimpleRoleTransaction } from 'lib/types/r
 
 type AnalysisFileType = 'roles' | 'users';
 
+/** Buffer déjà lu pour éviter un second `file.arrayBuffer()` après la validation (`preReadBuffer` évite le conflit avec `File#arrayBuffer`) */
+export type AnalysisParseFileInput =
+  | File
+  | { preReadBuffer: ArrayBuffer; fileName: string };
+
 export interface AnalysisParserProgress {
   progress: number;
   message: string;
@@ -49,7 +54,10 @@ export interface UseAnalysisExcelParserWorkerReturn {
   parsing: boolean;
   progress: AnalysisParserProgress | null;
   error: string | null;
-  parseFile: (file: File, fileType: AnalysisFileType) => Promise<AnalysisWorkerParsedData>;
+  parseFile: (
+    input: AnalysisParseFileInput,
+    fileType: AnalysisFileType
+  ) => Promise<AnalysisWorkerParsedData>;
   cancelParsing: () => void;
   reset: () => void;
 }
@@ -87,7 +95,10 @@ export function useAnalysisExcelParserWorker(): UseAnalysisExcelParserWorkerRetu
   }, [cancelParsing]);
 
   const parseFile = useCallback(
-    (file: File, fileType: AnalysisFileType): Promise<AnalysisWorkerParsedData> => {
+    (
+      input: AnalysisParseFileInput,
+      fileType: AnalysisFileType
+    ): Promise<AnalysisWorkerParsedData> => {
       runIdRef.current += 1;
       const runId = runIdRef.current;
       startAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -181,30 +192,36 @@ export function useAnalysisExcelParserWorker(): UseAnalysisExcelParserWorkerRetu
             reject(new Error(workerError));
           };
 
-          file
-            .arrayBuffer()
-            .then((arrayBuffer) => {
-              worker.postMessage({
-                type: 'PARSE_FILE',
-                payload: {
-                  arrayBuffer,
-                  fileName: file.name,
-                  fileType,
-                },
-              });
-            })
-            .catch((readError) => {
-              const message =
-                readError instanceof Error
-                  ? readError.message
-                  : 'Erreur de lecture du fichier';
-              setParsing(false);
-              setProgress(null);
-              setError(message);
-              progress100AtRef.current = null;
-              cleanupWorker();
-              reject(new Error(message));
+          const postPayload = (arrayBuffer: ArrayBuffer, fileName: string) => {
+            worker.postMessage({
+              type: 'PARSE_FILE',
+              payload: {
+                arrayBuffer,
+                fileName,
+                fileType,
+              },
             });
+          };
+
+          if (!(input instanceof File)) {
+            postPayload(input.preReadBuffer, input.fileName);
+          } else {
+            input
+              .arrayBuffer()
+              .then((arrayBuffer) => postPayload(arrayBuffer, input.name))
+              .catch((readError) => {
+                const message =
+                  readError instanceof Error
+                    ? readError.message
+                    : 'Erreur de lecture du fichier';
+                setParsing(false);
+                setProgress(null);
+                setError(message);
+                progress100AtRef.current = null;
+                cleanupWorker();
+                reject(new Error(message));
+              });
+          }
         } catch (error) {
           const message =
             error instanceof Error ? error.message : 'Erreur inconnue du parser worker';

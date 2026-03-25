@@ -6,7 +6,11 @@ import {
 } from 'lib/services/role/simplifiedAnalysisService';
 import { parseResumeFile, validateResumeFile } from 'lib/services/analysis/resumeAnalysisService';
 import { getSavedAnalysisById } from 'lib/services/analysis/savedAnalysisService';
-import { useAnalysisExcelParserWorker } from './useAnalysisExcelParserWorker';
+import {
+  useAnalysisExcelParserWorker,
+  type AnalysisParseFileInput,
+  type UseAnalysisExcelParserWorkerReturn,
+} from './useAnalysisExcelParserWorker';
 import * as XLSX from 'xlsx';
 
 // Types pour la gestion des fichiers
@@ -77,15 +81,24 @@ export const useAnalysisFileManager = (
   mode?: 'roles' | 'users' // Mode d'analyse pour déterminer le parser
 ): AnalysisFileManager => {
   const [state, setState] = useState<FileManagerState>(initialState);
-  const analysisParser = useAnalysisExcelParserWorker();
+  const analysisParser: UseAnalysisExcelParserWorkerReturn =
+    useAnalysisExcelParserWorker();
   const parseAnalysisFileMutation = useMutation({
     mutationFn: async ({
-      file,
+      arrayBuffer,
+      fileName,
       fileType,
     }: {
-      file: File;
+      arrayBuffer: ArrayBuffer;
+      fileName: string;
       fileType: 'roles' | 'users';
-    }) => analysisParser.parseFile(file, fileType),
+    }) => {
+      const parseInput: AnalysisParseFileInput = {
+        preReadBuffer: arrayBuffer,
+        fileName,
+      };
+      return analysisParser.parseFile(parseInput, fileType);
+    },
   });
   
   // 🔒 STABILISÉ : Mémoriser les callbacks avec clé stable
@@ -154,6 +167,8 @@ export const useAnalysisFileManager = (
         );
       }
 
+      const arrayBuffer = await file.arrayBuffer();
+
       setProgress(5);
       setProcessingStep('Détection du type de fichier...');
       
@@ -165,7 +180,7 @@ export const useAnalysisFileManager = (
       if (mode) {
         // Mode explicite fourni - valider que le fichier est compatible
         setProcessingStep(`Validation du fichier pour analyse ${mode}...`);
-        const validation = await validateExcelFileForType(file, mode);
+        const validation = await validateExcelFileForType(arrayBuffer, mode);
         
         if (!validation.isValid) {
           throw new Error(`Fichier incompatible avec l'analyse ${mode}:\n${validation.errors.join('\n')}`);
@@ -178,7 +193,7 @@ export const useAnalysisFileManager = (
         detectedType = mode;
       } else {
         // Mode automatique - détecter le type
-        const detection = await detectExcelFileType(file);
+        const detection = await detectExcelFileType(arrayBuffer);
         
         if (detection.type === 'unknown' || detection.confidence < 60) {
           throw new Error(`Impossible de déterminer le type de fichier Excel.\nRaisons: ${detection.reasoning.join(', ')}\nFeuilles trouvées: ${detection.sheetsFound.join(', ')}`);
@@ -200,7 +215,8 @@ export const useAnalysisFileManager = (
       
       // 🚀 PARSING DÉPORTÉ : exécution dans un Web Worker pour éviter de bloquer l'UI
       const parsedDataWithData = await parseAnalysisFileMutation.mutateAsync({
-        file,
+        arrayBuffer,
+        fileName: file.name,
         fileType: detectedType,
       });
       const tAfterWorkerParse = typeof performance !== 'undefined' ? performance.now() : Date.now();
