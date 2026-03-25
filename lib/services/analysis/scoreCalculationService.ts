@@ -127,14 +127,14 @@ export function calculateDynamicData(
 
   // Créer une map des transactions déjà couvertes par les rôles sélectionnés
   const alreadyCoveredTransactions = new Set<string>();
-  for (const selectedRoleName of selectedRoles) {
+  Array.from(selectedRoles).forEach((selectedRoleName) => {
     const roleTransactions = config.simpleRoleTransactions.filter(
       (transaction: any) => transaction.simpleRole === selectedRoleName
     );
     roleTransactions.forEach((transaction: any) => {
       alreadyCoveredTransactions.add(transaction.transaction);
     });
-  }
+  });
 
   // Calculer les transactions restantes
   const remainingTransactions = businessRoleTransactionsList.filter(
@@ -181,7 +181,7 @@ function createGetDetailsFunction(
 
     // Transactions de ce rôle déjà couvertes par d'autres rôles sélectionnés
     const alreadyCoveredBySelected = new Set<string>();
-    for (const selectedRoleName of selectedRoles) {
+    Array.from(selectedRoles).forEach((selectedRoleName) => {
       if (selectedRoleName !== roleName) {
         const selectedRoleTransactions = config.simpleRoleTransactions
           .filter((transaction: any) => transaction.simpleRole === selectedRoleName)
@@ -192,7 +192,7 @@ function createGetDetailsFunction(
           }
         });
       }
-    }
+    });
 
     const coveredButAlreadySelected = Array.from(alreadyCoveredBySelected);
 
@@ -235,6 +235,28 @@ function generateSelectionHash(selectedRoles: Set<string>): string {
 }
 
 /**
+ * Nombre de transactions distinctes par rôle simple (source : simpleRoleTransactions).
+ * Utilisé en repli quand staticScoresCache n’a pas encore totalRoleTransactions (Map mutée
+ * sans invalider les useMemo, ou entrée absente).
+ */
+function buildRoleTransactionCountMap(
+  simpleRoleTransactions: SimpleRoleTransaction[]
+): Map<string, number> {
+  const byRole = new Map<string, Set<string>>();
+  for (const t of simpleRoleTransactions) {
+    let set = byRole.get(t.simpleRole);
+    if (!set) {
+      set = new Set();
+      byRole.set(t.simpleRole, set);
+    }
+    set.add(t.transaction);
+  }
+  const out = new Map<string, number>();
+  byRole.forEach((set, roleName) => out.set(roleName, set.size));
+  return out;
+}
+
+/**
  * Calculer les rôles enrichis avec tous les scores
  * LOGIQUE EXTRAITE EXACTEMENT depuis BusinessRoleAnalysisCard (lignes 635-788)
  */
@@ -264,6 +286,10 @@ export function calculateEnrichedRoles(
   
   // Générer le hash de sélection pour le cache
   const selectionHash = generateSelectionHash(selectedRoles);
+
+  const roleTransactionCountByRoleName = buildRoleTransactionCountMap(
+    config.simpleRoleTransactions
+  );
 
   // Processing en chunks pour éviter les blocages UI (comme dans l'original)
   const CHUNK_SIZE = 50;
@@ -311,14 +337,21 @@ export function calculateEnrichedRoles(
         totalBusinessRoleExecutions: 0
       };
 
+      const inferredTotalTransactions =
+        roleTransactionCountByRoleName.get(role.roleName) ?? 0;
+      const totalRoleTransactionsForSize =
+        cachedScores.totalRoleTransactions > 0
+          ? cachedScores.totalRoleTransactions
+          : inferredTotalTransactions;
+
       // 🚀 CALCUL DYNAMIQUE : Score Taille avec cache optimisé (EXACT depuis AnalysisCard)
-      const sizeCacheKey = `${globalCacheKey}:size`;
+      const sizeCacheKey = `${globalCacheKey}:size:${totalRoleTransactionsForSize}`;
       let dynamicSizeScore = sizeScoreCache.get(sizeCacheKey);
       
       if (dynamicSizeScore === undefined) {
         // Score de taille dynamique = transactions restantes couvertes / total transactions du rôle
-        dynamicSizeScore = cachedScores.totalRoleTransactions > 0 
-          ? (details.covered.length / cachedScores.totalRoleTransactions) * 100
+        dynamicSizeScore = totalRoleTransactionsForSize > 0 
+          ? (details.covered.length / totalRoleTransactionsForSize) * 100
           : 0;
         sizeScoreCache.set(sizeCacheKey, dynamicSizeScore);
       }
@@ -370,7 +403,7 @@ export function calculateEnrichedRoles(
         remainingUsageScore,
         remainingCoveredCount: details.covered.length,
         alreadySelectedCount: details.coveredButAlreadySelected.length,
-        totalRoleTransactions: cachedScores.totalRoleTransactions,
+        totalRoleTransactions: totalRoleTransactionsForSize,
         ...(config.includeFrequency && { 
           cachedTotalExecutions: cachedScores.totalBusinessRoleExecutions,
           cachedSimpleRoleExecutions: cachedScores.simpleRoleExecutions

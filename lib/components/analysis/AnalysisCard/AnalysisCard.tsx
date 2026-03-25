@@ -19,11 +19,13 @@ import {
   useTheme,
   alpha,
   Checkbox,
+  IconButton,
 } from '@mui/material';
 import {
   ArrowUpward,
   ArrowDownward,
   HelpOutline,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { TransactionBlock } from '../TransactionBlock';
 import { UserTransactionDisplay } from '../UserTransactionDisplay/UserTransactionDisplay';
@@ -410,7 +412,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [expandedRole, setExpandedRole] = React.useState<string | null>(null);
-  const [transactionFilter, setTransactionFilter] = React.useState<string | null>(null);
+  const [transactionFilters, setTransactionFilters] = React.useState<string[]>([]);
   
   // Nom de l'élément selon le mode
   const itemId = analysis.businessRole;
@@ -858,17 +860,34 @@ export const AnalysisCard = React.memo(function AnalysisCard({
   }, [enrichedRoles, stableFilterSort]);
 
   const handleTransactionChipClick = React.useCallback((tx: string) => {
-    setTransactionFilter((prev) => (prev === tx ? null : tx));
+    setTransactionFilters((prev) =>
+      prev.includes(tx) ? prev.filter((c) => c !== tx) : [...prev, tx]
+    );
     setPage(0);
   }, []);
 
   const rolesAfterTransactionFilter = React.useMemo(() => {
-    if (!transactionFilter) return sortedEnrichedRoles;
+    if (transactionFilters.length === 0) return sortedEnrichedRoles;
     return sortedEnrichedRoles.filter((role) => {
       const txs = staticData.transactionsByRole.get(role.roleName) ?? [];
-      return txs.includes(transactionFilter);
+      return transactionFilters.every((code) => txs.includes(code));
     });
-  }, [sortedEnrichedRoles, transactionFilter, staticData.transactionsByRole]);
+  }, [sortedEnrichedRoles, transactionFilters, staticData.transactionsByRole]);
+
+  const transactionFilterCaption = React.useMemo(() => {
+    if (transactionFilters.length === 0) return '';
+    const n = transactionFilters.length;
+    const maxShow = 4;
+    const shown = transactionFilters.slice(0, maxShow);
+    const suffix =
+      n > maxShow ? ` … (+${n - maxShow})` : '';
+    return ` — filtre : ${n} transaction(s) — ${shown.join(', ')}${suffix}`;
+  }, [transactionFilters]);
+
+  const handleClearTransactionFilters = React.useCallback(() => {
+    setTransactionFilters([]);
+    setPage(0);
+  }, []);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -1274,7 +1293,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
               executionMap={staticData.txExecutionMap}
               mode="detailed"
               onTransactionChipClick={handleTransactionChipClick}
-              activeTransactionFilter={transactionFilter}
+              activeTransactionFilters={transactionFilters}
             />
           ) : (
             /* Mode utilisateur - Nouveau composant d'affichage unifié des transactions */
@@ -1295,7 +1314,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
                 executionMap={staticData.txExecutionMap}
                 mode="detailed"
                 onTransactionChipClick={handleTransactionChipClick}
-                activeTransactionFilter={transactionFilter}
+                activeTransactionFilters={transactionFilters}
               />
             </Box>
           )}
@@ -1503,11 +1522,37 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             onToggle={handleToggleZeroCoverage}
           />
           
-          <Typography variant="caption" color="text.secondary">
-            {rolesAfterTransactionFilter.length} rôle(s) affiché(s) sur{' '}
-            {analysis.simpleRoles.length}
-            {transactionFilter ? ` — filtre transaction : ${transactionFilter}` : ''}
-          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.25,
+              maxWidth: '100%',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right' }}>
+              {rolesAfterTransactionFilter.length} rôle(s) affiché(s) sur{' '}
+              {analysis.simpleRoles.length}
+              {transactionFilterCaption}
+            </Typography>
+            {transactionFilters.length > 0 && (
+              <Tooltip title="Retirer le filtre sur les transactions">
+                <IconButton
+                  size="small"
+                  aria-label="Retirer le filtre sur les transactions"
+                  onClick={handleClearTransactionFilters}
+                  sx={{
+                    p: 0.25,
+                    color: 'text.secondary',
+                    '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+                  }}
+                >
+                  <CloseIcon sx={{ fontSize: '1rem' }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
         </Box>
 
         {/* Tableau des rôles simples */}

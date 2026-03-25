@@ -24,8 +24,8 @@ export interface UserTransactionDisplayProps {
   mode?: 'compact' | 'detailed';
   /** Clic sur une pastille : filtre les rôles simples (AnalysisCard) */
   onTransactionChipClick?: (transaction: string) => void;
-  /** Transaction actuellement sélectionnée pour le filtre (style actif) */
-  activeTransactionFilter?: string | null;
+  /** Codes transaction sélectionnés pour le filtre (style actif par pastille) */
+  activeTransactionFilters?: readonly string[];
 }
 
 export const UserTransactionDisplay = React.memo(function UserTransactionDisplay({
@@ -36,7 +36,7 @@ export const UserTransactionDisplay = React.memo(function UserTransactionDisplay
   executionMap,
   mode = 'detailed',
   onTransactionChipClick,
-  activeTransactionFilter = null,
+  activeTransactionFilters = [],
 }: UserTransactionDisplayProps) {
   const theme = useTheme();
 
@@ -188,13 +188,14 @@ export const UserTransactionDisplay = React.memo(function UserTransactionDisplay
     category: string;
     usage: number;
   }) => {
-    const isActive = activeTransactionFilter === transaction;
+    const isActive = activeTransactionFilters.includes(transaction);
     const base = getCategoryStyle(category);
     const clickable = Boolean(onTransactionChipClick);
 
     return (
       <Box
         role={clickable ? 'button' : undefined}
+        aria-pressed={clickable ? isActive : undefined}
         tabIndex={clickable ? 0 : undefined}
         onClick={clickable ? () => onTransactionChipClick!(transaction) : undefined}
         onKeyDown={

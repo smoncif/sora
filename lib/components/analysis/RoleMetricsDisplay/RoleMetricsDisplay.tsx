@@ -22,7 +22,7 @@ export interface RoleMetricsDisplayProps {
   // Mode d'affichage
   mode?: 'compact' | 'detailed';
   onTransactionChipClick?: (transaction: string) => void;
-  activeTransactionFilter?: string | null;
+  activeTransactionFilters?: readonly string[];
 }
 
 /**
@@ -41,7 +41,7 @@ export const RoleMetricsDisplay = React.memo(function RoleMetricsDisplay({
   executionMap,
   mode = 'detailed',
   onTransactionChipClick,
-  activeTransactionFilter,
+  activeTransactionFilters,
 }: RoleMetricsDisplayProps) {
   const theme = useTheme();
 
@@ -99,7 +99,7 @@ export const RoleMetricsDisplay = React.memo(function RoleMetricsDisplay({
         executionMap={adaptedData.executionMap}
         mode={mode}
         onTransactionChipClick={onTransactionChipClick}
-        activeTransactionFilter={activeTransactionFilter}
+        activeTransactionFilters={activeTransactionFilters}
       />
     </Box>
   );
