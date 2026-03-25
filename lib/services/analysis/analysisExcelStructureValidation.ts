@@ -36,7 +36,7 @@ export function validateRolesAnalysisStructure(arrayBuffer: ArrayBuffer): {
 
   if (sheetsFound.length !== 2) {
     errors.push(
-      `Analyse rôles : le fichier doit contenir exactement 2 feuilles. Trouvé : ${sheetsFound.length} (${sheetsFound.join(', ')}).`
+      `2 feuilles requises — trouvé ${sheetsFound.length} (${sheetsFound.join(', ') || 'aucune'}).`
     );
     return { ok: false, errors };
   }
@@ -51,14 +51,10 @@ export function validateRolesAnalysisStructure(arrayBuffer: ArrayBuffer): {
   );
 
   if (!businessSheet) {
-    errors.push(
-      `Feuille des rôles métier introuvable (référence attendue : « ${cfg.sheetNames.businessRoles} »). Feuilles présentes : ${sheetsFound.join(', ')}.`
-    );
+    errors.push(`Feuille « rôles métier » introuvable (${sheetsFound.join(', ')}).`);
   }
   if (!simpleSheet) {
-    errors.push(
-      `Feuille des rôles simples introuvable (référence attendue : « ${cfg.sheetNames.simpleRoles} »). Feuilles présentes : ${sheetsFound.join(', ')}.`
-    );
+    errors.push(`Feuille « rôles simples » introuvable (${sheetsFound.join(', ')}).`);
   }
   if (errors.length) {
     return { ok: false, errors };
@@ -68,34 +64,26 @@ export function validateRolesAnalysisStructure(arrayBuffer: ArrayBuffer): {
   const srHeaders = getHeaderRow(workbook.Sheets[simpleSheet!]);
 
   if (!brHeaders.length) {
-    errors.push(`La feuille « ${businessSheet} » (rôles métier) n’a pas de ligne d’en-tête.`);
+    errors.push(`« ${businessSheet} » : en-têtes absents (ligne 1).`);
   } else {
     const bm = cfg.columnMappings.businessRoles;
     if (findColumnIndex(brHeaders, bm.businessRole) === -1) {
-      errors.push(
-        `Feuille « ${businessSheet} » : colonne obligatoire « ${bm.businessRole} » absente.`
-      );
+      errors.push(`« ${businessSheet} » : « ${bm.businessRole} » manquant.`);
     }
     if (findColumnIndex(brHeaders, bm.transaction) === -1) {
-      errors.push(
-        `Feuille « ${businessSheet} » : colonne obligatoire « ${bm.transaction} » absente.`
-      );
+      errors.push(`« ${businessSheet} » : « ${bm.transaction} » manquant.`);
     }
   }
 
   if (!srHeaders.length) {
-    errors.push(`La feuille « ${simpleSheet} » (rôles simples) n’a pas de ligne d’en-tête.`);
+    errors.push(`« ${simpleSheet} » : en-têtes absents (ligne 1).`);
   } else {
     const sm = cfg.columnMappings.simpleRoles;
     if (findColumnIndex(srHeaders, sm.simpleRole) === -1) {
-      errors.push(
-        `Feuille « ${simpleSheet} » : colonne obligatoire « ${sm.simpleRole} » absente.`
-      );
+      errors.push(`« ${simpleSheet} » : « ${sm.simpleRole} » manquant.`);
     }
     if (findColumnIndex(srHeaders, sm.transaction) === -1) {
-      errors.push(
-        `Feuille « ${simpleSheet} » : colonne obligatoire « ${sm.transaction} » absente.`
-      );
+      errors.push(`« ${simpleSheet} » : « ${sm.transaction} » manquant.`);
     }
   }
 
@@ -114,7 +102,7 @@ export function validateUsersAnalysisStructure(arrayBuffer: ArrayBuffer): {
 
   if (sheetsFound.length !== 3) {
     errors.push(
-      `Analyse utilisateurs : le fichier doit contenir exactement 3 feuilles. Trouvé : ${sheetsFound.length} (${sheetsFound.join(', ')}).`
+      `3 feuilles requises — trouvé ${sheetsFound.length} (${sheetsFound.join(', ') || 'aucune'}).`
     );
     return { ok: false, errors };
   }
@@ -133,19 +121,13 @@ export function validateUsersAnalysisStructure(arrayBuffer: ArrayBuffer): {
   );
 
   if (!userTxSheet) {
-    errors.push(
-      `Feuille des transactions utilisateurs introuvable (référence : « ${cfg.sheetNames.userTransactions} »). Feuilles présentes : ${sheetsFound.join(', ')}.`
-    );
+    errors.push(`Feuille « utilisateurs / transactions » introuvable (${sheetsFound.join(', ')}).`);
   }
   if (!mappingSheet) {
-    errors.push(
-      `Feuille des mappings rôle métier ↔ rôle simple introuvable (référence : « ${cfg.sheetNames.businessRoleMappings} »). Feuilles présentes : ${sheetsFound.join(', ')}.`
-    );
+    errors.push(`Feuille « mapping rôles » introuvable (${sheetsFound.join(', ')}).`);
   }
   if (!simpleTxSheet) {
-    errors.push(
-      `Feuille des transactions par rôle simple introuvable (référence : « ${cfg.sheetNames.simpleRoleTransactions} »). Feuilles présentes : ${sheetsFound.join(', ')}.`
-    );
+    errors.push(`Feuille « rôles simples / transactions » introuvable (${sheetsFound.join(', ')}).`);
   }
   if (errors.length) {
     return { ok: false, errors };
@@ -156,50 +138,38 @@ export function validateUsersAnalysisStructure(arrayBuffer: ArrayBuffer): {
   const sHeaders = getHeaderRow(workbook.Sheets[simpleTxSheet!]);
 
   if (!uHeaders.length) {
-    errors.push(`La feuille « ${userTxSheet} » (transactions utilisateurs) n’a pas de ligne d’en-tête.`);
+    errors.push(`« ${userTxSheet} » : en-têtes absents (ligne 1).`);
   } else {
     const um = cfg.columnMappings.userTransactions;
     if (findColumnIndex(uHeaders, um.userId) === -1) {
-      errors.push(
-        `Feuille « ${userTxSheet} » : colonne obligatoire « ${um.userId} » absente.`
-      );
+      errors.push(`« ${userTxSheet} » : « ${um.userId} » manquant.`);
     }
     if (findColumnIndex(uHeaders, um.transaction) === -1) {
-      errors.push(
-        `Feuille « ${userTxSheet} » : colonne obligatoire « ${um.transaction} » absente.`
-      );
+      errors.push(`« ${userTxSheet} » : « ${um.transaction} » manquant.`);
     }
   }
 
   if (!mHeaders.length) {
-    errors.push(`La feuille « ${mappingSheet} » (mappings) n’a pas de ligne d’en-tête.`);
+    errors.push(`« ${mappingSheet} » : en-têtes absents (ligne 1).`);
   } else {
     const mm = cfg.columnMappings.businessRoleMappings;
     if (findColumnIndex(mHeaders, mm.businessRole) === -1) {
-      errors.push(
-        `Feuille « ${mappingSheet} » : colonne obligatoire « ${mm.businessRole} » absente.`
-      );
+      errors.push(`« ${mappingSheet} » : « ${mm.businessRole} » manquant.`);
     }
     if (findColumnIndex(mHeaders, mm.simpleRole) === -1) {
-      errors.push(
-        `Feuille « ${mappingSheet} » : colonne obligatoire « ${mm.simpleRole} » absente.`
-      );
+      errors.push(`« ${mappingSheet} » : « ${mm.simpleRole} » manquant.`);
     }
   }
 
   if (!sHeaders.length) {
-    errors.push(`La feuille « ${simpleTxSheet} » (transactions rôle simple) n’a pas de ligne d’en-tête.`);
+    errors.push(`« ${simpleTxSheet} » : en-têtes absents (ligne 1).`);
   } else {
     const sm = cfg.columnMappings.simpleRoleTransactions;
     if (findColumnIndex(sHeaders, sm.simpleRole) === -1) {
-      errors.push(
-        `Feuille « ${simpleTxSheet} » : colonne obligatoire « ${sm.simpleRole} » absente.`
-      );
+      errors.push(`« ${simpleTxSheet} » : « ${sm.simpleRole} » manquant.`);
     }
     if (findColumnIndex(sHeaders, sm.transaction) === -1) {
-      errors.push(
-        `Feuille « ${simpleTxSheet} » : colonne obligatoire « ${sm.transaction} » absente.`
-      );
+      errors.push(`« ${simpleTxSheet} » : « ${sm.transaction} » manquant.`);
     }
   }
 

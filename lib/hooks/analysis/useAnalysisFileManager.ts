@@ -178,9 +178,7 @@ export const useAnalysisFileManager = (
       const validation = await validateExcelFileForType(arrayBuffer, mode);
 
       if (!validation.isValid) {
-        throw new Error(
-          `Fichier incompatible avec l'analyse ${mode}:\n${validation.errors.join('\n')}`
-        );
+        throw new Error(validation.errors.join('\n'));
       }
 
       if (validation.warnings.length > 0) {
